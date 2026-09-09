@@ -1,9 +1,6 @@
-#━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # Misskey configuration
-#━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-#   ┌─────┐
-#───┘ URL └─────────────────────────────────────────────────────
+# --- URL ------------------------------------------------------
 
 # Final accessible URL seen by a user.
 # You can set url from an environment variable instead.
@@ -12,8 +9,7 @@ url: https://example.tld/
 # ONCE YOU HAVE STARTED THE INSTANCE, DO NOT CHANGE THE
 # URL SETTINGS AFTER THAT!
 
-#   ┌───────────────────────┐
-#───┘ Port and TLS settings └───────────────────────────────────
+# --- Port and TLS settings ------------------------------------
 
 #
 # Misskey requires a reverse proxy to support HTTPS connections.
@@ -27,12 +23,12 @@ url: https://example.tld/
 #   You need to set up a reverse proxy. (e.g. nginx)
 #   An encrypted connection with HTTPS is highly recommended
 #   because tokens may be transferred in GET requests.
+#
 
 # The port that your Misskey server should listen on.
 port: 3000
 
-#   ┌──────────────────────────┐
-#───┘ PostgreSQL configuration └────────────────────────────────
+# --- PostgreSQL configuration ---------------------------------
 
 db:
   host: db
@@ -71,8 +67,7 @@ dbReplications: false
 #    user:
 #    pass:
 
-#   ┌─────────────────────┐
-#───┘ Redis configuration └─────────────────────────────────────
+# --- Redis configuration --------------------------------------
 
 redis:
   host: redis
@@ -114,8 +109,7 @@ redis:
 #  #prefix: example-prefix
 #  #db: 1
 
-#   ┌───────────────────────────────┐
-#───┘ Fulltext search configuration └─────────────────────────────
+# --- Fulltext search configuration ----------------------------
 
 # These are the setting items for the full-text search provider.
 fulltextSearch:
@@ -146,8 +140,7 @@ fulltextSearch:
 #  index: ''
 #  scope: local
 
-#   ┌───────────────┐
-#───┘ ID generation └───────────────────────────────────────────
+# --- ID generation --------------------------------------------
 
 # You can select the ID generation method.
 # You don't usually need to change this setting, but you can
@@ -163,10 +156,9 @@ fulltextSearch:
 # ONCE YOU HAVE STARTED THE INSTANCE, DO NOT CHANGE THE
 # ID SETTINGS AFTER THAT!
 
-id: 'aidx'
+id: "aidx"
 
-#   ┌────────────────┐
-#───┘ Error tracking └──────────────────────────────────────────
+# --- Error tracking -------------------------------------------
 
 # Sentry is available for error tracking.
 # See the Sentry documentation for more details on options.
@@ -208,8 +200,7 @@ id: 'aidx'
 #  options:
 #    dsn: 'https://examplePublicKey@o0.ingest.sentry.io/0'
 
-#   ┌─────────────────────┐
-#───┘ Other configuration └─────────────────────────────────────
+# --- Other configuration --------------------------------------
 
 # Whether disable HSTS
 #disableHsts: true
