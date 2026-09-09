@@ -41,6 +41,10 @@ RUN --mount=type=cache,target=/root/.local/share/pnpm/store,sharing=locked \
 COPY --link . ./
 
 RUN pnpm build
+
+# TODO: Make source tarball generation configurable instead of always running it.
+RUN node -e "import('./scripts/tarball.mjs').then(async m => { await m.buildTarball(); })"
+
 RUN rm -rf .git/
 
 # build native dependencies for target platform
