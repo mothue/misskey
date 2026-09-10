@@ -13378,4 +13378,22 @@ export interface Locale extends ILocale {
          */
         "mfm": string;
     };
+    "_backgroundImage": {
+        /**
+         * 背景画像
+         */
+        "title": string;
+        /**
+         * パネルの不透明度
+         */
+        "opacity": string;
+        /**
+         * 背景画像の暗さ
+         */
+        "darkness": string;
+        /**
+         * 背景画像のぼかし
+         */
+        "blur": string;
+    };
 }

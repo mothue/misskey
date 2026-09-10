@@ -845,6 +845,32 @@ SPDX-License-Identifier: AGPL-3.0-only
 								</div>
 							</MkFolder>
 						</SearchMarker>
+
+						<SearchMarker :keywords="['background', 'wallpaper', 'image']">
+							<MkFolder>
+								<template #label><SearchLabel>{{ i18n.ts._backgroundImage.title }}</SearchLabel></template>
+								<div class="_gaps_m">
+									<div class="_buttons">
+										<MkButton @click="selectBackgroundImage">
+											<i class="ti ti-photo"></i> <SearchLabel>{{ backgroundImageUrl ? i18n.ts.edit : i18n.ts.selectFile }}</SearchLabel>
+										</MkButton>
+										<MkButton v-if="backgroundImageUrl" danger @click="removeBackgroundImage">
+											<i class="ti ti-trash"></i> {{ i18n.ts.remove }}
+										</MkButton>
+									</div>
+									<MkRange v-model="backgroundImageOpacity" :min="0" :max="1" :step="0.01" :textConverter="toPercentage">
+										<template #label>{{ i18n.ts._backgroundImage.opacity }}</template>
+									</MkRange>
+									<MkRange v-model="backgroundImageDarkness" :min="0" :max="1" :step="0.01" :textConverter="toPercentage">
+										<template #label>{{ i18n.ts._backgroundImage.darkness }}</template>
+									</MkRange>
+									<MkRange v-model="backgroundImageBlur" :min="0" :max="30" :step="1">
+										<template #label>{{ i18n.ts._backgroundImage.blur }}</template>
+										<template #suffix>px</template>
+									</MkRange>
+								</div>
+							</MkFolder>
+						</SearchMarker>
 					</div>
 				</MkFolder>
 			</SearchMarker>
@@ -891,6 +917,7 @@ import { instance } from '@/instance.js';
 import { ensureSignin } from '@/i.js';
 import { genId } from '@/utility/id.js';
 import { suggestReload } from '@/utility/reload-suggest.js';
+import { selectFile } from '@/utility/drive.js';
 
 const $i = ensureSignin();
 
@@ -911,6 +938,11 @@ const advancedMfm = prefer.model('advancedMfm');
 const showReactionsCount = prefer.model('showReactionsCount');
 const enableQuickAddMfmFunction = prefer.model('enableQuickAddMfmFunction');
 const forceShowAds = prefer.model('forceShowAds');
+const backgroundImageUrl = prefer.model('backgroundImage.url');
+const backgroundImageOpacity = prefer.model('backgroundImage.opacity');
+const backgroundImageDarkness = prefer.model('backgroundImage.darkness');
+const backgroundImageBlur = prefer.model('backgroundImage.blur');
+const toPercentage = (value: number) => `${Math.round(value * 100)}%`;
 const loadRawImages = prefer.model('loadRawImages');
 const imageNewTab = prefer.model('imageNewTab');
 const showFixedPostForm = prefer.model('showFixedPostForm');
@@ -960,6 +992,35 @@ const makeEveryTextElementsSelectable = prefer.model('makeEveryTextElementsSelec
 
 const fontSize = ref(miLocalStorage.getItem('fontSize') as '1' | '2' | '3' | null);
 const useSystemFont = ref(miLocalStorage.getItem('useSystemFont') != null);
+
+function selectBackgroundImage(ev: PointerEvent) {
+	selectFile({
+		anchorElement: ev.currentTarget ?? ev.target,
+		multiple: false,
+		label: i18n.ts.selectFile,
+	}).then(file => {
+		if (!file.type.startsWith('image/')) {
+			os.alert({
+				type: 'warning',
+				title: i18n.ts._watermarkEditor.driveFileTypeWarn,
+				text: i18n.ts._watermarkEditor.driveFileTypeWarnDescription,
+			});
+			return;
+		}
+
+		backgroundImageUrl.value = file.url;
+	});
+}
+
+async function removeBackgroundImage() {
+	const { canceled } = await os.confirm({
+		type: 'warning',
+		text: i18n.tsx.deleteAreYouSure({ x: i18n.ts._backgroundImage.title }),
+	});
+	if (canceled) return;
+
+	backgroundImageUrl.value = null;
+}
 
 watch(lang, () => {
 	miLocalStorage.setItem('lang', lang.value as string);

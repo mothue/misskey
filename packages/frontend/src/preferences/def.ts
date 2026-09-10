@@ -90,6 +90,10 @@ export const PREF_DEF = definePreferences({
 			data: Record<string, any>;
 		}[],
 	},
+	'backgroundImage.url': { default: null as string | null },
+	'backgroundImage.opacity': { default: 0.72 },
+	'backgroundImage.darkness': { default: 0.2 },
+	'backgroundImage.blur': { default: 0 },
 	'deck.profile': {
 		accountDependent: true,
 		default: null as string | null,

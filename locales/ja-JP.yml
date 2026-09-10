@@ -3582,3 +3582,8 @@ _qr:
   scanFile: "端末の画像をスキャン"
   raw: "テキスト"
   mfm: "MFM"
+_backgroundImage:
+  title: "背景画像"
+  opacity: "パネルの不透明度"
+  darkness: "背景画像の暗さ"
+  blur: "背景画像のぼかし"

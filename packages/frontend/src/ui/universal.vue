@@ -4,7 +4,15 @@ SPDX-License-Identifier: AGPL-3.0-only
 -->
 
 <template>
-<div :class="[$style.root, { '_forceShrinkSpacer': deviceKind === 'smartphone' }]">
+<div
+	:class="[$style.root, { '_forceShrinkSpacer': deviceKind === 'smartphone', [$style.withBackgroundImage]: backgroundImageStyle != null }]"
+	:style="backgroundImageRootStyle"
+>
+	<div v-if="backgroundImageStyle != null" :class="$style.bgWrapper">
+		<div :class="$style.bgImage" :style="backgroundImageStyle"></div>
+		<div :class="$style.bgDarkness"></div>
+	</div>
+
 	<XTitlebar v-if="prefer.r.showTitlebar.value" style="flex-shrink: 0;"/>
 
 	<div :class="$style.nonTitlebarArea">
@@ -60,6 +68,20 @@ import { shouldSuggestReload } from '@/utility/reload-suggest.js';
 const XWidgets = defineAsyncComponent(() => import('./_common_/widgets.vue'));
 const XStatusBars = defineAsyncComponent(() => import('@/ui/_common_/statusbars.vue'));
 const XAnnouncements = defineAsyncComponent(() => import('@/ui/_common_/announcements.vue'));
+
+const backgroundImageStyle = computed(() => {
+	const url = prefer.r['backgroundImage.url'].value?.trim();
+	if (!url) return null;
+
+	return {
+		backgroundImage: `url(${JSON.stringify(url)})`,
+		filter: `blur(${prefer.r['backgroundImage.blur'].value}px)`,
+	};
+});
+const backgroundImageRootStyle = computed(() => backgroundImageStyle.value == null ? undefined : {
+	'--MI-backgroundImageTransparency': `${(1 - prefer.r['backgroundImage.opacity'].value) * 100}%`,
+	'--MI-backgroundImageDarkness': prefer.r['backgroundImage.darkness'].value,
+});
 
 const isRoot = computed(() => mainRouter.currentRoute.value.name === 'index');
 
@@ -134,6 +156,43 @@ $widgets-hide-threshold: 1090px;
 	display: flex;
 	flex-direction: column;
 	background: var(--MI_THEME-navBg);
+}
+
+.withBackgroundImage {
+	position: relative;
+	isolation: isolate;
+	background: transparent;
+	--MI-backgroundImagePanel: var(--MI_THEME-panel);
+	--MI-backgroundImageNavBg: var(--MI_THEME-navBg);
+	--MI-backgroundImageWindowHeader: var(--MI_THEME-windowHeader);
+
+	& > :not(.bgWrapper) {
+		--MI_THEME-bg: transparent;
+		--MI_THEME-panel: color-mix(in srgb, var(--MI-backgroundImagePanel), transparent var(--MI-backgroundImageTransparency));
+		--MI_THEME-navBg: color-mix(in srgb, var(--MI-backgroundImageNavBg), transparent var(--MI-backgroundImageTransparency));
+		--MI_THEME-windowHeader: color-mix(in srgb, var(--MI-backgroundImageWindowHeader), transparent var(--MI-backgroundImageTransparency));
+	}
+}
+
+.bgWrapper {
+	position: fixed;
+	z-index: -1000;
+	inset: -50px;
+	pointer-events: none;
+}
+
+.bgImage {
+	position: absolute;
+	inset: 0;
+	background-size: cover;
+	background-position: center;
+}
+
+.bgDarkness {
+	position: absolute;
+	inset: 0;
+	background: light-dark(var(--MI_THEME-fg), var(--MI_THEME-bg));
+	opacity: var(--MI-backgroundImageDarkness);
 }
 
 .nonTitlebarArea {
