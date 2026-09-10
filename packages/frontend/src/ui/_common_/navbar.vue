@@ -79,26 +79,39 @@ SPDX-License-Identifier: AGPL-3.0-only
 	-->
 
 	<div v-if="!forceIconOnly && prefer.r.showNavbarSubButtons.value" :class="$style.subButtons">
-		<div :class="$style.subButton">
-			<svg viewBox="0 0 16 64" :class="$style.subButtonShape">
-				<g transform="matrix(0.333333,0,0,0.222222,0.000895785,21.3333)">
-					<path d="M47.488,7.995C47.79,10.11 47.943,12.266 47.943,14.429C47.997,26.989 47.997,84 47.997,84C47.997,84 44.018,118.246 23.997,133.5C-0.374,152.07 -0.003,192 -0.003,192L-0.003,-96C-0.003,-96 0.151,-56.216 23.997,-37.5C40.861,-24.265 46.043,-1.243 47.488,7.995Z" style="fill:var(--MI_THEME-navBg);"/>
-				</g>
-			</svg>
-			<button class="_button" :class="$style.subButtonClickable" @click="menuEdit"><i :class="$style.subButtonIcon" class="ti ti-settings-2"></i></button>
-		</div>
-		<template v-if="!props.asDrawer">
-			<div :class="$style.subButtonGapFill"></div>
-			<div :class="$style.subButtonGapFillDivider"></div>
+		<div aria-hidden="true" :class="$style.subButtonsBackground">
 			<div :class="$style.subButton">
 				<svg viewBox="0 0 16 64" :class="$style.subButtonShape">
 					<g transform="matrix(0.333333,0,0,0.222222,0.000895785,21.3333)">
-						<path d="M47.488,7.995C47.79,10.11 47.943,12.266 47.943,14.429C47.997,26.989 47.997,84 47.997,84C47.997,84 44.018,118.246 23.997,133.5C-0.374,152.07 -0.003,192 -0.003,192L-0.003,-96C-0.003,-96 0.151,-56.216 23.997,-37.5C40.861,-24.265 46.043,-1.243 47.488,7.995Z" style="fill:var(--MI_THEME-navBg);"/>
+						<path d="M47.488,7.995C47.79,10.11 47.943,12.266 47.943,14.429C47.997,26.989 47.997,84 47.997,84C47.997,84 44.018,118.246 23.997,133.5C-0.374,152.07 -0.003,192 -0.003,192L-0.003,-96C-0.003,-96 0.151,-56.216 23.997,-37.5C40.861,-24.265 46.043,-1.243 47.488,7.995Z" :class="$style.subButtonShapePath"/>
 					</g>
 				</svg>
-				<button class="_button" :class="$style.subButtonClickable" @click="toggleIconOnly"><i v-if="iconOnly" class="ti ti-chevron-right" :class="$style.subButtonIcon"></i><i v-else class="ti ti-chevron-left" :class="$style.subButtonIcon"></i></button>
 			</div>
-		</template>
+			<template v-if="!props.asDrawer">
+				<div :class="$style.subButtonGapFill"></div>
+				<div :class="$style.subButtonDividerSpacer"></div>
+				<div :class="$style.subButton">
+					<svg viewBox="0 0 16 64" :class="$style.subButtonShape">
+						<g transform="matrix(0.333333,0,0,0.222222,0.000895785,21.3333)">
+							<path d="M47.488,7.995C47.79,10.11 47.943,12.266 47.943,14.429C47.997,26.989 47.997,84 47.997,84C47.997,84 44.018,118.246 23.997,133.5C-0.374,152.07 -0.003,192 -0.003,192L-0.003,-96C-0.003,-96 0.151,-56.216 23.997,-37.5C40.861,-24.265 46.043,-1.243 47.488,7.995Z" :class="$style.subButtonShapePath"/>
+						</g>
+					</svg>
+				</div>
+			</template>
+		</div>
+
+		<div :class="$style.subButtonsForeground">
+			<div :class="$style.subButton">
+				<button class="_button" :class="$style.subButtonClickable" :aria-label="`${i18n.ts.navbar}: ${i18n.ts.edit}`" @click="menuEdit"><i :class="$style.subButtonIcon" class="ti ti-settings-2"></i></button>
+			</div>
+			<template v-if="!props.asDrawer">
+				<div :class="$style.subButtonGap"></div>
+				<div :class="$style.subButtonGapFillDivider"></div>
+				<div :class="$style.subButton">
+					<button class="_button" :class="$style.subButtonClickable" :aria-label="`${i18n.ts.navbar}: ${i18n.ts.switch}`" @click="toggleIconOnly"><i v-if="iconOnly" class="ti ti-chevron-right" :class="$style.subButtonIcon"></i><i v-else class="ti ti-chevron-left" :class="$style.subButtonIcon"></i></button>
+				</div>
+			</template>
+		</div>
 	</div>
 </div>
 </template>
@@ -203,6 +216,8 @@ function menuEdit() {
 	--nav-width: 250px;
 	--nav-icon-only-width: 80px;
 	--nav-bg-transparent: color(from var(--MI_THEME-navBg) srgb r g b / 0.5);
+	--navbarSubButtonBackground: var(--MI-backgroundImageNavBg, var(--MI_THEME-navBg));
+	--navbarSubButtonBackgroundOpacity: var(--MI-backgroundImageOpacity, 1);
 
 	--subButtonWidth: 20px;
 
@@ -333,6 +348,19 @@ function menuEdit() {
 	box-sizing: border-box;
 }
 
+.subButtonsBackground {
+	position: absolute;
+	z-index: 0;
+	inset: 0;
+	opacity: var(--navbarSubButtonBackgroundOpacity);
+	pointer-events: none;
+}
+
+.subButtonsForeground {
+	position: relative;
+	z-index: 1;
+}
+
 .subButton {
 	display: block;
 	position: relative;
@@ -352,6 +380,10 @@ function menuEdit() {
 	margin: auto;
 	width: var(--subButtonWidth);
 	height: calc(var(--subButtonWidth) * 4);
+}
+
+.subButtonShapePath {
+	fill: var(--navbarSubButtonBackground);
 }
 
 .subButtonClickable {
@@ -388,7 +420,20 @@ function menuEdit() {
 	margin-top: -32px;
 	margin-bottom: -32px;
 	pointer-events: none;
-	background: var(--MI_THEME-navBg);
+	background: var(--navbarSubButtonBackground);
+}
+
+.subButtonGap,
+.subButtonDividerSpacer {
+	position: relative;
+	height: 64px;
+	margin-top: -32px;
+	margin-bottom: -32px;
+}
+
+.subButtonDividerSpacer {
+	height: 1px;
+	margin: 0;
 }
 
 .subButtonGapFillDivider {

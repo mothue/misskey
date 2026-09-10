@@ -79,6 +79,7 @@ const backgroundImageStyle = computed(() => {
 	};
 });
 const backgroundImageRootStyle = computed(() => backgroundImageStyle.value == null ? undefined : {
+	'--MI-backgroundImageOpacity': prefer.r['backgroundImage.opacity'].value,
 	'--MI-backgroundImageTransparency': `${(1 - prefer.r['backgroundImage.opacity'].value) * 100}%`,
 	'--MI-backgroundImageDarkness': prefer.r['backgroundImage.darkness'].value,
 });
@@ -214,7 +215,6 @@ $widgets-hide-threshold: 1090px;
 
 	&.withSidebarAndTitlebar {
 		background: var(--MI_THEME-navBg);
-		border-radius: 12px 0 0 0;
 		overflow: clip;
 	}
 }
@@ -242,5 +242,9 @@ $widgets-hide-threshold: 1090px;
 	@media (max-width: $widgets-hide-threshold) {
 		display: none;
 	}
+}
+
+.withBackgroundImage .widgets {
+	background: var(--MI_THEME-navBg);
 }
 </style>
