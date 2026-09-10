@@ -33,7 +33,13 @@ SPDX-License-Identifier: AGPL-3.0-only
 			<MkButton primary class="save" @click="save"><i class="ti ti-device-floppy"></i> {{ i18n.ts.save }}</MkButton>
 		</div>
 
-		<MkRadios v-model="menuDisplay" :options="menuDisplayOptions">
+		<MkRadios
+			v-model="menuDisplay"
+			:options="[
+				{ value: 'sideFull', label: i18n.ts._menuDisplay.sideFull },
+				{ value: 'sideIcon', label: i18n.ts._menuDisplay.sideIcon },
+			]"
+		>
 			<template #label>{{ i18n.ts.display }}</template>
 		</MkRadios>
 
@@ -50,7 +56,6 @@ SPDX-License-Identifier: AGPL-3.0-only
 
 <script lang="ts" setup>
 import { computed, ref } from 'vue';
-import { ui } from '@@/js/config.js';
 import MkRadios from '@/components/MkRadios.vue';
 import MkButton from '@/components/MkButton.vue';
 import FormSlot from '@/components/form/slot.vue';
@@ -74,16 +79,6 @@ const items = ref(prefer.s.menu.map(x => ({
 const itemTypeValues = computed(() => items.value.map(x => x.type));
 
 const menuDisplay = store.model('menuDisplay');
-const menuDisplayOptions = computed(() => [{
-	value: 'sideFull' as const,
-	label: i18n.ts._menuDisplay.sideFull,
-}, {
-	value: 'sideIcon' as const,
-	label: i18n.ts._menuDisplay.sideIcon,
-}, ...(ui === 'classic' ? [{
-	value: 'top' as const,
-	label: i18n.ts._menuDisplay.top,
-}] : [])]);
 const showNavbarSubButtons = prefer.model('showNavbarSubButtons');
 
 async function addItem() {
