@@ -5,9 +5,9 @@
 	"description": "Subset tabler-icons webfont",
 	"type": "module",
 	"scripts": {
-		"build": "tsx src/generator.ts",
-		"eslint": "eslint src/**/*.ts",
-		"typecheck": "tsc --noEmit",
+		"build": "bun src/generator.ts",
+		"eslint": "bunx --bun eslint src/**/*.ts",
+		"typecheck": "bun run --bun tsc --noEmit",
 		"lint": "bun run typecheck && bun run eslint"
 	},
 	"devDependencies": {
@@ -19,7 +19,6 @@
 	"dependencies": {
 		"@tabler/icons-webfont": "3.35.0",
 		"harfbuzzjs": "1.6.0",
-		"tsx": "4.23.13",
 		"wawoff2": "2.0.1"
 	},
 	"files": [

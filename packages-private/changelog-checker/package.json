@@ -3,12 +3,12 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"check": "tsx src/index.ts",
-		"eslint": "eslint './**/*.{js,jsx,ts,tsx}'",
+		"check": "bun src/index.ts",
+		"eslint": "bunx --bun eslint './**/*.{js,jsx,ts,tsx}'",
 		"lint": "bun run typecheck && bun run eslint",
-		"test": "vitest run",
-		"test:coverage": "vitest run --coverage",
-		"typecheck": "tsc --noEmit"
+		"test": "bun run --bun vitest run",
+		"test:coverage": "bun run --bun vitest run --coverage",
+		"typecheck": "bun run --bun tsc --noEmit"
 	},
 	"devDependencies": {
 		"@types/mdast": "4.0.4",
@@ -17,7 +17,6 @@
 		"mdast-util-to-string": "4.0.0",
 		"remark": "15.0.1",
 		"remark-parse": "11.0.0",
-		"tsx": "4.23.13",
 		"unified": "11.0.5",
 		"vitest": "4.1.11"
 	}

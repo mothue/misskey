@@ -3,8 +3,8 @@
 	"type": "module",
 	"private": true,
 	"scripts": {
-		"eslint": "eslint './**/*.{js,jsx,ts,tsx}'",
-		"typecheck": "tsc --noEmit",
+		"eslint": "bunx --bun eslint './**/*.{js,jsx,ts,tsx}'",
+		"typecheck": "bun run --bun tsc --noEmit",
 		"lint": "bun run typecheck && bun run eslint"
 	},
 	"devDependencies": {

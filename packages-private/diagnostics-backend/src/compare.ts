@@ -83,7 +83,7 @@ async function genSample(label: string, repoDir: string, round: number, options:
 
 	process.stderr.write(`[${label}] Running migrations\n`);
 	// 出力はログとして流しつつ手元にも残す (失敗時にexecaが例外メッセージへ含めてくれる)
-	await execa('pnpm', ['--filter', 'backend', 'migrate'], {
+	await execa(process.execPath, ['run', '--filter', 'backend', 'migrate'], {
 		cwd: repoDir,
 		stdout: ['pipe', process.stderr],
 		stderr: ['pipe', process.stderr],

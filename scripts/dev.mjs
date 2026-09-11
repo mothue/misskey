@@ -34,12 +34,12 @@ function spawnChildProcess(command, args, options) {
 	const shouldForceColor = (process.stdout.isTTY || process.stderr.isTTY)
 		&& process.env.FORCE_COLOR == null
 		&& process.env.NO_COLOR == null;
-	const pnpmPath = _dirname + '/../node_modules/pnpm/bin/pnpm.mjs';
-	const windowsCommand = [process.execPath, pnpmPath, ...args]
+	const isBunCommand = command === process.execPath;
+	const windowsCommand = [command, ...args]
 		.map(argument => `"${argument}"`)
 		.join(' ');
-	const executable = isWindows && command === 'pnpm' ? process.env.ComSpec ?? 'cmd.exe' : command;
-	const executableArgs = isWindows && command === 'pnpm'
+	const executable = isWindows && isBunCommand ? process.env.ComSpec ?? 'cmd.exe' : command;
+	const executableArgs = isWindows && isBunCommand
 		? ['/d', '/s', '/c', `start "" /b /wait ${windowsCommand}`]
 		: args;
 	const childProcess = execa(executable, executableArgs, isWindows ? {
@@ -165,103 +165,103 @@ process.on('SIGTERM', () => {
 });
 
 try {
-	await runChildProcess('pnpm', ['clean'], {
+	await runChildProcess(process.execPath, ['run', 'clean'], {
 		cwd: _dirname + '/../',
 		stdout: process.stdout,
 		stderr: process.stderr,
 	});
 
 	// アセットのビルドで依存しているので一番最初に必要
-	await runChildProcess('pnpm', ['--filter', 'i18n', 'build'], {
+	await runChildProcess(process.execPath, ['run', '--filter', 'i18n', 'build'], {
 		cwd: _dirname + '/../',
 		stdout: process.stdout,
 		stderr: process.stderr,
 	});
 
 	await Promise.all([
-		runChildProcess('pnpm', ['build-pre'], {
+		runChildProcess(process.execPath, ['run', 'build-pre'], {
 			cwd: _dirname + '/../',
 			stdout: process.stdout,
 			stderr: process.stderr,
 		}),
-		runChildProcess('pnpm', ['build-assets'], {
+		runChildProcess(process.execPath, ['run', 'build-assets'], {
 			cwd: _dirname + '/../',
 			stdout: process.stdout,
 			stderr: process.stderr,
 		}),
-		runChildProcess('pnpm', ['--filter', 'backend...', '--filter=!backend', 'build'], {
+		runChildProcess(process.execPath, ['run', '--filter', 'misskey-reversi', 'build'], {
 			cwd: _dirname + '/../',
 			stdout: process.stdout,
 			stderr: process.stderr,
 		}),
 		// icons-subsetterは開発段階では使用されないが、型エラーを抑制するためにはじめの一度だけビルドする
-		runChildProcess('pnpm', ['--filter', 'icons-subsetter', 'build'], {
+		runChildProcess(process.execPath, ['run', '--filter', 'icons-subsetter', 'build'], {
 			cwd: _dirname + '/../',
 			stdout: process.stdout,
 			stderr: process.stderr,
 		}),
-		runChildProcess('pnpm', ['--filter', 'misskey-js', 'build'], {
+		runChildProcess(process.execPath, ['run', '--filter', 'misskey-js', 'build'], {
 			cwd: _dirname + '/../',
 			stdout: process.stdout,
 			stderr: process.stderr,
 		}),
 	]);
 
-	startChildProcess('pnpm', ['build-pre', '--watch'], {
+	startChildProcess(process.execPath, ['run', 'build-pre', '--watch'], {
 		cwd: _dirname + '/../',
 		stdout: process.stdout,
 		stderr: process.stderr,
 	});
 
-	startChildProcess('pnpm', ['build-assets', '--watch'], {
+	startChildProcess(process.execPath, ['run', 'build-assets', '--watch'], {
 		cwd: _dirname + '/../',
 		stdout: process.stdout,
 		stderr: process.stderr,
 	});
 
-	startChildProcess('pnpm', ['--filter', 'backend', 'dev'], {
+	startChildProcess(process.execPath, ['run', '--filter', 'backend', 'dev'], {
 		cwd: _dirname + '/../',
 		stdout: process.stdout,
 		stderr: process.stderr,
 	});
 
-	startChildProcess('pnpm', ['--filter', 'frontend', 'watch'], {
+	startChildProcess(process.execPath, ['run', '--filter', 'frontend', 'watch'], {
 		cwd: _dirname + '/../',
 		stdout: process.stdout,
 		stderr: process.stderr,
 	});
 
-	startChildProcess('pnpm', ['--filter', 'frontend-embed', 'watch'], {
+	startChildProcess(process.execPath, ['run', '--filter', 'frontend-embed', 'watch'], {
 		cwd: _dirname + '/../',
 		stdout: process.stdout,
 		stderr: process.stderr,
 	});
 
-	startChildProcess('pnpm', ['--filter', 'sw', 'watch'], {
+	startChildProcess(process.execPath, ['run', '--filter', 'sw', 'watch'], {
 		cwd: _dirname + '/../',
 		stdout: process.stdout,
 		stderr: process.stderr,
 	});
 
-	startChildProcess('pnpm', ['--filter', 'misskey-js', 'watch', '--no-clean'], {
+	startChildProcess(process.execPath, ['run', '--filter', 'misskey-js', 'watch', '--no-clean'], {
 		cwd: _dirname + '/../',
 		stdout: process.stdout,
 		stderr: process.stderr,
 	});
 
-	startChildProcess('pnpm', ['--filter', 'i18n', 'watch', '--no-clean'], {
+	startChildProcess(process.execPath, ['run', '--filter', 'i18n', 'watch', '--no-clean'], {
 		cwd: _dirname + '/../',
 		stdout: process.stdout,
 		stderr: process.stderr,
 	});
 
-	startChildProcess('pnpm', ['--filter', 'misskey-reversi', 'watch', '--no-clean'], {
+	startChildProcess(process.execPath, ['run', '--filter', 'misskey-reversi', 'watch', '--no-clean'], {
 		cwd: _dirname + '/../',
 		stdout: process.stdout,
 		stderr: process.stderr,
 	});
 
-	startChildProcess('pnpm', ['--filter', 'misskey-bubble-game', 'watch', '--no-clean'], {
+	startChildProcess(process.execPath, ['run', '--filter', 'misskey-bubble-game', 'watch', '--no-clean'], {
 		cwd: _dirname + '/../',
 		stdout: process.stdout,
 		stderr: process.stderr,

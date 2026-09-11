@@ -3,13 +3,13 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"eslint": "eslint './**/*.{js,jsx,ts,tsx}'",
-		"inspect": "tsx src/inspect.ts",
+		"eslint": "bunx --bun eslint './**/*.{js,jsx,ts,tsx}'",
+		"inspect": "bun src/inspect.ts",
 		"lint": "bun run typecheck && bun run eslint",
-		"measure": "tsx src/measure-once.ts",
-		"render-md": "tsx src/render-md.ts",
-		"test": "vitest run",
-		"typecheck": "tsc --noEmit"
+		"measure": "bun src/measure-once.ts",
+		"render-md": "bun src/render-md.ts",
+		"test": "bun run --bun vitest run",
+		"typecheck": "bun run --bun tsc --noEmit"
 	},
 	"dependencies": {
 		"diagnostics-shared": "workspace:*",
@@ -20,7 +20,6 @@
 		"@types/pg": "8.23.1",
 		"ioredis": "6.0.0",
 		"pg": "8.23.0",
-		"tsx": "4.23.13",
 		"vitest": "4.1.11"
 	}
 }

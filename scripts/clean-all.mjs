@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-import { execSync } from 'node:child_process';
 import * as fs from 'node:fs';
 
 const __dirname = import.meta.dirname;
@@ -40,9 +39,4 @@ const __dirname = import.meta.dirname;
 
 	fs.rmSync(__dirname + '/../built', { recursive: true, force: true });
 	fs.rmSync(__dirname + '/../node_modules', { recursive: true, force: true });
-
-	execSync('pnpm store prune', {
-		cwd: __dirname + '/../',
-		stdio: 'inherit',
-	});
 })();

@@ -8,10 +8,10 @@
  * Misskey SPDX ヘッダーの検査 / 自動修正。
  *
  * 使い方:
- *   node scripts/check-spdx.mjs                    ローカル検査 (repo 全体 + HTML コメント形式)
- *   node scripts/check-spdx.mjs --check            同上 (明示形)
- *   node scripts/check-spdx.mjs --ci               CI 互換検査 (現行の OR 判定を維持)
- *   node scripts/check-spdx.mjs --fix [--base REF] このブランチの欠落だけ自動修正して全体を再検査
+ *   bun scripts/check-spdx.mjs                    ローカル検査 (repo 全体 + HTML コメント形式)
+ *   bun scripts/check-spdx.mjs --check            同上 (明示形)
+ *   bun scripts/check-spdx.mjs --ci               CI 互換検査 (現行の OR 判定を維持)
+ *   bun scripts/check-spdx.mjs --fix [--base REF] このブランチの欠落だけ自動修正して全体を再検査
  *
  * 終了コード:
  *   0 = 選択したモードの検査に合格
@@ -273,7 +273,7 @@ function inspectTargets(targets) {
 function main() {
 	const options = parseArgs(process.argv.slice(2));
 	if (options === null) {
-		console.error('usage: node scripts/check-spdx.mjs [--check | --ci | --fix [--base <ref>]]');
+		console.error('usage: bun scripts/check-spdx.mjs [--check | --ci | --fix [--base <ref>]]');
 		return 2;
 	}
 

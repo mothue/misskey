@@ -11,10 +11,10 @@
 		"./heap-snapshot": "./src/heap-snapshot/index.ts"
 	},
 	"scripts": {
-		"eslint": "eslint './**/*.{js,jsx,ts,tsx}'",
+		"eslint": "bunx --bun eslint './**/*.{js,jsx,ts,tsx}'",
 		"lint": "bun run typecheck && bun run eslint",
-		"test": "vitest run",
-		"typecheck": "tsc --noEmit"
+		"test": "bun run --bun vitest run",
+		"typecheck": "bun run --bun tsc --noEmit"
 	},
 	"devDependencies": {
 		"@types/node": "26.4.0",

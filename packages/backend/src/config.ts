@@ -261,7 +261,7 @@ export const compiledConfigFilePath = fs.existsSync(compiledConfigFilePathForTes
 
 export function loadConfig(): Config {
 	if (!fs.existsSync(compiledConfigFilePath)) {
-		throw new Error('Compiled configuration file not found. Try running \'pnpm compile-config\'.');
+		throw new Error('Compiled configuration file not found. Try running \'bun run compile-config\'.');
 	}
 
 	const meta = JSON.parse(fs.readFileSync(resolve(projectBuiltDir, 'meta.json'), 'utf-8'));

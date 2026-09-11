@@ -6,10 +6,10 @@
 		".": "./src/index.ts"
 	},
 	"scripts": {
-		"eslint": "eslint './**/*.{js,jsx,ts,tsx}'",
+		"eslint": "bunx --bun eslint './**/*.{js,jsx,ts,tsx}'",
 		"lint": "bun run typecheck && bun run eslint",
 		"test": "bun test",
-		"typecheck": "tsc --noEmit"
+		"typecheck": "bun run --bun tsc --noEmit"
 	},
 	"dependencies": {
 		"re2js": "2.8.6"

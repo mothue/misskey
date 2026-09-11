@@ -1,7 +1,7 @@
 import { defineConfig } from 'rolldown';
 import { version as summalyVersion } from '@misskey-dev/summaly';
 import type { Plugin, ExternalOption } from 'rolldown';
-import { execa, execaNode } from 'execa';
+import { execa } from 'execa';
 import type { ResultPromise } from 'execa';
 import fkill from 'fkill';
 import esmShim from '@rollup/plugin-esm-shim';
@@ -14,7 +14,7 @@ function backendDevServerPlugin(): Plugin {
 	let backendShutdownPromise: Promise<void> | null = null;
 
 	async function runBuildAssets() {
-		await execa('pnpm', ['run', 'build-assets'], {
+		await execa(process.execPath, ['run', 'build-assets'], {
 			cwd: '../../',
 			stdout: process.stdout,
 			stderr: process.stderr,
@@ -56,7 +56,7 @@ function backendDevServerPlugin(): Plugin {
 			if (backendProcess) {
 				await killBackendProcess();
 			}
-			backendProcess = execaNode('./built/entry.js', [], {
+			backendProcess = execa(process.execPath, ['./built/entry.js'], {
 				stdout: process.stdout,
 				stderr: process.stderr,
 				env: {

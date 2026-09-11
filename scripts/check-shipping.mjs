@@ -11,8 +11,8 @@
  * 最後に終了コードを集約する。
  *
  * 使い方:
- *   node scripts/check-shipping.mjs
- *   node scripts/check-shipping.mjs --base <ref>
+ *   bun scripts/check-shipping.mjs
+ *   bun scripts/check-shipping.mjs --base <ref>
  *
  * 終了コード:
  *   0 = 全検査に合格 (lint 対象なしの SKIPPED を含む)
@@ -26,7 +26,6 @@ import { join } from 'node:path';
 
 import { DEFAULT_INTEGRATION_REFS, findClosestMergeBase, gitLines, gitMergeBase, gitPaths } from './lib/git.mjs';
 
-const PNPM_COMMAND = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
 
 const LINT_TARGETS = [
 	{ root: 'packages/backend', pattern: /^packages\/backend\/(src|test-federation)\/.*\.ts$/ },
@@ -38,7 +37,7 @@ const LINT_TARGETS = [
 		root: `packages/${name}`,
 		pattern: new RegExp(`^packages/${name}/.*\\.(js|jsx|ts|tsx)$`),
 	})),
-	...['changelog-checker', 'diagnostics-backend', 'diagnostics-frontend', 'diagnostics-shared'].map((name) => ({
+	...['changelog-checker', 'diagnostics-backend', 'diagnostics-frontend', 'diagnostics-shared', 're2-compat'].map((name) => ({
 		root: `packages-private/${name}`,
 		pattern: new RegExp(`^packages-private/${name}/.*\\.(js|jsx|ts|tsx)$`),
 	})),
@@ -146,7 +145,7 @@ function runChangedFileLint(changedFiles, repoRoot) {
 
 			ran = true;
 			console.log(`Lint: ${target.root} (${files.length} files)`);
-			const current = normalizeStatus(runCommand(PNPM_COMMAND, ['exec', 'eslint', '--quiet', '--', ...files], join(repoRoot, target.root)));
+			const current = normalizeStatus(runCommand(process.execPath, ['run', '--bun', 'eslint', '--quiet', '--', ...files], join(repoRoot, target.root)));
 			if (current > status) status = current;
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
@@ -227,7 +226,7 @@ function parseBaseRef(args) {
 function main() {
 	const baseRef = parseBaseRef(process.argv.slice(2));
 	if (baseRef === undefined) {
-		console.error('usage: node scripts/check-shipping.mjs [--base <ref>]');
+		console.error('usage: bun scripts/check-shipping.mjs [--base <ref>]');
 		return 2;
 	}
 

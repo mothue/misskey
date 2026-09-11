@@ -9,19 +9,13 @@ export function sleep(ms: number) {
 	return new Promise(resolvePromise => setTimeout(resolvePromise, ms));
 }
 
-function commandName(command: string) {
-	if (process.platform !== 'win32') return command;
-	if (command === 'pnpm') return 'pnpm.cmd';
-	return command;
-}
-
 /**
  * 計測対象のリポジトリで Misskey テストサーバーを起動する。
  * POSIXでは detached にして、後で子孫プロセスごとまとめて落とせるようにする。
  */
 export function startServer(label: string, repoDir: string) {
 	process.stderr.write(`[${label}] Starting Misskey test server\n`);
-	const child = spawn(commandName('pnpm'), ['start:test'], {
+	const child = spawn(process.execPath, ['run', 'start:test'], {
 		cwd: repoDir,
 		env: process.env,
 		stdio: ['ignore', 'pipe', 'pipe'],
@@ -66,7 +60,7 @@ export async function stopServer(child: ChildProcess) {
 		spawnSync('taskkill', ['/pid', String(child.pid), '/t', '/f'], { stdio: 'ignore' });
 	} else if (child.pid != null) {
 		try {
-			// プロセスグループごと落とさないと pnpm 配下の node が残る
+			// プロセスグループごと落とさないと Bun 配下の子プロセスが残る
 			process.kill(-child.pid, 'SIGTERM');
 		} catch {
 			child.kill('SIGTERM');

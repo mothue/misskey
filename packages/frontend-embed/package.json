@@ -3,10 +3,10 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"watch": "vite",
-		"build": "tsx build.ts",
-		"typecheck": "vue-tsc --noEmit",
-		"eslint": "eslint --quiet \"src/**/*.{ts,vue}\"",
+		"watch": "bun run --bun vite",
+		"build": "bun build.ts",
+		"typecheck": "bun run --bun vue-tsc --noEmit",
+		"eslint": "bunx --bun eslint --quiet \"src/**/*.{ts,vue}\"",
 		"lint": "bun run typecheck && bun run eslint"
 	},
 	"dependencies": {
@@ -44,7 +44,6 @@
 		"intersection-observer": "0.12.2",
 		"lightningcss": "1.33.0",
 		"sass-embedded": "1.103.1",
-		"tsx": "4.23.13",
 		"typescript": "6.0.3",
 		"vite": "8.2.2",
 		"vue-component-type-helpers": "3.3.11",

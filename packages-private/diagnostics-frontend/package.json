@@ -3,13 +3,13 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"eslint": "eslint './**/*.{js,jsx,ts,tsx}'",
-		"inspect-browser": "tsx src/inspect-browser.ts",
+		"eslint": "bunx --bun eslint './**/*.{js,jsx,ts,tsx}'",
+		"inspect-browser": "bun src/inspect-browser.ts",
 		"lint": "bun run typecheck && bun run eslint",
-		"render-browser-html": "tsx src/render-browser-html.ts",
-		"render-md": "tsx src/render-md.ts",
-		"test": "vitest run",
-		"typecheck": "tsc --noEmit"
+		"render-browser-html": "bun src/render-browser-html.ts",
+		"render-md": "bun src/render-md.ts",
+		"test": "bun run --bun vitest run",
+		"typecheck": "bun run --bun tsc --noEmit"
 	},
 	"dependencies": {
 		"diagnostics-shared": "workspace:*"
@@ -18,7 +18,6 @@
 		"@types/node": "26.4.0",
 		"frontend": "workspace:*",
 		"playwright": "1.62.1",
-		"tsx": "4.23.13",
 		"vitest": "4.1.11"
 	}
 }

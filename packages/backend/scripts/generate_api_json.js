@@ -8,7 +8,7 @@ import { execa } from 'execa';
 
 async function main() {
 	if (!process.argv.includes('--no-build')) {
-		await execa('pnpm', ['run', 'build'], {
+		await execa(process.execPath, ['run', 'build'], {
 			stdout: process.stdout,
 			stderr: process.stderr,
 		});
