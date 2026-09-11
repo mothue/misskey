@@ -79,7 +79,6 @@ const backgroundImageStyle = computed(() => {
 	};
 });
 const backgroundImageRootStyle = computed(() => backgroundImageStyle.value == null ? undefined : {
-	'--MI-backgroundImageOpacity': prefer.r['backgroundImage.opacity'].value,
 	'--MI-backgroundImageTransparency': `${(1 - prefer.r['backgroundImage.opacity'].value) * 100}%`,
 	'--MI-backgroundImageDarkness': prefer.r['backgroundImage.darkness'].value,
 });

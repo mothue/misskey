@@ -79,26 +79,16 @@ SPDX-License-Identifier: AGPL-3.0-only
 	-->
 
 	<div v-if="!forceIconOnly && prefer.r.showNavbarSubButtons.value" :class="$style.subButtons">
-		<div aria-hidden="true" :class="$style.subButtonsBackground">
-			<div :class="$style.subButton">
-				<svg viewBox="0 0 16 64" :class="$style.subButtonShape">
-					<g transform="matrix(0.333333,0,0,0.222222,0.000895785,21.3333)">
-						<path d="M47.488,7.995C47.79,10.11 47.943,12.266 47.943,14.429C47.997,26.989 47.997,84 47.997,84C47.997,84 44.018,118.246 23.997,133.5C-0.374,152.07 -0.003,192 -0.003,192L-0.003,-96C-0.003,-96 0.151,-56.216 23.997,-37.5C40.861,-24.265 46.043,-1.243 47.488,7.995Z" :class="$style.subButtonShapePath"/>
-					</g>
-				</svg>
-			</div>
-			<template v-if="!props.asDrawer">
-				<div :class="$style.subButtonGapFill"></div>
-				<div :class="$style.subButtonDividerSpacer"></div>
-				<div :class="$style.subButton">
-					<svg viewBox="0 0 16 64" :class="$style.subButtonShape">
-						<g transform="matrix(0.333333,0,0,0.222222,0.000895785,21.3333)">
-							<path d="M47.488,7.995C47.79,10.11 47.943,12.266 47.943,14.429C47.997,26.989 47.997,84 47.997,84C47.997,84 44.018,118.246 23.997,133.5C-0.374,152.07 -0.003,192 -0.003,192L-0.003,-96C-0.003,-96 0.151,-56.216 23.997,-37.5C40.861,-24.265 46.043,-1.243 47.488,7.995Z" :class="$style.subButtonShapePath"/>
-						</g>
-					</svg>
-				</div>
-			</template>
-		</div>
+		<svg aria-hidden="true" viewBox="0 0 20 131" preserveAspectRatio="none" :class="$style.subButtonsBackground">
+			<defs>
+				<clipPath :id="subButtonsClipId" clipPathUnits="userSpaceOnUse">
+					<path d="M47.488,7.995C47.79,10.11 47.943,12.266 47.943,14.429C47.997,26.989 47.997,84 47.997,84C47.997,84 44.018,118.246 23.997,133.5C-0.374,152.07 -0.003,192 -0.003,192L-0.003,-96C-0.003,-96 0.151,-56.216 23.997,-37.5C40.861,-24.265 46.043,-1.243 47.488,7.995Z" transform="matrix(0.416666,0,0,0.277778,0.00112,26.6667)"/>
+					<rect v-if="!props.asDrawer" x="0" y="33" width="20" height="64"/>
+					<path v-if="!props.asDrawer" d="M47.488,7.995C47.79,10.11 47.943,12.266 47.943,14.429C47.997,26.989 47.997,84 47.997,84C47.997,84 44.018,118.246 23.997,133.5C-0.374,152.07 -0.003,192 -0.003,192L-0.003,-96C-0.003,-96 0.151,-56.216 23.997,-37.5C40.861,-24.265 46.043,-1.243 47.488,7.995Z" transform="matrix(0.416666,0,0,0.277778,0.00112,77.6667)"/>
+				</clipPath>
+			</defs>
+			<rect width="20" height="131" :class="$style.subButtonsBackgroundFill" :clip-path="`url(#${subButtonsClipId})`"/>
+		</svg>
 
 		<div :class="$style.subButtonsForeground">
 			<div :class="$style.subButton">
@@ -117,7 +107,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 </template>
 
 <script lang="ts" setup>
-import { computed, defineAsyncComponent, ref, watch } from 'vue';
+import { computed, defineAsyncComponent, ref, useId, watch } from 'vue';
 import { openInstanceMenu } from './common.js';
 import * as os from '@/os.js';
 import { navbarItemDef } from '@/navbar.js';
@@ -131,6 +121,7 @@ import { getAccountMenu } from '@/accounts.js';
 import { $i } from '@/i.js';
 
 const router = useRouter();
+const subButtonsClipId = useId();
 
 const props = defineProps<{
 	showWidgetButton?: boolean;
@@ -216,8 +207,6 @@ function menuEdit() {
 	--nav-width: 250px;
 	--nav-icon-only-width: 80px;
 	--nav-bg-transparent: color(from var(--MI_THEME-navBg) srgb r g b / 0.5);
-	--navbarSubButtonBackground: var(--MI-backgroundImageNavBg, var(--MI_THEME-navBg));
-	--navbarSubButtonBackgroundOpacity: var(--MI-backgroundImageOpacity, 1);
 
 	--subButtonWidth: 20px;
 
@@ -351,9 +340,15 @@ function menuEdit() {
 .subButtonsBackground {
 	position: absolute;
 	z-index: 0;
-	inset: 0;
-	opacity: var(--navbarSubButtonBackgroundOpacity);
+	top: -15px;
+	left: 0;
+	width: var(--subButtonWidth);
+	height: 131px;
 	pointer-events: none;
+}
+
+.subButtonsBackgroundFill {
+	fill: var(--MI_THEME-navBg);
 }
 
 .subButtonsForeground {
@@ -371,21 +366,6 @@ function menuEdit() {
 	align-content: center;
 }
 
-.subButtonShape {
-	position: absolute;
-	z-index: -1;
-	top: 0;
-	bottom: 0;
-	left: 0;
-	margin: auto;
-	width: var(--subButtonWidth);
-	height: calc(var(--subButtonWidth) * 4);
-}
-
-.subButtonShapePath {
-	fill: var(--navbarSubButtonBackground);
-}
-
 .subButtonClickable {
 	position: absolute;
 	display: block;
@@ -394,7 +374,7 @@ function menuEdit() {
 	height: 42px;
 	top: 0;
 	bottom: 0;
-	left: -4px;
+	left: 0;
 	margin: auto;
 	font-size: 10px;
 
@@ -412,34 +392,17 @@ function menuEdit() {
 	opacity: 0.7;
 }
 
-.subButtonGapFill {
-	position: relative;
-	z-index: 1001;
-	width: var(--subButtonWidth);
-	height: 64px;
-	margin-top: -32px;
-	margin-bottom: -32px;
-	pointer-events: none;
-	background: var(--navbarSubButtonBackground);
-}
-
-.subButtonGap,
-.subButtonDividerSpacer {
+.subButtonGap {
 	position: relative;
 	height: 64px;
 	margin-top: -32px;
 	margin-bottom: -32px;
-}
-
-.subButtonDividerSpacer {
-	height: 1px;
-	margin: 0;
 }
 
 .subButtonGapFillDivider {
 	position: relative;
 	z-index: 1010;
-	margin-left: -2px;
+	margin-left: 3px;
 	width: 14px;
 	height: 1px;
 	background: var(--MI_THEME-divider);
