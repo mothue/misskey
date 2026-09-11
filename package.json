@@ -100,6 +100,6 @@
 		"eslint": "9.39.5",
 		"globals": "17.11.0",
 		"start-server-and-test": "3.0.12",
-		"typescript": "npm:@typescript/typescript6@6.0.2"
+		"typescript": "6.0.3"
 	}
 }
