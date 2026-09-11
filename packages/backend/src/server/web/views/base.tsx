@@ -76,7 +76,7 @@ export function Layout(props: PropsWithChildren<CommonProps<{
 						</>
 					)}
 
-					{props.frontendBootloaderCss != null ? <style safe>{props.frontendBootloaderCss}</style> : <link rel="stylesheet" href="/vite/loader/style.css" />}
+					{props.frontendBootloaderCss != null ? <style>{props.frontendBootloaderCss}</style> : <link rel="stylesheet" href="/vite/loader/style.css" />}
 
 					<script>
 						const VERSION = '{props.version}';
@@ -105,4 +105,3 @@ export function Layout(props: PropsWithChildren<CommonProps<{
 }
 
 export { Layout as BasePage };
-

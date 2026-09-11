@@ -58,7 +58,7 @@ export function BaseEmbed(props: PropsWithChildren<CommonProps<{
 
 					<meta name="robots" content="noindex" />
 
-					{props.frontendEmbedBootloaderCss != null ? <style safe>{props.frontendEmbedBootloaderCss}</style> : <link rel="stylesheet" href="/embed_vite/loader/style.css" />}
+					{props.frontendEmbedBootloaderCss != null ? <style>{props.frontendEmbedBootloaderCss}</style> : <link rel="stylesheet" href="/embed_vite/loader/style.css" />}
 
 					<script>
 						const VERSION = '{props.version}';
@@ -85,4 +85,3 @@ export function BaseEmbed(props: PropsWithChildren<CommonProps<{
 		</>
 	);
 }
-
