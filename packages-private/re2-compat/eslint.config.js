@@ -1,0 +1,28 @@
+/*
+ * SPDX-FileCopyrightText: syuilo and misskey-project
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
+import tsParser from '@typescript-eslint/parser';
+import sharedConfig from '../../packages/shared/eslint.config.js';
+
+// eslint-disable-next-line import/no-default-export
+export default [
+	...sharedConfig,
+	{
+		ignores: [
+			'**/node_modules',
+		],
+	},
+	{
+		files: ['**/*.ts', '**/*.tsx'],
+		languageOptions: {
+			parserOptions: {
+				parser: tsParser,
+				project: ['./tsconfig.json'],
+				sourceType: 'module',
+				tsconfigRootDir: import.meta.dirname,
+			},
+		},
+	},
+];

@@ -5,7 +5,7 @@
 	"scripts": {
 		"eslint": "eslint './**/*.{js,jsx,ts,tsx}'",
 		"inspect-browser": "tsx src/inspect-browser.ts",
-		"lint": "pnpm typecheck && pnpm eslint",
+		"lint": "bun run typecheck && bun run eslint",
 		"render-browser-html": "tsx src/render-browser-html.ts",
 		"render-md": "tsx src/render-md.ts",
 		"test": "vitest run",

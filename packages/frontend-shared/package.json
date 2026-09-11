@@ -5,7 +5,7 @@
 	"scripts": {
 		"eslint": "eslint './**/*.{js,jsx,ts,tsx}'",
 		"typecheck": "tsc --noEmit",
-		"lint": "pnpm typecheck && pnpm eslint"
+		"lint": "bun run typecheck && bun run eslint"
 	},
 	"devDependencies": {
 		"@types/node": "26.4.0",

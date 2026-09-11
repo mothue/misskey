@@ -1,0 +1,17 @@
+{
+	"name": "re2",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"scripts": {
+		"eslint": "eslint './**/*.{js,jsx,ts,tsx}'",
+		"lint": "bun run typecheck && bun run eslint",
+		"test": "bun test",
+		"typecheck": "tsc --noEmit"
+	},
+	"dependencies": {
+		"re2js": "2.8.6"
+	}
+}

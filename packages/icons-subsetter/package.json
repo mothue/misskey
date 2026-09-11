@@ -8,7 +8,7 @@
 		"build": "tsx src/generator.ts",
 		"eslint": "eslint src/**/*.ts",
 		"typecheck": "tsc --noEmit",
-		"lint": "pnpm typecheck && pnpm eslint"
+		"lint": "bun run typecheck && bun run eslint"
 	},
 	"devDependencies": {
 		"@types/node": "26.4.0",

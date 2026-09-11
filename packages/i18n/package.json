@@ -21,8 +21,8 @@
 		"watch": "nodemon -w package.json -e json --exec \"tsx ./build.ts --watch\"",
 		"tsd": "tsd",
 		"typecheck": "tsc --noEmit",
-		"lint": "pnpm typecheck && pnpm eslint",
-		"lint:fix": "pnpm eslint --fix"
+		"lint": "bun run typecheck && bun run eslint",
+		"lint:fix": "bun run eslint --fix"
 	},
 	"files": [
 		"built"

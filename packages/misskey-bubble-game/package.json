@@ -17,11 +17,11 @@
 		}
 	},
 	"scripts": {
-		"build": "node ./build.js",
-		"watch": "nodemon -w package.json -e json --exec \"node ./build.js --watch\"",
+		"build": "bun ./build.js",
+		"watch": "nodemon -w package.json -e json --exec \"bun ./build.js --watch\"",
 		"eslint": "eslint './**/*.{js,jsx,ts,tsx}'",
 		"typecheck": "tsc --noEmit",
-		"lint": "pnpm typecheck && pnpm eslint"
+		"lint": "bun run typecheck && bun run eslint"
 	},
 	"devDependencies": {
 		"@types/matter-js": "0.20.2",

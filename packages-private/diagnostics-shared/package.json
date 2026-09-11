@@ -12,7 +12,7 @@
 	},
 	"scripts": {
 		"eslint": "eslint './**/*.{js,jsx,ts,tsx}'",
-		"lint": "pnpm typecheck && pnpm eslint",
+		"lint": "bun run typecheck && bun run eslint",
 		"test": "vitest run",
 		"typecheck": "tsc --noEmit"
 	},
