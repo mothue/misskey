@@ -22,14 +22,11 @@ jobs:
         with:
           fetch-depth: 0
           submodules: true
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v6.0.9
-      - uses: actions/setup-node@v7.0.0
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version-file: ".node-version"
-          cache: "pnpm"
-      - run: pnpm i --frozen-lockfile
-      - run: pnpm --filter i18n build
+          bun-version: '1.3.13'
+      - run: bun install --frozen-lockfile
+      - run: bun run --filter i18n build
       - name: Verify Locales
         working-directory: ./packages/i18n
-        run: pnpm run verify
+        run: bun run verify

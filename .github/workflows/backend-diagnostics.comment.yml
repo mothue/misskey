@@ -18,16 +18,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7.0.0
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v6.0.9
-      - name: Use Node.js
-        uses: actions/setup-node@v7.0.0
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          node-version-file: '.node-version'
-          cache: 'pnpm'
+          bun-version: '1.3.13'
+
       - name: Install dependencies
-        run: pnpm --filter diagnostics-backend... install --frozen-lockfile
+        run: bun install --frozen-lockfile
 
       - name: Download artifacts
         uses: actions/download-artifact@v8
@@ -71,7 +68,7 @@ jobs:
           MK_MEMORY_HEAP_SNAPSHOT_ARTIFACT_URL_BASE: ${{ steps.find-heap-snapshot-artifacts.outputs.base-url }}
           MK_MEMORY_HEAP_SNAPSHOT_ARTIFACT_URL_HEAD: ${{ steps.find-heap-snapshot-artifacts.outputs.head-url }}
         run: >-
-          pnpm --filter diagnostics-backend run render-md
+          bun run --filter diagnostics-backend render-md
           "$GITHUB_WORKSPACE/artifacts/memory-base.json"
           "$GITHUB_WORKSPACE/artifacts/memory-head.json"
           "$GITHUB_WORKSPACE/output.md"

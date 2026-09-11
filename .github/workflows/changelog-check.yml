@@ -14,14 +14,14 @@ jobs:
       - name: Checkout head
         uses: actions/checkout@v7.0.0
 
-      - name: setup pnpm
-        uses: pnpm/action-setup@v6
+      - name: setup Bun
+        uses: oven-sh/setup-bun@v2
 
-      - name: setup node
-        uses: actions/setup-node@v7.0.0
+      - name: setup Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          node-version-file: '.node-version'
-          cache: pnpm
+          bun-version: '1.3.13'
+
 
       - name: Checkout base
         run: |
@@ -41,7 +41,7 @@ jobs:
         working-directory: packages-private/changelog-checker
 
       - name: Install dependencies
-        run: pnpm --filter changelog-checker... install --frozen-lockfile
+        run: bun install --frozen-lockfile
 
       - name: Run Checker
-        run: pnpm --filter changelog-checker check
+        run: bun run --filter changelog-checker check

@@ -24,26 +24,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7.0.0
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v6.0.9
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v7.0.0
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          node-version-file: '.node-version'
-          cache: 'pnpm'
+          bun-version: '1.3.13'
+
 
       - name: Install dependencies
-        run: pnpm i --frozen-lockfile
+        run: bun install --frozen-lockfile
 
-      - name: Check pnpm-lock.yaml
-        run: git diff --exit-code pnpm-lock.yaml
+      - name: Check bun.lock
+        run: git diff --exit-code bun.lock
 
       - name: Build
-        run: pnpm --filter misskey-js build
+        run: bun run --filter misskey-js build
 
       - name: Test
-        run: pnpm --filter misskey-js test
+        run: bun run --filter misskey-js test
         env:
           CI: true
 

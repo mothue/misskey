@@ -59,7 +59,7 @@ jobs:
 
             example:
             ```sh
-            pnpm run build-misskey-js-with-types
+            bun run build-misskey-js-with-types
             ```
 
       - name: send message

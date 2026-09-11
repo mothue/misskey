@@ -24,32 +24,32 @@ jobs:
           persist-credentials: false
           ref: refs/pull/${{ github.event.pull_request.number }}/merge
 
-      - name: setup pnpm
-        uses: pnpm/action-setup@v6
+      - name: setup Bun
+        uses: oven-sh/setup-bun@v2
 
-      - name: setup node
+      - name: setup Bun
         id: setup-node
-        uses: actions/setup-node@v7.0.0
+        uses: oven-sh/setup-bun@v2
         with:
-          node-version-file: '.node-version'
-          cache: pnpm
+          bun-version: '1.3.13'
+
 
       - name: install dependencies
-        run: pnpm i --frozen-lockfile
+        run: bun install --frozen-lockfile
 
       # generate api.json
       - name: Copy Config
         run: cp .config/example.yml .config/default.yml
       - name: Build
-        run: pnpm build
+        run: bun run build
       - name: Generate API JSON
-        run: pnpm --filter backend generate-api-json
+        run: bun run --filter backend generate-api-json
 
       # build misskey js
       - name: Build misskey-js
         run: |-
           cp packages/backend/built/api.json packages/misskey-js/generator/api.json
-          pnpm run --filter misskey-js-type-generator generate
+          bun run --filter misskey-js-type-generator generate
 
       # packages/misskey-js/generator/built/autogen
       - name: Upload Generated

@@ -46,46 +46,38 @@ jobs:
         ref: refs/pull/${{ github.event.number }}/merge
         path: head
         submodules: true
-    - name: Setup pnpm
-      uses: pnpm/action-setup@v6.0.9
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@v2
       with:
-        package_json_file: head/package.json
-    - name: Use Node.js
-      uses: actions/setup-node@v7.0.0
-      with:
-        node-version-file: 'head/.node-version'
-        cache: 'pnpm'
-        cache-dependency-path: |
-          base/pnpm-lock.yaml
-          head/pnpm-lock.yaml
+        bun-version: '1.3.13'
     - name: Install base dependencies
       working-directory: base
-      run: pnpm i --frozen-lockfile
-    - name: Check base pnpm-lock.yaml
+      run: bun install --frozen-lockfile
+    - name: Check base bun.lock
       working-directory: base
-      run: git diff --exit-code pnpm-lock.yaml
+      run: git diff --exit-code bun.lock
     - name: Configure base
       working-directory: base
       run: |
         cp .github/misskey/test.yml .config/default.yml
-        pnpm compile-config
+        bun compile-config
     - name: Build base
       working-directory: base
-      run: pnpm build
+      run: bun run build
     - name: Install head dependencies
       working-directory: head
-      run: pnpm i --frozen-lockfile
-    - name: Check head pnpm-lock.yaml
+      run: bun install --frozen-lockfile
+    - name: Check head bun.lock
       working-directory: head
-      run: git diff --exit-code pnpm-lock.yaml
+      run: git diff --exit-code bun.lock
     - name: Configure head
       working-directory: head
       run: |
         cp .github/misskey/test.yml .config/default.yml
-        pnpm compile-config
+        bun compile-config
     - name: Build head
       working-directory: head
-      run: pnpm build
+      run: bun run build
     - name: Measure backend memory usage
       working-directory: head
       env:
@@ -96,7 +88,7 @@ jobs:
         # 計測ハーネスはhead側のものを両方に使うが、成果物はrunnerのworkspace直下に出す
         MK_MEMORY_HEAP_SNAPSHOT_OUTPUT_DIR: ${{ github.workspace }}
       run: >-
-        pnpm --filter diagnostics-backend run inspect
+        bun run --filter diagnostics-backend inspect
         "$GITHUB_WORKSPACE/base" "$GITHUB_WORKSPACE/head"
         "$GITHUB_WORKSPACE/memory-base.json" "$GITHUB_WORKSPACE/memory-head.json"
     - name: Upload base heap snapshot
