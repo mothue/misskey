@@ -41,8 +41,7 @@ export class StreamingApiServerService {
 
 		server.on('upgrade', async (request, socket, head) => {
 			if (request.url == null) {
-				socket.write('HTTP/1.1 400 Bad Request\r\n\r\n');
-				socket.destroy();
+				socket.end('HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n');
 				return;
 			}
 
@@ -66,20 +65,19 @@ export class StreamingApiServerService {
 				}
 			} catch (e) {
 				if (e instanceof AuthenticationError) {
-					socket.write([
+					socket.end([
 						'HTTP/1.1 401 Unauthorized',
 						'WWW-Authenticate: Bearer realm="Misskey", error="invalid_token", error_description="Failed to authenticate"',
+						'Connection: close',
 					].join('\r\n') + '\r\n\r\n');
 				} else {
-					socket.write('HTTP/1.1 500 Internal Server Error\r\n\r\n');
+					socket.end('HTTP/1.1 500 Internal Server Error\r\nConnection: close\r\n\r\n');
 				}
-				socket.destroy();
 				return;
 			}
 
 			if (user?.isSuspended) {
-				socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
-				socket.destroy();
+				socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');
 				return;
 			}
 

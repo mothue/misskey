@@ -12,6 +12,7 @@ import { DI } from '@/di-symbols.js';
 import { resetDb } from '@/misc/reset-db.js';
 import { MetaService } from '@/core/MetaService.js';
 import { GlobalEventService } from '@/core/GlobalEventService.js';
+import { SystemAccountService } from '@/core/SystemAccountService.js';
 
 export const meta = {
 	tags: ['non-productive'],
@@ -43,6 +44,7 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 		private loggerService: LoggerService,
 		private metaService: MetaService,
 		private globalEventService: GlobalEventService,
+		private systemAccountService: SystemAccountService,
 	) {
 		super(meta, paramDef, async (ps, me) => {
 			if (process.env.NODE_ENV !== 'test') throw new Error('NODE_ENV is not a test');
@@ -50,8 +52,10 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 			const logger = this.loggerService.getLogger('reset-db');
 			logger.info('---- Resetting database...');
 
+			this.systemAccountService.clearCache();
 			await this.redisClient.flushdb();
 			await resetDb(this.db);
+			this.systemAccountService.clearCache();
 
 			// DIコンテナで管理しているmetaのインスタンスには上記のリセット処理が届かないため、
 			// 初期値を流して明示的にリフレッシュする

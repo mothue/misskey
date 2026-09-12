@@ -195,10 +195,21 @@ export class SystemAccountService implements OnApplicationShutdown {
 			await this.userProfilesRepository.update(user.id, profileUpdates);
 		}
 
-		const updated = await this.usersRepository.findOneByOrFail({ id: user.id }) as MiLocalUser;
+		const updated = await this.usersRepository.findOneBy({ id: user.id }) as MiLocalUser | null;
+		if (updated == null) {
+			// The test-only database reset can remove a system account while a
+			// previously published metaUpdated event is still being processed.
+			this.cache.delete(type);
+			return user;
+		}
 		this.cache.set(type, updated);
 
 		return updated;
+	}
+
+	@bindThis
+	public clearCache(): void {
+		for (const type of SYSTEM_ACCOUNT_TYPES) this.cache.delete(type);
 	}
 
 	@bindThis
