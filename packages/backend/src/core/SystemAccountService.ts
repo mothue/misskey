@@ -25,6 +25,7 @@ export const SYSTEM_ACCOUNT_TYPES = ['actor', 'relay', 'proxy'] as const;
 @Injectable()
 export class SystemAccountService implements OnApplicationShutdown {
 	private cache: MemoryKVCache<MiLocalUser>;
+	private fetching = new Map<typeof SYSTEM_ACCOUNT_TYPES[number], Promise<MiLocalUser>>();
 
 	constructor(
 		@Inject(DI.redisForSub)
@@ -87,22 +88,33 @@ export class SystemAccountService implements OnApplicationShutdown {
 		const cached = this.cache.get(type);
 		if (cached) return cached;
 
+		const fetching = this.fetching.get(type);
+		if (fetching) return fetching;
+
+		const promise = this.fetchUncached(type);
+		this.fetching.set(type, promise);
+
+		try {
+			const account = await promise;
+			this.cache.set(type, account);
+			return account;
+		} finally {
+			this.fetching.delete(type);
+		}
+	}
+
+	private async fetchUncached(type: typeof SYSTEM_ACCOUNT_TYPES[number]): Promise<MiLocalUser> {
 		const systemAccount = await this.systemAccountsRepository.findOne({
-			where: { type: type },
+			where: { type },
 			relations: { user: true },
 		});
 
-		if (systemAccount) {
-			this.cache.set(type, systemAccount.user as MiLocalUser);
-			return systemAccount.user as MiLocalUser;
-		} else {
-			const created = await this.createCorrespondingUser(type, {
-				username: `system.${type}`, // NOTE: (できれば避けたいが) . が含まれるかどうかでシステムアカウントかどうかを判定している処理もあるので変えないように
-				name: this.meta.name,
-			});
-			this.cache.set(type, created);
-			return created;
-		}
+		if (systemAccount) return systemAccount.user as MiLocalUser;
+
+		return this.createCorrespondingUser(type, {
+			username: `system.${type}`, // NOTE: (できれば避けたいが) . が含まれるかどうかでシステムアカウントかどうかを判定している処理もあるので変えないように
+			name: this.meta.name,
+		});
 	}
 
 	@bindThis
