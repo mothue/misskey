@@ -46,8 +46,9 @@ jobs:
     - name: Build
       run: bun run build
     - name: Test
-      run: bun run --filter frontend test-and-coverage
+      run: bun run --filter frontend test
     - name: Upload Coverage
+      if: ${{ hashFiles('packages/frontend/coverage/coverage-final.json') != '' }}
       uses: codecov/codecov-action@v7
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
@@ -88,7 +89,7 @@ jobs:
       working-directory: packages/frontend
       run: bunx playwright install --with-deps chromium
     - name: Test
-      run: bun run start-server-and-test start:test http://localhost:61812 "bun run --filter frontend test:e2e"
+      run: bun run start-server-and-test "bun run start:test" http://localhost:61812 "bun run --filter frontend test:e2e"
       timeout-minutes: 15
     - uses: actions/upload-artifact@v7
       if: failure()

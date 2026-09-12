@@ -9,14 +9,11 @@ services:
       service: misskey
     command: >
       bash -c "
-        npm install -g pnpm
-        pnpm -F backend i
-        pnpm -F misskey-js i
-        pnpm -F misskey-reversi i
+        bun install --frozen-lockfile
       "
 
   tester:
-    image: node:${NODE_VERSION}
+    image: oven/bun:1.3.13
     depends_on:
       a.test:
         condition: service_healthy
@@ -75,12 +72,8 @@ services:
         target: /misskey/package.json
         read_only: true
       - type: bind
-        source: ../../../pnpm-lock.yaml
-        target: /misskey/pnpm-lock.yaml
-        read_only: true
-      - type: bind
-        source: ../../../pnpm-workspace.yaml
-        target: /misskey/pnpm-workspace.yaml
+        source: ../../../bun.lock
+        target: /misskey/bun.lock
         read_only: true
       - type: bind
         source: ../../../patches
@@ -93,15 +86,13 @@ services:
     working_dir: /misskey
     entrypoint: >
       bash -c '
-        npm install -g pnpm
-        pnpm -F misskey-js i --frozen-lockfile
-        pnpm -F backend i --frozen-lockfile
+        bun install --frozen-lockfile
         exec "$0" "$@"
       '
-    command: pnpm -F backend test:fed
+    command: bun run --filter backend test:fed
 
   daemon:
-    image: node:${NODE_VERSION}
+    image: oven/bun:1.3.13
     depends_on:
       redis.test:
         condition: service_healthy
@@ -123,12 +114,8 @@ services:
         target: /misskey/package.json
         read_only: true
       - type: bind
-        source: ../../../pnpm-lock.yaml
-        target: /misskey/pnpm-lock.yaml
-        read_only: true
-      - type: bind
-        source: ../../../pnpm-workspace.yaml
-        target: /misskey/pnpm-workspace.yaml
+        source: ../../../bun.lock
+        target: /misskey/bun.lock
         read_only: true
       - type: bind
         source: ../../../patches
@@ -137,10 +124,9 @@ services:
     working_dir: /misskey
     command: >
       bash -c "
-        npm install -g pnpm
-        pnpm -F backend i --frozen-lockfile
-        pnpm exec tsc -p ./packages/backend/test-federation
-        node ./packages/backend/test-federation/built/daemon.js
+        bun install --frozen-lockfile
+        bunx tsc -p ./packages/backend/test-federation
+        bun ./packages/backend/test-federation/built/daemon.js
       "
 
   redis.test:

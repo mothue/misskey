@@ -58,15 +58,12 @@ jobs:
         submodules: true
     - name: Setup Bun
       uses: oven-sh/setup-bun@v2
+      with:
+        bun-version: '1.3.13'
     - name: Install FFmpeg
       run: |
         sudo apt update
         sudo apt install -y ffmpeg
-    - name: Setup Bun
-      uses: oven-sh/setup-bun@v2
-      with:
-        bun-version: '1.3.13'
-
     - run: bun install --frozen-lockfile
     - name: Check bun.lock
       run: git diff --exit-code bun.lock
@@ -75,8 +72,9 @@ jobs:
     - name: Build
       run: bun run build
     - name: Test
-      run: bun run --filter backend test-and-coverage
+      run: bun run --filter backend test
     - name: Upload to Codecov
+      if: ${{ hashFiles('packages/backend/coverage/coverage-final.json') != '' }}
       uses: codecov/codecov-action@v7
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
@@ -122,8 +120,9 @@ jobs:
       - name: Build
         run: bun run build
       - name: Test
-        run: bun run --filter backend test-and-coverage:e2e
+        run: bun run --filter backend test:e2e
       - name: Upload to Codecov
+        if: ${{ hashFiles('packages/backend/coverage/coverage-final.json') != '' }}
         uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
