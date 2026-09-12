@@ -3,12 +3,8 @@ services:
     image: nginx:1.30
     volumes:
       - type: bind
-        source: ../../../packages
-        target: /misskey/packages
-        read_only: true
-      - type: bind
-        source: ../../../packages-private
-        target: /misskey/packages-private
+        source: ../../..
+        target: /misskey
         read_only: true
       - type: bind
         source: ./certificates/rootCA.crt

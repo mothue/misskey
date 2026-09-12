@@ -28,12 +28,8 @@ services:
       - NODE_EXTRA_CA_CERTS=/usr/local/share/ca-certificates/rootCA.crt
     volumes:
       - type: bind
-        source: ../../../packages
-        target: /misskey/packages
-        read_only: true
-      - type: bind
-        source: ../../../packages-private
-        target: /misskey/packages-private
+        source: ../../..
+        target: /misskey
         read_only: true
       - type: bind
         source: ../package.json
@@ -106,12 +102,8 @@ services:
         condition: service_healthy
     volumes:
       - type: bind
-        source: ../../../packages
-        target: /misskey/packages
-        read_only: true
-      - type: bind
-        source: ../../../packages-private
-        target: /misskey/packages-private
+        source: ../../..
+        target: /misskey
         read_only: true
       - type: bind
         source: ../package.json
