@@ -17,6 +17,7 @@ function generate {
   openssl req -new -newkey rsa:2048 -sha256 -nodes \
     -keyout certificates/$1.key \
     -subj "/CN=$1/emailAddress=admin@$1/C=JP/ST=/L=/O=Misskey Tester/OU=Some Unit" \
+    -addext "subjectAltName=DNS:$1" \
     -out certificates/$1.csr
   openssl x509 -req -sha256 \
     -in certificates/$1.csr \
@@ -24,6 +25,7 @@ function generate {
     -CAkey certificates/rootCA.key \
     -CAcreateserial \
     -passin pass:rootCA \
+    -copy_extensions copy \
     -out certificates/$1.crt \
     -days 500
   if [ ! -f .config/docker.env ]; then cp .config/example.docker.env .config/docker.env; fi
