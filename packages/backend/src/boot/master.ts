@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
+/* eslint-disable @stylistic/quotes */
+
 import * as fs from "node:fs";
 import * as os from "node:os";
 import cluster from "node:cluster";
@@ -48,6 +50,8 @@ function greet(props: { version: string; format: LogFormat }) {
 	if (!envOption.quiet) {
 		//#region Misskey logo
 		const v = `v${props.version}`;
+
+		/*
 		console.log(themeColor("  _____ _         _           "));
 		console.log(themeColor(" |     |_|___ ___| |_ ___ _ _ "));
 		console.log(themeColor(" | | | | |_ -|_ -| '_| -_| | |"));
@@ -56,6 +60,17 @@ function greet(props: { version: string; format: LogFormat }) {
 			" " +
 				chalk.gray(v) +
 				themeColor("                        |___|\n".substring(v.length)),
+		);
+		*/
+
+		console.log(themeColor("         _          _"));
+		console.log(themeColor(" ._ _ _ <_> ___ ___| |__ ___  _ _"));
+		console.log(themeColor(" | ' ' || |<_-<<_-<| / // ._>| | |"));
+		console.log(themeColor(" |_|_|_||_|/__//__/|_\\_\\\\___.`_. |"));
+		console.log(
+			" " +
+				chalk.gray(v) +
+				themeColor("                            <___'\n".substring(v.length)),
 		);
 		//#endregion
 
