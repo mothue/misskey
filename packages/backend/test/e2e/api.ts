@@ -7,13 +7,14 @@ process.env.NODE_ENV = 'test';
 
 import * as assert from 'assert';
 import { describe, beforeAll, test } from 'vitest';
-import { IncomingMessage } from 'node:http';
+import { connect } from 'node:net';
 import {
 	api,
 	connectStream,
 	createAppToken,
 	failedApiCall,
 	relativeFetch,
+	port,
 	signup,
 	successfulApiCall,
 	uploadFile,
@@ -29,6 +30,37 @@ describe('API', () => {
 		alice = await signup({ username: 'alice' });
 		bob = await signup({ username: 'bob' });
 	}, 1000 * 60 * 2);
+
+	async function requestStreamingUpgradeWithInvalidToken(token: string): Promise<string> {
+		return new Promise((resolve, reject) => {
+			const socket = connect(port, '127.0.0.1');
+			let response = '';
+
+			socket.setEncoding('utf8');
+			socket.setTimeout(5000, () => socket.destroy(new Error('Timed out waiting for streaming upgrade response')));
+			socket.on('error', reject);
+			socket.on('data', chunk => {
+				response += chunk;
+				if (response.includes('\r\n\r\n')) {
+					socket.destroy();
+					resolve(response);
+				}
+			});
+			socket.on('connect', () => {
+				socket.write([
+					'GET /streaming HTTP/1.1',
+					`Host: 127.0.0.1:${port}`,
+					'Connection: Upgrade',
+					'Upgrade: websocket',
+					'Sec-WebSocket-Version: 13',
+					'Sec-WebSocket-Key: dGVzdC13ZWJzb2NrZXQta2V5',
+					`Authorization: Bearer ${token}`,
+					'',
+					'',
+				].join('\r\n'));
+			});
+		});
+	}
 
 	describe('General validation', () => {
 		test('wrong type', async () => {
@@ -230,18 +262,9 @@ describe('API', () => {
 			});
 
 			test('streaming', async () => {
-				await assert.rejects(connectStream(
-					{
-						token: 'syuilo',
-						bearer: true,
-					},
-					'homeTimeline',
-					() => { },
-				), (err: IncomingMessage) => {
-					assert.strictEqual(err.statusCode, 401);
-					assert.ok(err.headers['www-authenticate']?.startsWith('Bearer realm="Misskey", error="invalid_token", error_description'));
-					return true;
-				});
+				const response = await requestStreamingUpgradeWithInvalidToken('syuilo');
+				assert.match(response, /^HTTP\/1\.1 401 Unauthorized\r\n/);
+				assert.match(response, /\r\nWWW-Authenticate: Bearer realm="Misskey", error="invalid_token", error_description=/i);
 			});
 		});
 
