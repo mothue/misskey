@@ -242,7 +242,7 @@ export class ClientServerService {
 				upstream: urlOriginWithoutPort + ':' + port,
 				prefix: '/vite',
 				rewritePrefix: '/vite',
-				undici: false,
+				http: {},
 			});
 
 			const embedPort = (process.env.EMBED_VITE_PORT ?? '5174');
@@ -250,7 +250,7 @@ export class ClientServerService {
 				upstream: urlOriginWithoutPort + ':' + embedPort,
 				prefix: '/embed_vite',
 				rewritePrefix: '/embed_vite',
-				undici: false,
+				http: {},
 			});
 		}
 		//#endregion

@@ -14,7 +14,7 @@ import { MiLocalUser } from '@/models/User.js';
 import { UserService } from '@/core/UserService.js';
 import { AuthenticateService, AuthenticationError } from './AuthenticateService.js';
 import MainStreamConnection, { ConnectionRequest } from './stream/Connection.js';
-import type * as http from 'node:http';
+import * as http from 'node:http';
 import { ContextIdFactory, ModuleRef } from '@nestjs/core';
 
 @Injectable()
@@ -40,8 +40,24 @@ export class StreamingApiServerService {
 		});
 
 		server.on('upgrade', async (request, socket, head) => {
+			const rejectUpgrade = (status: number, headers: Record<string, string> = {}) => {
+				const responseHeaders = { Connection: 'close', 'Content-Length': '0', ...headers };
+				if (process.versions.bun) {
+					// Bun's upgrade socket does not send raw HTTP writes. Its
+					// ServerResponse completes the HTTP request directly.
+					const response = new http.ServerResponse(request);
+					response.writeHead(status, responseHeaders);
+					response.end();
+				} else {
+					socket.end([
+						`HTTP/1.1 ${status} ${http.STATUS_CODES[status]}`,
+						...Object.entries(responseHeaders).map(([key, value]) => `${key}: ${value}`),
+						'', '',
+					].join('\r\n'));
+				}
+			};
 			if (request.url == null) {
-				socket.end('HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n');
+				rejectUpgrade(400);
 				return;
 			}
 
@@ -65,19 +81,17 @@ export class StreamingApiServerService {
 				}
 			} catch (e) {
 				if (e instanceof AuthenticationError) {
-					socket.end([
-						'HTTP/1.1 401 Unauthorized',
-						'WWW-Authenticate: Bearer realm="Misskey", error="invalid_token", error_description="Failed to authenticate"',
-						'Connection: close',
-					].join('\r\n') + '\r\n\r\n');
+					rejectUpgrade(401, {
+						'WWW-Authenticate': 'Bearer realm="Misskey", error="invalid_token", error_description="Failed to authenticate"',
+					});
 				} else {
-					socket.end('HTTP/1.1 500 Internal Server Error\r\nConnection: close\r\n\r\n');
+					rejectUpgrade(500);
 				}
 				return;
 			}
 
 			if (user?.isSuspended) {
-				socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');
+				rejectUpgrade(403);
 				return;
 			}
 

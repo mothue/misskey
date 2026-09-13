@@ -116,8 +116,9 @@ export async function masterMain() {
 		await showMachineInfo(bootLogger);
 		showNodejsVersion();
 		//await connectDb();
-		if (config.pidFile)
+		if (config.pidFile) {
 			fs.writeFileSync(config.pidFile, process.pid.toString());
+		}
 	} catch (e) {
 		bootLogger.error(
 			"Fatal error occurred during initialization: " + e,
