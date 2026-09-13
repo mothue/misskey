@@ -55,7 +55,6 @@ jobs:
   lint:
     needs: [bun_install]
     runs-on: ubuntu-latest
-    continue-on-error: true
     strategy:
       matrix:
         workspace:
@@ -93,7 +92,6 @@ jobs:
   typecheck:
     needs: [bun_install]
     runs-on: ubuntu-latest
-    continue-on-error: true
     strategy:
       matrix:
         workspace:
@@ -112,12 +110,14 @@ jobs:
 
     - run: bun install --frozen-lockfile
     - run: bun run build
+    - name: Verify Vue typecheck detects template errors
+      if: matrix.workspace == 'frontend'
+      run: bun test scripts/vue-typecheck.test.mjs --timeout 60000
     - run: bun run --filter ${{ matrix.workspace }} typecheck
 
   check-dts:
     needs: [bun_install]
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
     - uses: actions/checkout@v7.0.0
       with:

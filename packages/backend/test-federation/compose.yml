@@ -84,6 +84,10 @@ services:
         target: /misskey/patches
         read_only: true
       - type: bind
+        source: ../../../.github/misskey/test.yml
+        target: /misskey/.config/test.yml
+        read_only: true
+      - type: bind
         source: ./certificates/rootCA.crt
         target: /usr/local/share/ca-certificates/rootCA.crt
         read_only: true

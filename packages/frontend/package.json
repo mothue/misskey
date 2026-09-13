@@ -13,7 +13,7 @@
 		"test-and-coverage": "bun run --bun vitest --run --coverage --globals --config vitest.config.unit.ts",
 		"test:e2e": "bun run --bun playwright test --config playwright.config.ts",
 		"test:browser": "bun run --bun vitest --run --globals --config vitest.config.browser.ts",
-		"typecheck": "bun run --bun vue-tsc --noEmit",
+		"typecheck": "bun ../../scripts/vue-typecheck.cjs --noEmit",
 		"eslint": "bunx --bun eslint --quiet \"src/**/*.{ts,vue}\"",
 		"lint": "bun run typecheck && bun run eslint"
 	},

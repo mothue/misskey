@@ -39,6 +39,9 @@ describe('API', () => {
 			socket.setEncoding('utf8');
 			socket.setTimeout(5000, () => socket.destroy(new Error('Timed out waiting for streaming upgrade response')));
 			socket.on('error', reject);
+			socket.on('close', () => {
+				if (!response.includes('\r\n\r\n')) reject(new Error('Streaming upgrade closed without HTTP response headers'));
+			});
 			socket.on('data', chunk => {
 				response += chunk;
 				if (response.includes('\r\n\r\n')) {
@@ -53,7 +56,7 @@ describe('API', () => {
 					'Connection: Upgrade',
 					'Upgrade: websocket',
 					'Sec-WebSocket-Version: 13',
-					'Sec-WebSocket-Key: dGVzdC13ZWJzb2NrZXQta2V5',
+					'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==',
 					`Authorization: Bearer ${token}`,
 					'',
 					'',
