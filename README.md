@@ -33,6 +33,21 @@ Thanks to [Docker](https://hub.docker.com/) for providing the container platform
 
 ---
 
+## Disclaimer
+
+This is a personal fork of Misskey, provided for reference and personal use only.
+It is **not officially supported** and may contain bugs or security vulnerabilities.
+
+If you choose to deploy or operate an instance based on this repository,
+you do so **entirely at your own risk**. The author(s) assume no
+responsibility or liability for any damages, data loss, security incidents,
+or other issues arising from its use or operation.
+
+This software is provided "AS IS" without warranty of any kind, as stated
+in the [LICENSE](./LICENSE).
+
+---
+
 <div align="center">
 	
 Support us with a ⭐ !
