@@ -634,6 +634,18 @@ export class MiMeta {
 	})
 	public notesPerOneAd: number;
 
+	@Column('integer', { default: 128 })
+	public deliverJobConcurrency: number;
+
+	@Column('integer', { default: 16 })
+	public inboxJobConcurrency: number;
+
+	@Column('integer', { default: 128 })
+	public deliverJobPerSec: number;
+
+	@Column('integer', { default: 32 })
+	public inboxJobPerSec: number;
+
 	@Column('boolean', {
 		default: true,
 	})

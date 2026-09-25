@@ -187,7 +187,7 @@ function runSpdx(base, repoRoot) {
 }
 
 /**
- * ja-JP.yml 以外の locale YAML 変更がないかを検査する。
+ * ja-JP.yml / en-US.yml 以外の locale YAML 変更がないかを検査する。
  *
  * @param {string[]} changedFiles
  * @returns {0 | 1}
@@ -196,7 +196,8 @@ function runLocaleSafety(changedFiles) {
 	const badLocales = changedFiles.filter((file) => (
 		file.startsWith('locales/') &&
 		file.endsWith('.yml') &&
-		file !== 'locales/ja-JP.yml'
+		file !== 'locales/ja-JP.yml' &&
+		file !== 'locales/en-US.yml'
 	));
 	if (badLocales.length === 0) {
 		console.log('Locale safety: PASS');

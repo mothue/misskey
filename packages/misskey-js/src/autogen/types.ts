@@ -9522,6 +9522,10 @@ export interface operations {
                         perUserListTimelineCacheMax: number;
                         enableReactionsBuffering: boolean;
                         notesPerOneAd: number;
+                        deliverJobConcurrency: number;
+                        inboxJobConcurrency: number;
+                        deliverJobPerSec: number;
+                        inboxJobPerSec: number;
                         backgroundImageUrl: string | null;
                         deeplAuthKey: string | null;
                         deeplIsPro: boolean;
@@ -13065,6 +13069,10 @@ export interface operations {
                     perUserListTimelineCacheMax?: number;
                     enableReactionsBuffering?: boolean;
                     notesPerOneAd?: number;
+                    deliverJobConcurrency?: number;
+                    inboxJobConcurrency?: number;
+                    deliverJobPerSec?: number;
+                    inboxJobPerSec?: number;
                     silencedHosts?: string[] | null;
                     mediaSilencedHosts?: string[] | null;
                     /** @description [Deprecated] Use "urlPreviewSummaryProxyUrl" instead. */

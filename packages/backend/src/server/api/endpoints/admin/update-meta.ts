@@ -164,6 +164,10 @@ export const paramDef = {
 		perUserListTimelineCacheMax: { type: 'integer' },
 		enableReactionsBuffering: { type: 'boolean' },
 		notesPerOneAd: { type: 'integer' },
+		deliverJobConcurrency: { type: 'integer', minimum: 1, maximum: 1024 },
+		inboxJobConcurrency: { type: 'integer', minimum: 1, maximum: 1024 },
+		deliverJobPerSec: { type: 'integer', minimum: 1, maximum: 4096 },
+		inboxJobPerSec: { type: 'integer', minimum: 1, maximum: 4096 },
 		silencedHosts: {
 			type: 'array',
 			nullable: true,
@@ -704,6 +708,19 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 
 			if (ps.notesPerOneAd !== undefined) {
 				set.notesPerOneAd = ps.notesPerOneAd;
+			}
+
+			if (ps.deliverJobConcurrency !== undefined) {
+				set.deliverJobConcurrency = ps.deliverJobConcurrency;
+			}
+			if (ps.inboxJobConcurrency !== undefined) {
+				set.inboxJobConcurrency = ps.inboxJobConcurrency;
+			}
+			if (ps.deliverJobPerSec !== undefined) {
+				set.deliverJobPerSec = ps.deliverJobPerSec;
+			}
+			if (ps.inboxJobPerSec !== undefined) {
+				set.inboxJobPerSec = ps.inboxJobPerSec;
 			}
 
 			if (ps.bannedEmailDomains !== undefined) {

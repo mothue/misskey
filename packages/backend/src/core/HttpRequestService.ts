@@ -14,6 +14,7 @@ import { HttpProxyAgent, HttpsProxyAgent } from 'hpagent';
 import { Inject, Injectable } from '@nestjs/common';
 import { DI } from '@/di-symbols.js';
 import type { Config } from '@/config.js';
+import type { MiMeta } from '@/models/Meta.js';
 import { StatusError } from '@/misc/status-error.js';
 import { bindThis } from '@/decorators.js';
 import { validateContentTypeSetAsActivityPub } from '@/core/activitypub/misc/validator.js';
@@ -152,6 +153,9 @@ export class HttpRequestService {
 	constructor(
 		@Inject(DI.config)
 		private config: Config,
+
+		@Inject(DI.meta)
+		private meta: Pick<MiMeta, 'deliverJobConcurrency'>,
 	) {
 		const cache = new CacheableLookup({
 			maxTtl: 3600,	// 1hours
@@ -174,7 +178,7 @@ export class HttpRequestService {
 
 		this.https = new HttpsRequestServiceAgent(config, agentOption);
 
-		const maxSockets = Math.max(256, config.deliverJobConcurrency ?? 128);
+		const maxSockets = Math.max(256, meta.deliverJobConcurrency);
 
 		this.httpAgent = config.proxy
 			? new HttpProxyAgent({

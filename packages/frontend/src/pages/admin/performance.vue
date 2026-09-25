@@ -62,6 +62,43 @@ SPDX-License-Identifier: AGPL-3.0-only
 					</div>
 				</SearchMarker>
 
+				<SearchMarker v-slot="slotProps" :keywords="['queue', 'job', 'deliver', 'inbox', 'concurrency', 'rate']">
+					<MkFolder :defaultOpen="slotProps.isParentOfTarget">
+						<template #icon><SearchIcon><i class="ti ti-activity"></i></SearchIcon></template>
+						<template #label><SearchLabel>{{ i18n.ts._serverSettings.jobQueueSettings }}</SearchLabel></template>
+						<template v-if="jobQueueForm.modified.value" #footer>
+							<MkFormFooter :form="jobQueueForm"/>
+						</template>
+
+						<div class="_gaps">
+							<MkInfo>{{ i18n.ts._serverSettings.jobQueueSettingsDescription }}</MkInfo>
+							<FormSplit :minWidth="250">
+								<MkInput v-model="jobQueueForm.state.inboxJobConcurrency" type="number" :min="1" :max="1024">
+									<template #label><SearchLabel>{{ i18n.ts._serverSettings.inboxJobConcurrency }}</SearchLabel><span v-if="jobQueueForm.modifiedStates.inboxJobConcurrency" class="_modified">{{ i18n.ts.modified }}</span></template>
+									<template #caption>{{ i18n.ts._serverSettings.inboxJobConcurrencyDescription }}</template>
+								</MkInput>
+								<MkInput v-model="jobQueueForm.state.inboxJobPerSec" type="number" :min="1" :max="4096">
+									<template #label><SearchLabel>{{ i18n.ts._serverSettings.inboxJobPerSec }}</SearchLabel><span v-if="jobQueueForm.modifiedStates.inboxJobPerSec" class="_modified">{{ i18n.ts.modified }}</span></template>
+									<template #caption>{{ i18n.ts._serverSettings.inboxJobPerSecDescription }}</template>
+								</MkInput>
+							</FormSplit>
+							<FormSplit :minWidth="250">
+								<MkInput v-model="jobQueueForm.state.deliverJobConcurrency" type="number" :min="1" :max="1024">
+									<template #label><SearchLabel>{{ i18n.ts._serverSettings.deliverJobConcurrency }}</SearchLabel><span v-if="jobQueueForm.modifiedStates.deliverJobConcurrency" class="_modified">{{ i18n.ts.modified }}</span></template>
+									<template #caption>{{ i18n.ts._serverSettings.deliverJobConcurrencyDescription }}</template>
+								</MkInput>
+								<MkInput v-model="jobQueueForm.state.deliverJobPerSec" type="number" :min="1" :max="4096">
+									<template #label><SearchLabel>{{ i18n.ts._serverSettings.deliverJobPerSec }}</SearchLabel><span v-if="jobQueueForm.modifiedStates.deliverJobPerSec" class="_modified">{{ i18n.ts.modified }}</span></template>
+									<template #caption>{{ i18n.ts._serverSettings.deliverJobPerSecDescription }}</template>
+								</MkInput>
+							</FormSplit>
+							<MkButton danger transparent small @click="resetJobQueueSettings">
+								<i class="ti ti-refresh"></i> {{ i18n.ts._serverSettings.resetJobQueueSettings }}
+							</MkButton>
+						</div>
+					</MkFolder>
+				</SearchMarker>
+
 				<SearchMarker>
 					<MkFolder :defaultOpen="true">
 						<template #icon><SearchIcon><i class="ti ti-bolt"></i></SearchIcon></template>
@@ -189,6 +226,9 @@ import MkInput from '@/components/MkInput.vue';
 import MkLink from '@/components/MkLink.vue';
 import { useForm } from '@/composables/use-form.js';
 import MkFormFooter from '@/components/MkFormFooter.vue';
+import MkInfo from '@/components/MkInfo.vue';
+import FormSplit from '@/components/form/split.vue';
+import MkButton from '@/components/MkButton.vue';
 
 const meta = await misskeyApi('admin/meta');
 
@@ -198,6 +238,32 @@ const enableChartsForRemoteUser = ref(meta.enableChartsForRemoteUser);
 const enableStatsForFederatedInstances = ref(meta.enableStatsForFederatedInstances);
 const enableChartsForFederatedInstances = ref(meta.enableChartsForFederatedInstances);
 const showRoleBadgesOfRemoteUsers = ref(meta.showRoleBadgesOfRemoteUsers);
+
+const jobQueueDefaults = {
+	inboxJobConcurrency: 16,
+	inboxJobPerSec: 32,
+	deliverJobConcurrency: 128,
+	deliverJobPerSec: 128,
+};
+
+const jobQueueForm = useForm({
+	inboxJobConcurrency: meta.inboxJobConcurrency ?? jobQueueDefaults.inboxJobConcurrency,
+	inboxJobPerSec: meta.inboxJobPerSec ?? jobQueueDefaults.inboxJobPerSec,
+	deliverJobConcurrency: meta.deliverJobConcurrency ?? jobQueueDefaults.deliverJobConcurrency,
+	deliverJobPerSec: meta.deliverJobPerSec ?? jobQueueDefaults.deliverJobPerSec,
+}, async (state) => {
+	await os.apiWithDialog('admin/update-meta', {
+		inboxJobConcurrency: state.inboxJobConcurrency,
+		inboxJobPerSec: state.inboxJobPerSec,
+		deliverJobConcurrency: state.deliverJobConcurrency,
+		deliverJobPerSec: state.deliverJobPerSec,
+	});
+	fetchInstance(true);
+});
+
+function resetJobQueueSettings(): void {
+	Object.assign(jobQueueForm.state, jobQueueDefaults);
+}
 
 function onChange_enableServerMachineStats(value: boolean) {
 	os.apiWithDialog('admin/update-meta', {

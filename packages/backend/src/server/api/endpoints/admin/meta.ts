@@ -423,6 +423,22 @@ export const meta = {
 				type: 'number',
 				optional: false, nullable: false,
 			},
+			deliverJobConcurrency: {
+				type: 'number',
+				optional: false, nullable: false,
+			},
+			inboxJobConcurrency: {
+				type: 'number',
+				optional: false, nullable: false,
+			},
+			deliverJobPerSec: {
+				type: 'number',
+				optional: false, nullable: false,
+			},
+			inboxJobPerSec: {
+				type: 'number',
+				optional: false, nullable: false,
+			},
 			backgroundImageUrl: {
 				type: 'string',
 				optional: false, nullable: true,
@@ -760,6 +776,10 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 				perUserListTimelineCacheMax: instance.perUserListTimelineCacheMax,
 				enableReactionsBuffering: instance.enableReactionsBuffering,
 				notesPerOneAd: instance.notesPerOneAd,
+				deliverJobConcurrency: instance.deliverJobConcurrency,
+				inboxJobConcurrency: instance.inboxJobConcurrency,
+				deliverJobPerSec: instance.deliverJobPerSec,
+				inboxJobPerSec: instance.inboxJobPerSec,
 				summalyProxy: instance.urlPreviewSummaryProxyUrl,
 				urlPreviewEnabled: instance.urlPreviewEnabled,
 				urlPreviewAllowRedirect: instance.urlPreviewAllowRedirect,

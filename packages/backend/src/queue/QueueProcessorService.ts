@@ -6,6 +6,7 @@
 import { Inject, Injectable, OnApplicationShutdown } from '@nestjs/common';
 import * as Bull from 'bullmq';
 import type { Config } from '@/config.js';
+import type { MiMeta } from '@/models/Meta.js';
 import { DI } from '@/di-symbols.js';
 import type Logger from '@/logger.js';
 import { bindThis } from '@/decorators.js';
@@ -88,10 +89,14 @@ export class QueueProcessorService implements OnApplicationShutdown {
 	private objectStorageQueueWorker: Bull.Worker;
 	private endedPollNotificationQueueWorker: Bull.Worker;
 	private postScheduledNoteQueueWorker: Bull.Worker;
+	private jobQueueSettingsIntervalId: NodeJS.Timeout;
 
 	constructor(
 		@Inject(DI.config)
 		private config: Config,
+
+		@Inject(DI.meta)
+		private meta: MiMeta,
 
 		private queueLoggerService: QueueLoggerService,
 		private telemetryService: TelemetryService,
@@ -278,9 +283,9 @@ export class QueueProcessorService implements OnApplicationShutdown {
 			}, {
 				...baseWorkerOptions(this.config, QUEUE.DELIVER),
 				autorun: false,
-				concurrency: this.config.deliverJobConcurrency ?? 128,
+				concurrency: this.meta.deliverJobConcurrency,
 				limiter: {
-					max: this.config.deliverJobPerSec ?? 128,
+					max: this.meta.deliverJobPerSec,
 					duration: 1000,
 				},
 				settings: {
@@ -317,9 +322,9 @@ export class QueueProcessorService implements OnApplicationShutdown {
 			}, {
 				...baseWorkerOptions(this.config, QUEUE.INBOX),
 				autorun: false,
-				concurrency: this.config.inboxJobConcurrency ?? 16,
+				concurrency: this.meta.inboxJobConcurrency,
 				limiter: {
-					max: this.config.inboxJobPerSec ?? 32,
+					max: this.meta.inboxJobPerSec,
 					duration: 1000,
 				},
 				settings: {
@@ -540,6 +545,22 @@ export class QueueProcessorService implements OnApplicationShutdown {
 			});
 		}
 		//#endregion
+
+		this.applyJobQueueSettings();
+		this.jobQueueSettingsIntervalId = setInterval(() => this.applyJobQueueSettings(), 1000);
+	}
+
+	@bindThis
+	private applyJobQueueSettings(): void {
+		const deliverConcurrency = this.meta.deliverJobConcurrency;
+		const inboxConcurrency = this.meta.inboxJobConcurrency;
+		const deliverPerSec = this.meta.deliverJobPerSec;
+		const inboxPerSec = this.meta.inboxJobPerSec;
+
+		this.deliverQueueWorker.concurrency = deliverConcurrency;
+		this.inboxQueueWorker.concurrency = inboxConcurrency;
+		this.deliverQueueWorker.opts.limiter = { max: deliverPerSec, duration: 1000 };
+		this.inboxQueueWorker.opts.limiter = { max: inboxPerSec, duration: 1000 };
 	}
 
 	@bindThis
@@ -576,6 +597,7 @@ export class QueueProcessorService implements OnApplicationShutdown {
 
 	@bindThis
 	public async onApplicationShutdown(signal?: string | undefined): Promise<void> {
+		clearInterval(this.jobQueueSettingsIntervalId);
 		await this.stop();
 	}
 }

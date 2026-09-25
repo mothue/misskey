@@ -102,11 +102,7 @@ type Source = {
 	outgoingAddress?: string;
 	outgoingAddressFamily?: 'ipv4' | 'ipv6' | 'dual';
 
-	deliverJobConcurrency?: number;
-	inboxJobConcurrency?: number;
 	relationshipJobConcurrency?: number;
-	deliverJobPerSec?: number;
-	inboxJobPerSec?: number;
 	relationshipJobPerSec?: number;
 	deliverJobMaxAttempts?: number;
 	inboxJobMaxAttempts?: number;
@@ -177,11 +173,7 @@ export type Config = {
 	id: string;
 	outgoingAddress: string | undefined;
 	outgoingAddressFamily: 'ipv4' | 'ipv6' | 'dual' | undefined;
-	deliverJobConcurrency: number | undefined;
-	inboxJobConcurrency: number | undefined;
 	relationshipJobConcurrency: number | undefined;
-	deliverJobPerSec: number | undefined;
-	inboxJobPerSec: number | undefined;
 	relationshipJobPerSec: number | undefined;
 	deliverJobMaxAttempts: number | undefined;
 	inboxJobMaxAttempts: number | undefined;
@@ -336,11 +328,7 @@ export function loadConfig(): Config {
 		threadPoolSize: config.threadPoolSize ?? 1,
 		outgoingAddress: config.outgoingAddress,
 		outgoingAddressFamily: config.outgoingAddressFamily,
-		deliverJobConcurrency: config.deliverJobConcurrency,
-		inboxJobConcurrency: config.inboxJobConcurrency,
 		relationshipJobConcurrency: config.relationshipJobConcurrency,
-		deliverJobPerSec: config.deliverJobPerSec,
-		inboxJobPerSec: config.inboxJobPerSec,
 		relationshipJobPerSec: config.relationshipJobPerSec,
 		deliverJobMaxAttempts: config.deliverJobMaxAttempts,
 		inboxJobMaxAttempts: config.inboxJobMaxAttempts,

@@ -6941,6 +6941,50 @@ export interface Locale extends ILocale {
          */
         "remoteNotesCleaningExpiryDaysForEachNotes": string;
         /**
+         * 連合ジョブの設定
+         */
+        "jobQueueSettings": string;
+        /**
+         * 連合ジョブ（Inbox / Deliver）の同時処理数と処理レートを調整します。
+         */
+        "jobQueueSettingsDescription": string;
+        /**
+         * Inbox同時処理数
+         */
+        "inboxJobConcurrency": string;
+        /**
+         * 増やすと受信処理が速くなりますが、CPU・メモリ・データベース負荷が増加します。
+         */
+        "inboxJobConcurrencyDescription": string;
+        /**
+         * Inbox処理レート
+         */
+        "inboxJobPerSec": string;
+        /**
+         * Inboxジョブを1秒あたりに処理する上限です。
+         */
+        "inboxJobPerSecDescription": string;
+        /**
+         * Deliver同時処理数
+         */
+        "deliverJobConcurrency": string;
+        /**
+         * 増やすと送信処理が速くなりますが、CPU・メモリ・ネットワーク負荷が増加します。
+         */
+        "deliverJobConcurrencyDescription": string;
+        /**
+         * Deliver処理レート
+         */
+        "deliverJobPerSec": string;
+        /**
+         * Deliverジョブを1秒あたりに処理する上限です。
+         */
+        "deliverJobPerSecDescription": string;
+        /**
+         * 初期値に戻す
+         */
+        "resetJobQueueSettings": string;
+        /**
          * 問い合わせ先URL
          */
         "inquiryUrl": string;

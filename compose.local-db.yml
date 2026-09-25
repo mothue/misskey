@@ -17,7 +17,7 @@ services:
     restart: always
     image: postgres:18-alpine
     ports:
-      - "5432:5432"
+      - "127.0.0.1:15432:5432"
     env_file:
       - .config/docker.env
     volumes:
@@ -37,4 +37,3 @@ services:
 #      - .config/meilisearch.env
 #    volumes:
 #      - ./meili_data:/meili_data
-
