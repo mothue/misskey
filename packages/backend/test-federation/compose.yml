@@ -13,7 +13,7 @@ services:
       "
 
   tester:
-    image: oven/bun:1.3.13
+    image: oven/bun:1.4.2
     depends_on:
       a.test:
         condition: service_healthy
@@ -100,7 +100,7 @@ services:
     command: bun run --filter backend test:fed
 
   daemon:
-    image: oven/bun:1.3.13
+    image: oven/bun:1.4.2
     depends_on:
       redis.test:
         condition: service_healthy

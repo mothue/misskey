@@ -1,5 +1,5 @@
 {
-  "lockfileVersion": 1,
+  "lockfileVersion": 3,
   "configVersion": 1,
   "workspaces": {
     "": {
@@ -574,8 +574,12 @@
     "chokidar": "5.0.0",
     "lodash": "4.18.1",
     "sharp": "0.35.4",
-    "undici@^6": "6.28.1",
-    "undici@^7": "7.29.1",
+    "undici@^6": {
+      ".": "6.28.1",
+    },
+    "undici@^7": {
+      ".": "7.29.1",
+    },
   },
   "packages": {
     "@adobe/css-tools": ["@adobe/css-tools@4.5.0", "https://npm.flatt.tech/@adobe/css-tools/-/css-tools-4.5.0.tgz", {}, "sha512-6OzddxPio9UiWTCemp4N8cYLV2ZN1ncRnV1cVGtve7dhPOtRkleRyx32GQCYSwDYgaHU3USMm84tNsvKzRCa1Q=="],
@@ -3527,8 +3531,6 @@
     "tsd": ["tsd@0.33.0", "https://npm.flatt.tech/tsd/-/tsd-0.33.0.tgz", { "dependencies": { "@tsd/typescript": "^5.9.2", "eslint-formatter-pretty": "^4.1.0", "globby": "^11.0.1", "jest-diff": "^29.0.3", "meow": "^9.0.0", "path-exists": "^4.0.0", "read-pkg-up": "^7.0.0" }, "bin": { "tsd": "dist/cli.js" } }, "sha512-/PQtykJFVw90QICG7zyPDMIyueOXKL7jOJVoX5pILnb3Ux+7QqynOxfVvarE+K+yi7BZyOSY4r+OZNWSWRiEwQ=="],
 
     "tslib": ["tslib@2.8.1", "https://npm.flatt.tech/tslib/-/tslib-2.8.1.tgz", {}, "sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w=="],
-
-    "tsx": ["tsx@4.23.13", "https://npm.flatt.tech/tsx/-/tsx-4.23.13.tgz", { "dependencies": { "esbuild": "~0.28.0" }, "optionalDependencies": { "fsevents": "~2.3.3" }, "bin": { "tsx": "dist/cli.mjs" } }, "sha512-BL5MGkRln6aDYhb0xbQlEAGw743BaZYWdbWtdJOBriYJboKgUUYCadFp2/FpBBZquBC/ezNBn7wMMPx7FDZUDw=="],
 
     "tsyringe": ["tsyringe@4.10.0", "https://npm.flatt.tech/tsyringe/-/tsyringe-4.10.0.tgz", { "dependencies": { "tslib": "^1.9.3" } }, "sha512-axr3IdNuVIxnaK5XGEUFTu3YmAQ6lllgrvqfEoR16g/HGnYY/6We4oWENtAnzK6/LpJ2ur9PAb80RBt7/U4ugw=="],
 

@@ -1,6 +1,6 @@
 # syntax = docker/dockerfile:1.23
 
-ARG BUN_VERSION=1.3.13
+ARG BUN_VERSION=1.4.2
 
 # build assets & compile TypeScript
 
