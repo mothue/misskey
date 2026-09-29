@@ -196,7 +196,7 @@
 			font-family: Hiragino Maru Gothic Pro, BIZ UDGothic, Roboto, HelveticaNeue, Arial, sans-serif;
 			line-height: 1.35;
 			border-radius: 99rem;
-			background-color: #b4e900;
+			background-color: #EC397C;
 			color: #192320;
 			border: none;
 			cursor: pointer;
@@ -204,7 +204,7 @@
 		}
 
 		button:hover {
-			background-color: #c6ff03;
+			background-color: #F06096;
 		}`);
 	}
 })();

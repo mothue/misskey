@@ -30,7 +30,7 @@ import { installShutdownSignalHandlers } from "./shutdown-handler.js";
 const logger = new Logger("core", "cyan");
 const bootLogger = logger.createSubLogger("boot", "magenta");
 
-const themeColor = chalk.hex("#86b300");
+const themeColor = chalk.hex("#EC397C");
 
 /** 起動時の案内を、選択されたログ形式に合わせて出力します。 */
 function greet(props: { version: string; format: LogFormat }) {

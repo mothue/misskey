@@ -16,7 +16,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 import { onMounted, onUnmounted, nextTick, useTemplateRef, ref } from 'vue';
 import { Chart } from 'chart.js';
 import { misskeyApi } from '@/utility/misskey-api.js';
-import { store } from '@/store.js';
+import { themeManager } from '@/theme.js';
 import { useChartTooltip } from '@/composables/use-chart-tooltip.js';
 import { alpha } from '@/utility/color.js';
 import { initChart } from '@/utility/init-chart.js';
@@ -75,7 +75,7 @@ async function renderChart() {
 
 	await nextTick();
 
-	const color = store.s.darkMode ? '#b4e900' : '#86b300';
+	const color = themeManager.currentCompiledTheme!.accent;
 
 	const getYYYYMMDD = (date: Date) => {
 		const y = date.getFullYear().toString().padStart(2, '0');

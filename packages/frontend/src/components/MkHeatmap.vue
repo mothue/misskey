@@ -17,7 +17,7 @@ import { onMounted, onUnmounted, nextTick, watch, useTemplateRef, ref } from 'vu
 import { Chart } from 'chart.js';
 import * as Misskey from 'misskey-js';
 import { misskeyApi } from '@/utility/misskey-api.js';
-import { store } from '@/store.js';
+import { themeManager } from '@/theme.js';
 import { useChartTooltip } from '@/composables/use-chart-tooltip.js';
 import { alpha } from '@/utility/color.js';
 import { initChart } from '@/utility/init-chart.js';
@@ -106,7 +106,7 @@ async function renderChart() {
 
 	await nextTick();
 
-	const color = store.s.darkMode ? '#b4e900' : '#86b300';
+	const color = themeManager.currentCompiledTheme!.accent;
 
 	// 視覚上の分かりやすさのため上から最も大きい3つの値の平均を最大値とする
 	const max = values.slice().sort((a, b) => b - a).slice(0, 3).reduce((a, b) => a + b, 0) / 3;
