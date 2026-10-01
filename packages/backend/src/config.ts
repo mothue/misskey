@@ -247,9 +247,9 @@ const projectBuiltDir = resolve(rootDir, 'built');
 
 const compiledConfigFilePathForTest = resolve(projectBuiltDir, '._config_.json');
 
-export const compiledConfigFilePath = fs.existsSync(compiledConfigFilePathForTest)
+export const compiledConfigFilePath = process.env.MISSKEY_CONFIG_JSON ?? (fs.existsSync(compiledConfigFilePathForTest)
 	? compiledConfigFilePathForTest
-	: resolve(projectBuiltDir, '.config.json');
+	: resolve(projectBuiltDir, '.config.json'));
 
 export function loadConfig(): Config {
 	if (!fs.existsSync(compiledConfigFilePath)) {
@@ -340,7 +340,7 @@ export function loadConfig(): Config {
 		userAgent: `Misskey/${version} (${config.url})`,
 		frontendManifestExists: frontendManifestExists,
 		frontendEmbedManifestExists: frontendEmbedManifestExists,
-		rootDir,
+		rootDir: process.env.MISSKEY_STORAGE_ROOT ?? rootDir,
 		perChannelMaxNoteCacheCount: config.perChannelMaxNoteCacheCount ?? 1000,
 		perUserNotificationsMaxCount: config.perUserNotificationsMaxCount ?? 500,
 		deactivateAntennaThreshold: config.deactivateAntennaThreshold ?? (1000 * 60 * 60 * 24 * 7),

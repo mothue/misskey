@@ -78,6 +78,7 @@ function backendDevServerPlugin(): Plugin {
 
 export default defineConfig((args) => {
 	const isWatchMode = args.watch != null && args.watch !== 'false';
+	const isBenchmark = args.benchmark != null && args.benchmark !== 'false';
 	const isE2E = args.e2e != null && args.e2e !== 'false';
 
 	// 通常のビルド時にexternalとするモジュール
@@ -132,7 +133,7 @@ export default defineConfig((args) => {
 		};
 	} else {
 		return {
-			input: [
+			input: isBenchmark ? ['./src/benchmark/entry.ts'] : [
 				'./src/boot/entry.ts',
 				'./src/boot/cli.ts',
 				'./src/config.ts',
@@ -152,7 +153,7 @@ export default defineConfig((args) => {
 				keepNames: true,
 				minify: !isWatchMode,
 				sourcemap: isWatchMode,
-				dir: './built',
+				dir: isBenchmark ? './built-benchmark' : './built',
 				cleanDir: !isWatchMode,
 				format: 'esm',
 			},

@@ -51,6 +51,9 @@
 		"undici@^6": "6.28.1"
 	},
 	"scripts": {
+		"bench": "bun scripts/benchmark.ts",
+		"bench:storage": "bun scripts/bench.mjs",
+		"bench:test": "bun test scripts/benchmarks/runner.test.ts scripts/bench.test.mjs",
 		"compile-config": "cd packages/backend && bun run compile-config",
 		"build-pre": "bun scripts/build-pre.mjs",
 		"build-assets": "bun ./scripts/build-assets.mjs",
@@ -90,6 +93,7 @@
 	"devDependencies": {
 		"@eslint/js": "9.39.5",
 		"@misskey-dev/eslint-plugin": "2.1.0",
+		"@types/bun": "1.4.2",
 		"@types/node": "26.4.0",
 		"@typescript-eslint/eslint-plugin": "8.68.0",
 		"@typescript-eslint/parser": "8.68.0",

@@ -86,3 +86,6 @@ vite.config.local-dev.ts.timestamp-*
 
 # LLM Context
 ai-context-files
+# Isolated backend benchmarks (credentials and results)
+/.benchmark/
+/packages/backend/built-benchmark/
