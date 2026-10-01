@@ -3,17 +3,18 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 import { expect, test } from 'bun:test';
-import { definition } from '../../fixtures/benchmark/definition.js';
-import { select } from './registry.js';
-import { phase, summary } from './runner.js';
+import { definition, timelineEligible } from '../../fixtures/benchmark/definition.js';
+import { scenarios, select } from './registry.js';
+import { phase, summary, appendProgress } from './runner.js';
 import type { BenchmarkScenario, PhaseResult } from './types.js';
 const fixture = definition('small').manifest;
 const options = { requests: 12, concurrency: 3, warmup: 2, timeout: 30 };
 
-test('default registry contains five scenarios and filters names', () => {
-	expect(select([]).map(item => item.name)).toEqual(['timeline/global', 'timeline/home', 'timeline/user', 'reaction/list', 'note/create']);
-	expect(select(['timeline'])).toHaveLength(3);
-	expect(select(['timeline/user', 'reaction'])).toHaveLength(2);
+test('default registry contains 22 scenarios and filters names', () => {
+	expect(select([])).toHaveLength(22);
+	expect(new Set(select([]).map(item => item.name)).size).toBe(22);
+	expect(select(['timeline'])).toHaveLength(8);
+	expect(select(['timeline/user', 'reaction'])).toHaveLength(5);
 	expect(select(['unknown'])).toHaveLength(0);
 });
 
@@ -110,8 +111,8 @@ test('controller CLI lists without Docker and rejects bad arguments', async () =
 		const [stdout, stderr, code] = await Promise.all([new Response(child.stdout).text(), new Response(child.stderr).text(), child.exited]);
 		return { stdout, stderr, code };
 	};
-	expect((await run('--list')).stdout.trim().split('\n')).toHaveLength(5);
-	expect((await run('timeline', '--list')).stdout.trim().split('\n')).toHaveLength(3);
+	expect((await run('--list')).stdout.trim().split('\n')).toHaveLength(22);
+	expect((await run('timeline', '--list')).stdout.trim().split('\n')).toHaveLength(8);
 	for (const args of [['missing', '--list'], ['--requests', '0'], ['--warmup', '-1'], ['--concurrency', '1.5'], ['--fixture', 'production']]) {
 		expect((await run(...args)).code).toBe(1);
 	}
@@ -149,7 +150,7 @@ test('separate generator transfers all samples and waits for controller acknowle
 	const directory = await mkdtemp(join(tmpdir(), 'misskey-benchmark-worker-'));
 	const manifestPath = join(directory, 'manifest.json');
 	await writeFile(manifestPath, JSON.stringify(fixture), { mode: 0o600 });
-	const server = Bun.serve({ port: 0, fetch() { return Response.json([{ id: fixture.noteIds[0], visibility: 'public' }]); } });
+	const server = Bun.serve({ port: 0, fetch() { return Response.json([{ id: fixture.reactionNotes[0], visibility: 'public' }]); } });
 	let child: ReturnType<typeof Bun.spawn> | undefined;
 	let result: any;
 	let warmup: any;
@@ -197,7 +198,7 @@ test('SIGINT during the generator phase barrier returns a partial result and lea
 	const directory = await mkdtemp(join(tmpdir(), 'misskey-benchmark-interrupt-'));
 	const manifestPath = join(directory, 'manifest.json');
 	await writeFile(manifestPath, JSON.stringify(fixture), { mode: 0o600 });
-	const server = Bun.serve({ port: 0, fetch() { return Response.json([{ id: fixture.noteIds[0], visibility: 'public' }]); } });
+	const server = Bun.serve({ port: 0, fetch() { return Response.json([{ id: fixture.reactionNotes[0], visibility: 'public' }]); } });
 	let child: ReturnType<typeof Bun.spawn> | undefined;
 	let result: any;
 	try {
@@ -235,7 +236,7 @@ test('abnormal generator exit leaves a usable partial checkpoint', async () => {
 	await writeFile(manifestPath, JSON.stringify(fixture), { mode: 0o600 });
 	const server = Bun.serve({ port: 0, async fetch() {
 		await Bun.sleep(2);
-		return Response.json([{ id: fixture.noteIds[0], visibility: 'public' }]);
+		return Response.json([{ id: fixture.reactionNotes[0], visibility: 'public' }]);
 	} });
 	let child: ReturnType<typeof Bun.spawn> | undefined;
 	let checkpoint: PhaseResult | undefined;
@@ -244,14 +245,121 @@ test('abnormal generator exit leaves a usable partial checkpoint', async () => {
 			JSON.stringify({ requests: 10000, concurrency: 4, warmup: 1, timeout: 1000 }), server.url.toString()], {
 			stdout: 'ignore', stderr: 'pipe', ipc(message: any) {
 				if (message.type === 'warmup') child!.send({ type: 'measure' });
-				if (message.type === 'progress') { checkpoint = message.result; child!.kill('SIGKILL'); }
+				if (message.type === 'progress') { checkpoint = appendProgress(checkpoint, message.result); if (checkpoint.completed === 5) child!.kill('SIGKILL'); }
 			},
 		});
 		expect(await child.exited).not.toBe(0);
 		expect(checkpoint).toBeDefined();
 		expect(checkpoint!.partial).toBe(true);
 		expect(summary(checkpoint!).counts.success).toBe(checkpoint!.completed);
-		expect(checkpoint!.completed).toBeLessThan(10000);
+		expect(checkpoint!.completed).toBeGreaterThanOrEqual(5);
+		expect(checkpoint!.completed).toBeLessThan(100);
 		expect((await fetch(server.url)).ok).toBe(true);
 	} finally { child?.kill(); server.stop(true); await rm(directory, { recursive: true }); }
 }, 10000);
+
+test('fixture v2 adds reproducible shapes, relations and mutation capacities', () => {
+	const extra = fixture.extension;
+	expect(fixture.version).toBe(2);
+	expect(extra.richNotes.some(note => note.replyId)).toBe(true);
+	expect(extra.richNotes.some(note => note.renoteId)).toBe(true);
+	expect(extra.richNotes.some(note => note.fileIds?.length)).toBe(true);
+	expect(extra.richNotes.some(note => note.hasPoll)).toBe(true);
+	expect(extra.lists).toHaveLength(128);
+	expect(extra.notificationReaders).toHaveLength(2048);
+	expect(extra.heavyUsers).toHaveLength(32);
+	for (const user of extra.heavyUsers) {
+		expect(user.mutes.length / user.follows.length).toBe(0.875);
+		for (const blocked of user.blocks) expect(user.follows).not.toContain(blocked);
+	}
+	for (const scenario of scenarios.filter(item => item.capacity)) expect(scenario.capacity!(fixture)).toBeGreaterThanOrEqual(1100);
+	const pairs = extra.followTargets.map(pair => `${pair.userId}/${pair.targetId}`);
+	expect(new Set(pairs).size).toBe(pairs.length);
+	for (const pair of extra.followTargets) {
+		const user = fixture.users.find(user => user.id === pair.userId)!;
+		const target = fixture.users.find(user => user.id === pair.targetId)!;
+		expect([...user.follows, ...user.mutes, ...user.blocks, user.id]).not.toContain(pair.targetId);
+		expect(target.blocks).not.toContain(pair.userId);
+	}
+});
+
+test('write scenarios allocate unique targets across warmup and concurrent measurement and accept empty HTTP bodies', async () => {
+	const seen: string[] = [];
+	const server = Bun.serve({ port: 0, async fetch(request) {
+		const body = await request.json() as { i: string; noteId?: string; userId?: string };
+		seen.push(`${body.i}/${body.noteId ?? body.userId ?? ''}`);
+		return new URL(request.url).pathname.endsWith('following/create') ? Response.json({ id: body.userId, isFollowing: true }) : new Response(null, { status: 204 });
+	} });
+	try {
+		for (const scenario of scenarios.filter(item => item.write && item.name !== 'note/create')) {
+			seen.length = 0;
+			const options = { requests: 10, concurrency: 3, warmup: 3, timeout: 1000 };
+			const warmup = await phase(scenario, fixture, server.url.origin, options, 3, 'warmup', new AbortController().signal);
+			const measure = await phase(scenario, fixture, server.url.origin, options, 10, 'measure', new AbortController().signal);
+			expect(warmup.samples.success).toHaveLength(3);
+			expect(measure.samples.success).toHaveLength(10);
+			expect(new Set(seen).size).toBe(13);
+		}
+	} finally { server.stop(true); }
+});
+
+test('thread viewers rotate only through accounts that can see the parent', async () => {
+	const parentAuthor = fixture.extension.plainNote.userId;
+	const parentBlocks = fixture.users.find(user => user.id === parentAuthor)!.blocks;
+	const viewers = new Set<string>();
+	const server = Bun.serve({ port: 0, async fetch(request) {
+		const { i } = await request.json() as { i: string };
+		const user = fixture.users.find(user => user.token === i)!;
+		expect([...user.mutes, ...user.blocks]).not.toContain(parentAuthor);
+		expect(parentBlocks).not.toContain(user.id);
+		viewers.add(user.id);
+		return Response.json([{ id: fixture.extension.richNotes[0].id, replyId: fixture.extension.threadRoot }]);
+	} });
+	try {
+		const scenario = scenarios.find(item => item.name === 'note/thread')!;
+		const result = await phase(scenario, fixture, server.url.origin, { ...options, concurrency: 1, timeout: 1000 }, 128, 'measure', new AbortController().signal);
+		expect(result.samples.success).toHaveLength(128);
+		expect(viewers.size).toBeGreaterThan(100);
+	} finally { server.stop(true); }
+});
+
+test('progress streams samples once and retains failures with linear transfer volume', async () => {
+	let checkpoint: PhaseResult | undefined;
+	let transferred = 0;
+	const scenario: BenchmarkScenario = { name: 'mock', request: async () => Response.json({}), validate() {} };
+	const result = await phase(scenario, fixture, '', { ...options, timeout: 1000 }, 10000, 'measure', new AbortController().signal, delta => {
+		transferred += Object.values(delta.samples).reduce((sum, values) => sum + values.length, 0);
+		checkpoint = appendProgress(checkpoint, delta);
+	});
+	expect(transferred).toBe(10000);
+	expect(checkpoint!.samples).toEqual(result.samples);
+	expect(checkpoint!.completed).toBe(10000);
+});
+
+test('timeline fixture and validation reject unsubscribed channels, remote authors and noneligible replies', () => {
+	const user = fixture.users[0];
+	const context = { manifest: fixture, url: '', workerId: 0, requestIndex: 0, phase: 'measure' as const, signal: new AbortController().signal };
+	const local = scenarios.find(item => item.name === 'timeline/local')!;
+	const channel = { id: fixture.extension.channelNotes[0], userId: user.id, visibility: 'public', channelId: fixture.extension.channelId };
+	expect(timelineEligible(channel as any, 'local')).toBe(false);
+	expect(() => local.validate([channel], context)).toThrow();
+	expect(() => local.validate([{ id: fixture.reactionNotes[0], visibility: 'public', user: { host: 'remote.example' } }], context)).toThrow();
+	const reply = fixture.extension.richNotes.find(note => note.replyId && note.replyUserId !== note.userId)!;
+	expect(timelineEligible(reply, 'user')).toBe(false);
+	expect(timelineEligible(reply, 'home', reply.replyUserId)).toBe(true);
+	expect(timelineEligible(reply, 'home', 'unrelated')).toBe(false);
+	expect(() => local.validate([reply], context)).toThrow();
+});
+
+test('write expectations and reaction capacities belong to scenarios; notifications reject reordered or missing pages', () => {
+	for (const scenario of scenarios.filter(item => item.write)) expect(scenario.writeDelta).toBeDefined();
+	const changed = { ...fixture, extension: { ...fixture.extension, reactionCreateTargets: fixture.extension.reactionCreateTargets.slice(0, 3) } };
+	expect(scenarios.find(item => item.name === 'reaction/create')!.capacity!(changed)).toBe(3);
+	expect(scenarios.find(item => item.name === 'reaction/delete')!.capacity!(changed)).toBe(fixture.extension.reactionDeleteTargets.length);
+	const context = { manifest: fixture, url: '', workerId: 0, requestIndex: 0, phase: 'measure' as const, signal: new AbortController().signal };
+	const notifications = scenarios.find(item => item.name === 'notification/list')!;
+	const expected = fixture.extension.notifications.filter(item => item.userId === fixture.users[0].id).toReversed().slice(0, 20).map(item => ({ ...item, user: { id: item.notifierId }, note: { id: item.noteId } }));
+	expect(() => notifications.validate(expected, context)).not.toThrow();
+	expect(() => notifications.validate(expected.toReversed(), context)).toThrow();
+	expect(() => notifications.validate(expected.slice(1), context)).toThrow();
+});

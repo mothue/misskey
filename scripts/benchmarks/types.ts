@@ -4,9 +4,14 @@
  */
 import type { Manifest } from '../../fixtures/benchmark/definition.js';
 export interface LoadOptions { requests: number; concurrency: number; warmup: number; timeout: number; }
-export interface RequestContext { manifest: Manifest; url: string; workerId: number; requestIndex: number; phase: 'warmup' | 'measure'; signal: AbortSignal; }
+export interface RequestContext { manifest: Manifest; url: string; workerId: number; requestIndex: number; phase: 'warmup' | 'measure'; signal: AbortSignal; requestOrdinal?: number; }
 export interface BenchmarkScenario {
 	name: string;
+	shape?: Record<string, string | number>;
+	write?: boolean;
+	writeDelta?: { field: 'notes' | 'reactions' | 'follows' | 'readMarkers'; direction: 1 | -1 };
+	emptyResponse?: boolean;
+	capacity?(manifest: Manifest): number;
 	setup?(manifest: Manifest): Promise<void>;
 	request(context: RequestContext): Promise<Response>;
 	validate(body: unknown, context: RequestContext): void;

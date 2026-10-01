@@ -17,7 +17,7 @@ export async function phase(scenario: BenchmarkScenario, manifest: Manifest, url
 		while (!stop.aborted && next < count) {
 			const requestIndex = next++;
 			const signal = AbortSignal.any([stop, AbortSignal.timeout(options.timeout)]);
-			const context = { manifest, url, workerId, requestIndex, phase: name, signal };
+			const context = { manifest, url, workerId, requestIndex, phase: name, signal, requestOrdinal: requestIndex + (name === 'measure' ? options.warmup : 0) };
 			let outcome: Outcome = 'success';
 			const requestStart = performance.now();
 			let elapsed = 0;
@@ -35,13 +35,15 @@ export async function phase(scenario: BenchmarkScenario, manifest: Manifest, url
 				outcome = signal.aborted && !stop.aborted ? 'timeout' : 'transportError';
 			}
 			if (outcome === 'success') {
-				try { scenario.validate(JSON.parse(new TextDecoder().decode(bytes)), context); } catch { outcome = 'validationFailure'; }
+				try { scenario.validate(scenario.emptyResponse && bytes?.byteLength === 0 ? null : JSON.parse(new TextDecoder().decode(bytes)), context); } catch { outcome = 'validationFailure'; }
 			}
 			if (outcome === 'success') success[successful++] = elapsed;
 			else samples[outcome].push(elapsed);
 			result.completed++;
-			if (result.completed % 100 === 0 && progress) {
-				progress({ ...result, elapsedMs: performance.now() - start, samples: { ...samples, success: Array.from(success.subarray(0, successful)) }, partial: true });
+			if (progress) {
+				// Stream each completion once: linear IPC cost and no 100-request crash blind spot.
+				const delta = Object.fromEntries(outcomes.map(item => [item, item === outcome ? [elapsed] : []])) as Record<Outcome, number[]>;
+				progress({ ...result, elapsedMs: performance.now() - start, samples: delta, httpStatuses: outcome === 'httpError' ? { ...result.httpStatuses } : {}, partial: true });
 			}
 		}
 	}));
@@ -61,4 +63,13 @@ export function summary(result: PhaseResult) {
 		latencyMs: { min: sorted[0] ?? null, p50: percentile(0.5), p90: percentile(0.9), p95: percentile(0.95), p99: percentile(0.99), max: sorted.at(-1) ?? null },
 		partial: result.partial,
 	};
+}
+
+export function appendProgress(previous: PhaseResult | undefined, delta: PhaseResult): PhaseResult {
+	const result = previous ?? { ...delta, samples: Object.fromEntries(outcomes.map(item => [item, [] as number[]])) as Record<Outcome, number[]> };
+	for (const item of outcomes) result.samples[item].push(...delta.samples[item]);
+	result.completed = delta.completed;
+	result.elapsedMs = delta.elapsedMs;
+	Object.assign(result.httpStatuses, delta.httpStatuses);
+	return result;
 }

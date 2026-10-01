@@ -257,7 +257,8 @@ export const entities = [
 	...charts,
 ];
 
-const log = process.env.NODE_ENV !== 'production';
+// Benchmarks use the production query-logging path without enabling production side effects.
+const log = process.env.NODE_ENV !== 'production' && process.env.NODE_ENV !== 'benchmark';
 
 export function createPostgresDataSource(config: Config) {
 	return new DataSource({

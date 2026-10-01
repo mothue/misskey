@@ -7,7 +7,7 @@ import { post, viewer } from './scenarios.js';
 import type { BenchmarkScenario, RequestContext } from './types.js';
 const text = (context: RequestContext) => `benchmark ${context.phase} ${context.requestIndex} `.padEnd(256, 'x');
 export const benchmark: BenchmarkScenario = {
-	name: 'note/create',
+	name: 'note/create', write: true, writeDelta: { field: 'notes', direction: 1 },
 	request: context => post(context, 'notes/create', { text: text(context), visibility: 'public', localOnly: true }),
 	validate(body, context) {
 		const note = (body as { createdNote?: { id: string; userId: string; text: string } })?.createdNote;

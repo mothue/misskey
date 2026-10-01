@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 import assert from 'node:assert/strict';
+import { timelineEligible } from '../../fixtures/benchmark/definition.js';
 import type { Manifest } from '../../fixtures/benchmark/definition.js';
 import type { BenchmarkScenario, RequestContext } from './types.js';
 export function viewer(context: RequestContext) {
@@ -23,6 +24,7 @@ export function rows(body: unknown): Record<string, any>[] {
 	for (const row of body) assert(row && typeof row.id === 'string', 'missing item id');
 	return body;
 }
+const richSets = new WeakMap<Manifest, Map<string, Manifest['extension']['richNotes'][number]>>();
 const noteSets = new WeakMap<Manifest, Set<string>>();
 export function timeline(name: string, endpoint: string, mode: 'global' | 'home' | 'user'): BenchmarkScenario {
 	return {
@@ -31,8 +33,18 @@ export function timeline(name: string, endpoint: string, mode: 'global' | 'home'
 		validate(body, context) {
 			let ids = noteSets.get(context.manifest);
 			if (!ids) { ids = new Set(context.manifest.noteIds); noteSets.set(context.manifest, ids); }
+			let rich = richSets.get(context.manifest);
+			if (!rich) { rich = new Map(context.manifest.extension.richNotes.map(note => [note.id, note])); richSets.set(context.manifest, rich); }
 			for (const note of rows(body)) {
 				assert(ids.has(note.id), 'unknown fixture note');
+				assert(!note.channelId && !note.channel && !context.manifest.extension.channelNotes.includes(note.id), 'unexpected channel note');
+				assert(!note.user?.host, 'unexpected remote author');
+				const original = rich.get(note.id);
+				const candidate = { ...note, replyUserId: note.reply?.userId ?? original?.replyUserId, replyId: note.replyId ?? original?.replyId } as any;
+				if (name === 'timeline/local') assert(timelineEligible(candidate, 'local'), 'unexpected local reply');
+				// users/notes DB fallback currently returns replies even with withReplies=false.
+				// Do not reject API-valid replies; the seeded userTimeline cache excludes them.
+				if (mode === 'home') assert(timelineEligible(candidate, 'home', viewer(context).id), 'unexpected home reply');
 				if (mode === 'global') assert.equal(note.visibility, 'public');
 				if (mode === 'user') {
 					assert.equal(note.userId, target(context).id);

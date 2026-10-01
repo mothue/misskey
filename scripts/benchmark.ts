@@ -11,8 +11,9 @@ import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { waitForHealth } from './benchmarks/lifecycle.js';
 import { select } from './benchmarks/registry.js';
-import { summary, outcomes } from './benchmarks/runner.js';
+import { summary, outcomes, appendProgress } from './benchmarks/runner.js';
 import type { LoadOptions, PhaseResult, WorkerResult } from './benchmarks/types.js';
+import { notificationStreamId } from '../fixtures/benchmark/definition.js';
 import type { FixtureSize, Manifest } from '../fixtures/benchmark/definition.js';
 
 const root = resolve(import.meta.dirname, '..');
@@ -102,21 +103,25 @@ const runtime = resolve(backend, 'built-benchmark/entry.js');
 
 async function restore(manifest: Manifest, dump: string, redisSnapshot: { key: string; value: string; ttl: number }[]) {
 	await rm(resolve(work, 'storage'), { recursive: true, force: true });
-	await mkdir(resolve(work, 'storage'), { recursive: true, mode: 0o700 });
+	await cp(resolve(work, 'storage-baseline'), resolve(work, 'storage'), { recursive: true });
 	await resetDb();
 	await dockerExec('postgres', ['pg_restore', '-U', 'benchmark', '-d', 'misskey-benchmark', '--exit-on-error'], new Uint8Array(await readFile(dump)));
 	const redis = await redisClient();
 	try {
 		await redis.flushall();
 		for (const item of redisSnapshot) await redis.restore(item.key, item.ttl > 0 ? item.ttl : 0, Buffer.from(item.value, 'base64'));
+		const markerCheck = redis.pipeline();
+		const expectedMarkers = manifest.users.map(user => {
+			const notifications = manifest.extension.notifications.filter(item => item.userId === user.id);
+			assert.equal(notifications.length, 32, 'fixture notification count');
+			markerCheck.get(`benchmark:latestReadNotification:${user.id}`);
+			return notificationStreamId(notifications[15].id);
+		});
+		const markers = await markerCheck.exec();
+		assert(markers && markers.every(([error, value]: [Error | null, unknown], index: number) => !error && value === expectedMarkers[index]), 'restored notification read markers');
 	} finally { await redis.quit(); }
 	const counts = (await dbQuery('SELECT (SELECT count(*) FROM "user")::int AS users, (SELECT count(*) FROM note)::int AS notes, (SELECT count(*) FROM following)::int AS follows, (SELECT count(*) FROM muting)::int AS mutes, (SELECT count(*) FROM blocking)::int AS blocks, (SELECT count(*) FROM note_reaction)::int AS reactions'))[0];
-	assert.equal(counts.users, manifest.counts.users);
-	assert.equal(counts.notes, manifest.counts.notes);
-	assert.equal(counts.follows, manifest.counts.users / 4 * (manifest.counts.follows * 3 + manifest.counts.heavyFollows));
-	assert.equal(counts.mutes, manifest.counts.users * 2);
-	assert.equal(counts.blocks, manifest.counts.users);
-	assert.equal(counts.reactions, manifest.counts.reactionNotes * manifest.counts.reactionsPerNote);
+	for (const key of ['users', 'notes', 'follows', 'mutes', 'blocks', 'reactions']) assert.equal(counts[key], manifest.stats[key], `restored ${key}`);
 	return counts;
 }
 
@@ -148,9 +153,19 @@ async function launchServer(logPath: string) {
 
 function backlog(queues: any[]) { return queues.reduce((total, queue) => total + (queue.counts.waiting ?? queue.counts.wait ?? 0) + (queue.counts.active ?? 0) + (queue.counts.prioritized ?? 0), 0); }
 
+async function state() {
+	const counts = (await dbQuery('SELECT (SELECT count(*) FROM note)::int AS notes, (SELECT count(*) FROM following)::int AS follows, (SELECT count(*) FROM note_reaction)::int AS reactions'))[0];
+	const redis = await redisClient();
+	try {
+		counts.readMarkers = (await redis.keys('benchmark:latestReadNotification:*')).length;
+		counts.reactionBuffers = (await redis.keys('benchmark:reactionsBufferDeltas:*')).length;
+	} finally { await redis.quit(); }
+	return counts;
+}
+
 const report: any = { schemaVersion: 1, startedAt: new Date().toISOString(), loadModel: 'closed', options,
 	environment: { bun: Bun.version, os: process.platform, osRelease: release(), arch: process.arch, cpu: cpus()[0]?.model, serverWorkers: 1, generatorProcesses: 1,
-		rateLimit: 'disabled (NODE_ENV=benchmark)', outbound: 'HTTP transport disabled, no remote users, localOnly posts, no mail/webhook fixtures', search: 'sqlLike', daemons: false }, results: [] };
+		rateLimit: 'disabled (NODE_ENV=benchmark)', outbound: 'HTTP transport disabled, no remote users, localOnly posts, no mail/webhook fixtures', search: 'sqlLike', daemons: false, fanoutTimeline: true, fanoutDbFallback: true, reactionsBuffering: true }, results: [] };
 await mkdir(work, { recursive: true, mode: 0o700 });
 const reportPath = resolve(work, `results/${Date.now()}.json`);
 await mkdir(resolve(work, 'results'), { recursive: true, mode: 0o700 });
@@ -171,6 +186,7 @@ try {
 	await command([process.execPath, 'run', 'build-pre']);
 	await command([process.execPath, 'run', '--filter', 'i18n', '--filter', 'misskey-reversi', '--filter', 'misskey-js', 'build']);
 	await command([process.execPath, 'run', '--bun', 'rolldown', '-c', '--benchmark'], { cwd: backend });
+	await rm(resolve(work, 'storage'), { recursive: true, force: true });
 	await mkdir(resolve(work, 'storage'), { recursive: true });
 	await writeFile(configPath, JSON.stringify({ url: 'http://127.0.0.1:61912', port: 61912, id: 'aidx',
 		db: { host: '127.0.0.1', port: 54412, db: 'misskey-benchmark', user: 'benchmark', pass: 'benchmark-local-only' },
@@ -189,18 +205,29 @@ try {
 	const manifestPath = resolve(work, 'manifest.json');
 	await command([process.execPath, runtime, 'seed', values.fixture!, manifestPath], { cwd: backend, env: runtimeEnv });
 	const manifest: Manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
-	const { users: _users, reactionNotes: _notes, noteIds: _noteIds, ...fixtureMetadata } = manifest;
-	report.fixture = { ...fixtureMetadata, userDistribution: { normalUsers: 0.75, heavyUsers: 0.25, remoteUsers: 0, attachments: 0 } };
+	for (const scenario of scenarios) if (scenario.capacity) assert(options.requests + options.warmup <= scenario.capacity(manifest), `${scenario.name}: warmup + requests exceed fixture capacity ${scenario.capacity(manifest)}`);
+	await rm(resolve(work, 'storage-baseline'), { recursive: true, force: true });
+	await cp(resolve(work, 'storage'), resolve(work, 'storage-baseline'), { recursive: true });
+	const { extension: _extension, users: _users, reactionNotes: _notes, noteIds: _noteIds, ...fixtureMetadata } = manifest;
+	report.fixture = { ...fixtureMetadata, capacity: { deleteNotes: manifest.extension.deleteNotes.length, followPairs: manifest.extension.followTargets.length, notificationReaders: manifest.extension.notificationReaders.length }, coreUserDistribution: { normalUsers: 0.75, heavyUsers: 0.25, remoteUsers: 0, attachments: manifest.stats.files } };
 	report.environment.git = (await command(['git', 'rev-parse', 'HEAD'])).toString().trim();
 	report.environment.dirty = Boolean((await command(['git', 'status', '--porcelain'])).toString().trim());
 	report.environment.postgres = (await dbQuery('SELECT version() AS version'))[0].version;
 	const redisForSnapshot = await redisClient();
-	const redisSnapshot = [];
+	const redisSnapshot: { key: string; value: string; ttl: number }[] = [];
 	try {
 		report.environment.redis = (await redisForSnapshot.info('server')).match(/redis_version:([^\r\n]+)/)?.[1];
-		for (const key of await redisForSnapshot.keys('*')) {
-			const value = await redisForSnapshot.dumpBuffer(key);
-			if (value) redisSnapshot.push({ key, value: value.toString('base64'), ttl: await redisForSnapshot.pttl(key) });
+		const keys: string[] = (await redisForSnapshot.keys('*')).sort();
+		for (let offset = 0; offset < keys.length; offset += 256) {
+			const batch = keys.slice(offset, offset + 256);
+			const pipeline = redisForSnapshot.pipeline();
+			for (const key of batch) { pipeline.dumpBuffer(key); pipeline.pttl(key); }
+			const results = await pipeline.exec();
+			assert(results && results.every(([error]: [Error | null, unknown]) => !error), 'Redis snapshot failed');
+			batch.forEach((key, index) => {
+				const value = results[index * 2][1] as Buffer | null;
+				if (value) redisSnapshot.push({ key, value: value.toString('base64'), ttl: Number(results[index * 2 + 1][1]) });
+			});
 		}
 	} finally { await redisForSnapshot.quit(); }
 	await writeFile(resolve(work, 'redis-snapshot.json'), JSON.stringify(redisSnapshot), { mode: 0o600 });
@@ -210,7 +237,7 @@ try {
 	for (const scenario of scenarios) {
 		if (abort.signal.aborted || restoreFailed) { report.results.push({ scenario: scenario.name, status: 'skipped' }); failed = true; continue; }
 		console.log(`\n${scenario.name} (closed)`);
-		const entry: any = { scenario: scenario.name, status: 'incomplete' };
+		const entry: any = { scenario: scenario.name, shape: scenario.shape, status: 'incomplete' };
 		report.results.push(entry);
 		try { entry.restoredCounts = await restore(manifest, dump, redisSnapshot); } catch (error) {
 			restoreFailed = true; failed = true; entry.failure = 'fixture restore failed'; console.error(error); await save(); continue;
@@ -220,10 +247,10 @@ try {
 		try {
 			server = await launchServer(resolve(work, `${scenario.name.replace('/', '-')}.log`));
 			// Preflight verifies authentication and each response using the same validation as the load generator.
-			entry.preflightRequests = scenario.name === 'note/create' ? 0 : manifest.users.length;
+			entry.preflightRequests = scenario.write ? 0 : manifest.users.length;
 			for (let index = 0; index < manifest.users.length; index++) {
 				const context = { manifest, url: 'http://127.0.0.1:61912', workerId: 0, requestIndex: index, phase: 'warmup' as const, signal: AbortSignal.timeout(options.timeout) };
-				if (scenario.name === 'note/create') break;
+				if (scenario.write) break;
 				const res = await scenario.request(context);
 				const bytes = await res.arrayBuffer();
 				assert(res.ok, `preflight HTTP ${res.status}`);
@@ -234,18 +261,19 @@ try {
 			let phaseFailure = false;
 			worker = Bun.spawn([process.execPath, resolve(root, 'scripts/benchmark-worker.ts'), scenario.name, manifestPath, JSON.stringify(options)], {
 				cwd: root, stdout: 'ignore', stderr: 'inherit', ipc(message: any) {
-					if (message.type === 'progress') entry.partialMeasure = message.result;
+					if (message.type === 'progress') entry.partialMeasure = appendProgress(entry.partialMeasure, message.result);
 					if (message.type === 'fatal') phaseFailure = true;
 					if (message.type === 'result') { workerResult = message.result; worker!.send({ type: 'ack' }); }
 					if (message.type === 'warmup') {
 						entry.warmup = message.result;
 						warmupTask = (async () => {
 							assert(!message.result.partial && outcomes.filter(item => item !== 'success').every(item => !message.result.samples[item].length), 'warmup failed');
-							if (scenario.name === 'note/create') {
+							if (scenario.write) {
 								const start = Date.now();
 								while (backlog(await server!.queues()) > 0) { assert(Date.now() - start < 60000, 'queue warmup drain timeout'); await sleep(100); }
 								entry.queueStart = await server!.queues();
-								entry.notesStart = (await dbQuery('SELECT count(*)::int AS count FROM note'))[0].count;
+								entry.stateStart = await state();
+								entry.notesStart = entry.stateStart.notes;
 							}
 							worker!.send({ type: 'measure' });
 						})().catch(error => { entry.failure = error instanceof Error ? error.message : 'warmup failed'; phaseFailure = true; worker!.send({ type: 'stop' }); });
@@ -271,13 +299,20 @@ try {
 				console.table(Object.fromEntries(Object.entries(entry.summary.latencyMs).map(([key, value]) => [key, typeof value === 'number' ? `${value.toFixed(2)} ms` : 'n/a'])));
 				console.log('outcomes', entry.summary.counts);
 			}
-			if (scenario.name === 'note/create') {
+			if (scenario.write) {
 				entry.queueEnd = await server.queues();
-				entry.notesEnd = (await dbQuery('SELECT count(*)::int AS count FROM note'))[0].count;
+				entry.stateEnd = await state();
+				entry.notesEnd = entry.stateEnd.notes;
 				await sleep(5000);
 				entry.queueAfter5s = await server.queues();
+				entry.stateAfter5s = await state();
+				if (entry.status === 'pass') {
+					assert(scenario.writeDelta, 'write scenario must declare its expected state delta');
+					const { field, direction } = scenario.writeDelta;
+					assert.equal(entry.stateAfter5s[field] - entry.stateStart[field], options.requests * direction, 'write state increment mismatch');
+				}
 			}
-		} catch (error) { entry.failure = error instanceof Error ? error.message : 'scenario failed'; console.error(entry.failure); } finally {
+		} catch (error) { entry.status = 'incomplete'; entry.failure = error instanceof Error ? error.message : 'scenario failed'; console.error(entry.failure); } finally {
 			if (worker) await stop(worker);
 			if (server) await stop(server.child);
 		}
