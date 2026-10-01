@@ -32,16 +32,18 @@ export class InternalStorageService {
 	}
 
 	@bindThis
-	public saveFromPath(key: string, srcPath: string) {
+	public async saveFromPath(key: string, srcPath: string) {
 		fs.mkdirSync(this.path, { recursive: true });
-		fs.copyFileSync(srcPath, this.resolvePath(key));
+		// Preserve filesystem clone/copy acceleration (Bun.write(file, file) regresses on APFS).
+		await fs.promises.copyFile(srcPath, this.resolvePath(key));
 		return `${this.config.url}/files/${key}`;
 	}
 
 	@bindThis
-	public saveFromBuffer(key: string, data: Buffer) {
+	public async saveFromBuffer(key: string, data: Buffer) {
 		fs.mkdirSync(this.path, { recursive: true });
-		fs.writeFileSync(this.resolvePath(key), data);
+		// Async fs writes outperform Bun.write for large buffers on the benchmark filesystem.
+		await fs.promises.writeFile(this.resolvePath(key), data);
 		return `${this.config.url}/files/${key}`;
 	}
 

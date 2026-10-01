@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-import * as crypto from 'node:crypto';
+import * as Bun from 'bun';
 import { URL } from 'node:url';
 import { promisify } from 'node:util';
 import { Inject, Injectable } from '@nestjs/common';
@@ -67,7 +67,7 @@ export class ApRequestCreator {
 	}
 
 	static createDigest(body: string) {
-		return `SHA-256=${crypto.createHash('sha256').update(body).digest('base64')}`;
+		return `SHA-256=${new Bun.CryptoHasher('sha256').update(body).digest('base64')}`;
 	}
 
 	static async createSignedGet(args: { key: PrivateKey, url: string, additionalHeaders: Record<string, string> }): Promise<Signed> {

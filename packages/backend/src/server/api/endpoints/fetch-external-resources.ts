@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-import { createHash } from 'crypto';
+import * as Bun from 'bun';
 import ms from 'ms';
 import { Injectable } from '@nestjs/common';
 import { Endpoint } from '@/server/api/endpoint-base.js';
@@ -71,7 +71,7 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 				throw new ApiError(meta.errors.invalidSchema);
 			}
 
-			const resHash = createHash('sha512').update(res.data.replace(/\r\n/g, '\n')).digest('hex');
+			const resHash = new Bun.CryptoHasher('sha512').update(res.data.replace(/\r\n/g, '\n')).digest('hex');
 			if (resHash !== ps.hash) {
 				throw new ApiError(meta.errors.hashUnmached);
 			}

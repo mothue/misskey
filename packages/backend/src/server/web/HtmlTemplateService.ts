@@ -4,7 +4,7 @@
  */
 
 import { resolve } from 'node:path';
-import { promises as fsp } from 'node:fs';
+import * as Bun from 'bun';
 import { languages } from 'i18n/const';
 import { Injectable, Inject } from '@nestjs/common';
 import { DI } from '@/di-symbols.js';
@@ -105,22 +105,22 @@ export class HtmlTemplateService {
 			embedBootJs,
 			embedBootCss,
 		] = await Promise.all([
-			fsp.readFile(resolve(this.frontendViteBuilt, 'loader/boot.js'), 'utf-8').catch(() => null),
-			fsp.readFile(resolve(this.frontendViteBuilt, 'loader/style.css'), 'utf-8').catch(() => null),
-			fsp.readFile(resolve(this.frontendEmbedViteBuilt, 'loader/boot.js'), 'utf-8').catch(() => null),
-			fsp.readFile(resolve(this.frontendEmbedViteBuilt, 'loader/style.css'), 'utf-8').catch(() => null),
+			Bun.file(resolve(this.frontendViteBuilt, 'loader/boot.js')).text().catch(() => null),
+			Bun.file(resolve(this.frontendViteBuilt, 'loader/style.css')).text().catch(() => null),
+			Bun.file(resolve(this.frontendEmbedViteBuilt, 'loader/boot.js')).text().catch(() => null),
+			Bun.file(resolve(this.frontendEmbedViteBuilt, 'loader/style.css')).text().catch(() => null),
 		]);
 
 		let feViteManifest: Manifest | null = null;
 		let embedFeViteManifest: Manifest | null = null;
 
 		if (this.config.frontendManifestExists) {
-			const manifestContent = await fsp.readFile(resolve(this.frontendViteBuilt, 'manifest.json'), 'utf-8').catch(() => null);
+			const manifestContent = await Bun.file(resolve(this.frontendViteBuilt, 'manifest.json')).text().catch(() => null);
 			feViteManifest = manifestContent ? JSON.parse(manifestContent) : null;
 		}
 
 		if (this.config.frontendEmbedManifestExists) {
-			const manifestContent = await fsp.readFile(resolve(this.frontendEmbedViteBuilt, 'manifest.json'), 'utf-8').catch(() => null);
+			const manifestContent = await Bun.file(resolve(this.frontendEmbedViteBuilt, 'manifest.json')).text().catch(() => null);
 			embedFeViteManifest = manifestContent ? JSON.parse(manifestContent) : null;
 		}
 

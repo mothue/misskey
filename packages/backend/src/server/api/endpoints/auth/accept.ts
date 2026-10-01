@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-import * as crypto from 'node:crypto';
+import * as Bun from 'bun';
 import { Inject, Injectable } from '@nestjs/common';
 import { Endpoint } from '@/server/api/endpoint-base.js';
 import type { AuthSessionsRepository, AppsRepository, AccessTokensRepository } from '@/models/_.js';
@@ -73,7 +73,7 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 				const app = await this.appsRepository.findOneByOrFail({ id: session.appId });
 
 				// Generate Hash
-				const sha256 = crypto.createHash('sha256');
+				const sha256 = new Bun.CryptoHasher('sha256');
 				sha256.update(accessToken + app.secret);
 				const hash = sha256.digest('hex');
 

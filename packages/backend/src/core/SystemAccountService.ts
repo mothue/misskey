@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-import { randomUUID } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import type { OnApplicationShutdown } from '@nestjs/common';
 import { DataSource, IsNull } from 'typeorm';
@@ -122,7 +121,7 @@ export class SystemAccountService implements OnApplicationShutdown {
 		username: MiUser['username'];
 		name?: MiUser['name'];
 	}): Promise<MiLocalUser> {
-		const password = randomUUID();
+		const password = globalThis.crypto.randomUUID();
 
 		// Generate hash of password
 		const salt = await bcrypt.genSalt(8);

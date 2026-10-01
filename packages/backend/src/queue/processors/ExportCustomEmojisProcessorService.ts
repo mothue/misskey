@@ -4,6 +4,7 @@
  */
 
 import * as fs from 'node:fs';
+import * as Bun from 'bun';
 import { Inject, Injectable } from '@nestjs/common';
 import { IsNull } from 'typeorm';
 import { format as dateFormat } from 'date-fns';
@@ -58,7 +59,7 @@ export class ExportCustomEmojisProcessorService {
 
 		const metaPath = path + '/meta.json';
 
-		fs.writeFileSync(metaPath, '', 'utf-8');
+		await Bun.write(metaPath, '', { createPath: false });
 
 		const metaStream = fs.createWriteStream(metaPath, { flags: 'a' });
 
@@ -94,7 +95,7 @@ export class ExportCustomEmojisProcessorService {
 			const ext = mime.extension(emoji.type ?? 'image/png');
 			const fileName = emoji.name + (ext ? '.' + ext : '');
 			const emojiPath = path + '/' + fileName;
-			fs.writeFileSync(emojiPath, '', 'binary');
+			await Bun.write(emojiPath, '', { createPath: false });
 			let downloaded = false;
 
 			try {

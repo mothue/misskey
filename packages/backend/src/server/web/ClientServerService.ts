@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-import { randomUUID } from 'node:crypto';
 import { resolve } from 'node:path';
 import { Inject, Injectable } from '@nestjs/common';
 import ms from 'ms';
@@ -932,7 +931,7 @@ export class ClientServerService {
 		});
 
 		fastify.setErrorHandler<FastifyError>(async (error, request, reply) => {
-			const errId = randomUUID();
+			const errId = globalThis.crypto.randomUUID();
 			this.clientLoggerService.logger.error(`Internal error occurred in ${request.routeOptions.url}: ${error.message}`, {
 				path: request.routeOptions.url,
 				params: request.params,

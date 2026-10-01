@@ -83,6 +83,7 @@ export default defineConfig((args) => {
 
 	// 通常のビルド時にexternalとするモジュール
 	const externalModules: ExternalOption = [
+		'bun',
 		/^slacc-.*/,
 		'class-transformer',
 		'class-validator',

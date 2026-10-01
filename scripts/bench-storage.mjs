@@ -6,7 +6,7 @@
 import assert from 'node:assert/strict';
 import { Buffer } from 'node:buffer';
 import { copyFileSync, mkdirSync, writeFileSync } from 'node:fs';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { copyFile, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import * as Bun from 'bun';
 
@@ -14,7 +14,7 @@ export function storageCases(directory) {
 	const cases = [];
 	for (const size of [4096, 1048576, 16777216]) {
 		for (const operation of ['buffer', 'copy']) {
-			for (const variant of ['fs-sync', 'bun-write']) {
+			for (const variant of ['fs-sync', 'fs-async', 'bun-write']) {
 				cases.push({
 					name: `storage/${operation}/${size / 1024}KiB/${variant}`,
 					async setup() {
@@ -31,7 +31,10 @@ export function storageCases(directory) {
 								async run() {
 									mkdirSync(files, { recursive: true });
 									if (variant === 'bun-write') await Bun.write(dest, operation === 'buffer' ? data : Bun.file(source));
-									else if (operation === 'buffer') writeFileSync(dest, data);
+									else if (variant === 'fs-async') {
+										if (operation === 'buffer') await writeFile(dest, data);
+										else await copyFile(source, dest);
+									} else if (operation === 'buffer') writeFileSync(dest, data);
 									else copyFileSync(source, dest);
 								},
 								async verify() { assert.deepEqual(await readFile(dest), data); },

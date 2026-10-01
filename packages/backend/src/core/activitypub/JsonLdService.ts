@@ -4,6 +4,7 @@
  */
 
 import * as crypto from 'node:crypto';
+import * as Bun from 'bun';
 import { promisify } from 'node:util';
 import { Injectable } from '@nestjs/common';
 import { RsaKeyPair } from 'slacc';
@@ -235,7 +236,7 @@ export class JsonLd {
 
 	@bindThis
 	public sha256(data: string): string {
-		const hash = crypto.createHash('sha256');
+		const hash = new Bun.CryptoHasher('sha256');
 		hash.update(data);
 		return hash.digest('hex');
 	}

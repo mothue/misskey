@@ -4,6 +4,7 @@
  */
 
 import * as fs from 'node:fs';
+import * as Bun from 'bun';
 import { Inject, Injectable } from '@nestjs/common';
 import { IsNull } from 'typeorm';
 import { DI } from '@/di-symbols.js';
@@ -93,7 +94,7 @@ export class ImportCustomEmojisProcessorService {
 		const destPath = path + '/emojis.zip';
 
 		try {
-			fs.writeFileSync(destPath, '', 'binary');
+			await Bun.write(destPath, '', { createPath: false });
 			await this.downloadService.downloadUrl(file.url, destPath);
 		} catch (e) { // TODO: 何度か再試行
 			if (e instanceof Error || typeof e === 'string') {
@@ -121,7 +122,7 @@ export class ImportCustomEmojisProcessorService {
 				if (!metaFound) {
 					throw new Error('meta.json not found in the archive');
 				}
-				const metaRaw = await fs.promises.readFile(metaPath, 'utf-8');
+				const metaRaw = await Bun.file(metaPath).text();
 				const meta = JSON.parse(metaRaw);
 
 				// 取り込むべきファイル名 → それを参照するレコード

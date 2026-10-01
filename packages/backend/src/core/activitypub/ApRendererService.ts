@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-import { createPublicKey, randomUUID } from 'node:crypto';
+import { createPublicKey } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import { In } from 'typeorm';
 import * as mfm from 'mfm-js';
@@ -682,7 +682,7 @@ export class ApRendererService {
 	@bindThis
 	public addContext<T extends IObject>(x: T): T & { '@context': any; id: string; } {
 		if (typeof x === 'object' && x.id == null) {
-			x.id = `${this.config.url}/${randomUUID()}`;
+			x.id = `${this.config.url}/${globalThis.crypto.randomUUID()}`;
 		}
 
 		return Object.assign({ '@context': CONTEXT }, x as T & { id: string });

@@ -4,6 +4,7 @@
  */
 
 import * as fs from 'node:fs';
+import * as Bun from 'bun';
 import * as stream from 'node:stream/promises';
 import { Inject, Injectable } from '@nestjs/common';
 import chalk from 'chalk';
@@ -124,7 +125,7 @@ export class DownloadService {
 			// write content at URL to temp file
 			await this.downloadUrl(url, path);
 
-			const text = await fs.promises.readFile(path, 'utf8');
+			const text = await Bun.file(path).text();
 
 			return text;
 		} finally {

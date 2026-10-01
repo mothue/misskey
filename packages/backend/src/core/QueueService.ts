@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-import { randomUUID } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import { MetricsTime, type JobType } from 'bullmq';
 import type { IActivity } from '@/core/activitypub/type.js';
@@ -671,7 +670,7 @@ export class QueueService {
 			to: webhook.url,
 			secret: webhook.secret,
 			createdAt: Date.now(),
-			eventId: randomUUID(),
+			eventId: globalThis.crypto.randomUUID(),
 		};
 
 		return this.userWebhookDeliverQueue.add(webhook.id, data, {
@@ -708,7 +707,7 @@ export class QueueService {
 			to: webhook.url,
 			secret: webhook.secret,
 			createdAt: Date.now(),
-			eventId: randomUUID(),
+			eventId: globalThis.crypto.randomUUID(),
 		};
 
 		return this.systemWebhookDeliverQueue.add(webhook.id, data, {

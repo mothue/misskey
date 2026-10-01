@@ -12,6 +12,7 @@ import process from 'node:process';
 import { parseArgs } from 'node:util';
 import * as Bun from 'bun';
 import { storageCases } from './bench-storage.mjs';
+import { runtimeCases } from './bench-runtime.mjs';
 
 const { values, positionals } = parseArgs({
 	args: process.argv.slice(2), allowPositionals: true,
@@ -29,7 +30,7 @@ const iterations = Number(values.iterations);
 const warmup = Number(values.warmup);
 assert(Number.isSafeInteger(iterations) && iterations >= 2, 'iterations must be an integer >= 2');
 assert(Number.isSafeInteger(warmup) && warmup >= 0, 'warmup must be an integer >= 0');
-const cases = storageCases(values.directory);
+const cases = [...storageCases(values.directory), ...runtimeCases(values.directory)];
 assert.equal(new Set(cases.map((item) => item.name)).size, cases.length, 'duplicate benchmark names');
 const selected = cases.filter((item) => positionals.length
 	? positionals.some((filter) => item.name.includes(filter))

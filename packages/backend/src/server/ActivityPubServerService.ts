@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-import * as crypto from 'node:crypto';
+import * as Bun from 'bun';
 import { IncomingMessage } from 'node:http';
 import { Inject, Injectable } from '@nestjs/common';
 import fastifyAccepts from '@fastify/accepts';
@@ -165,7 +165,7 @@ export class ActivityPubServerService {
 				return;
 			}
 
-			const hash = crypto.createHash('sha256').update(request.rawBody).digest('base64');
+			const hash = new Bun.CryptoHasher('sha256').update(request.rawBody).digest('base64');
 
 			if (hash !== digestValue) {
 				// Invalid digest

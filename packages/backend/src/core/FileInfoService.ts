@@ -4,9 +4,8 @@
  */
 
 import * as fs from 'node:fs';
-import * as crypto from 'node:crypto';
+import * as Bun from 'bun';
 import { join } from 'node:path';
-import * as stream from 'node:stream/promises';
 import { Injectable } from '@nestjs/common';
 import { FSWatcher } from 'chokidar';
 import * as fileType from 'file-type';
@@ -261,7 +260,7 @@ export class FileInfoService {
 						}
 						targetIndex = nextIndex;
 						nextIndex += index; // fibonacci sequence によってフレーム数制限を掛ける
-						frameBuffers.push(await fs.promises.readFile(path));
+						frameBuffers.push(Buffer.from(await Bun.file(path).arrayBuffer()));
 					} finally {
 						fs.promises.unlink(path);
 					}
@@ -443,7 +442,7 @@ export class FileInfoService {
 		try {
 			const size = await this.getFileSize(path);
 			if (size > 1 * 1024 * 1024) return false;
-			const buffer = await fs.promises.readFile(path);
+			const buffer = Buffer.from(await Bun.file(path).arrayBuffer());
 			return isSvg(buffer.toString());
 		} catch {
 			return false;
@@ -463,9 +462,9 @@ export class FileInfoService {
 	 */
 	@bindThis
 	private async calcHash(path: string): Promise<string> {
-		const hash = crypto.createHash('md5').setEncoding('hex');
-		await stream.pipeline(fs.createReadStream(path), hash);
-		return hash.read();
+		const hash = new Bun.CryptoHasher('md5');
+		for await (const chunk of Bun.file(path).stream()) hash.update(chunk);
+		return hash.digest('hex');
 	}
 
 	/**

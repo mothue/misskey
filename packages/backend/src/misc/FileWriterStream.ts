@@ -4,7 +4,7 @@
  */
 
 import * as fs from 'node:fs/promises';
-import { WritableStream } from 'node:stream/web';
+import * as Bun from 'bun';
 import type { PathLike } from 'node:fs';
 
 /**
@@ -13,25 +13,27 @@ import type { PathLike } from 'node:fs';
 export class FileWriterStream extends WritableStream<Uint8Array> {
 	constructor(path: PathLike) {
 		let file: fs.FileHandle | null = null;
+		let sink: Bun.FileSink | null = null;
+		const close = async () => {
+			try { await sink?.end(); } finally { sink = null; await file?.close(); file = null; }
+		};
 
 		super({
 			start: async () => {
+				// Keep O_APPEND and PathLike support; writer(path) starts at offset zero.
 				file = await fs.open(path, 'a');
+				try { sink = Bun.file(file.fd).writer(); } catch (error) { await close(); throw error; }
 			},
-			write: async (chunk, controller) => {
-				if (file === null) {
-					controller.error();
-					throw new Error();
-				}
-
-				await file.write(chunk);
+			write: async (chunk) => {
+				if (!sink) throw new Error('file writer is closed');
+				try {
+					await sink.write(chunk);
+					// Await flushing to preserve backpressure and surface filesystem failures.
+					await sink.flush();
+				} catch (error) { await close(); throw error; }
 			},
-			close: async () => {
-				await file?.close();
-			},
-			abort: async () => {
-				await file?.close();
-			},
+			close,
+			abort: close,
 		});
 	}
 }

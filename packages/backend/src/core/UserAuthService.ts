@@ -6,7 +6,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import * as Redis from 'ioredis';
 import * as OTPAuth from 'otpauth';
-import { createHash } from 'node:crypto';
+import * as Bun from 'bun';
 import { DI } from '@/di-symbols.js';
 import type { MiUserProfile, UserProfilesRepository, UsersRepository } from '@/models/_.js';
 import { bindThis } from '@/decorators.js';
@@ -74,7 +74,7 @@ export class UserAuthService {
 		// 4. totp.counter() を用い、同じタイムスタンプから基準ステップを取得
 		const currentStep = totp.counter({ timestamp: now });
 		const step = currentStep + delta;
-		const secretFingerprint = createHash('sha256')
+		const secretFingerprint = new Bun.CryptoHasher('sha256')
 			.update(twoFactorSecret ?? '')
 			.digest('base64url');
 

@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-import { randomUUID } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as stream from 'node:stream/promises';
 import { Inject, Injectable } from '@nestjs/common';
@@ -109,7 +108,7 @@ export class ApiCallService implements OnApplicationShutdown {
 		if (err instanceof ApiError || err instanceof AuthenticationError) {
 			throw err;
 		} else {
-			const errId = randomUUID();
+			const errId = globalThis.crypto.randomUUID();
 			this.logger.write({
 				level: 'error',
 				eventName: 'api.endpoint.failed',

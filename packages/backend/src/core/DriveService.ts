@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-import { randomUUID } from 'node:crypto';
 import * as fs from 'node:fs';
 import { Inject, Injectable } from '@nestjs/common';
 import sharp from 'sharp';
@@ -175,7 +174,7 @@ export class DriveService {
 
 			// for original
 			const prefix = this.meta.objectStoragePrefix ? `${this.meta.objectStoragePrefix}/` : '';
-			const key = `${prefix}${randomUUID()}${ext}`;
+			const key = `${prefix}${globalThis.crypto.randomUUID()}${ext}`;
 			const url = `${ baseUrl }/${ key }`;
 
 			// for alts
@@ -192,7 +191,7 @@ export class DriveService {
 			];
 
 			if (alts.webpublic) {
-				webpublicKey = `${prefix}webpublic-${randomUUID()}.${alts.webpublic.ext}`;
+				webpublicKey = `${prefix}webpublic-${globalThis.crypto.randomUUID()}.${alts.webpublic.ext}`;
 				webpublicUrl = `${ baseUrl }/${ webpublicKey }`;
 
 				this.registerLogger.info(`uploading webpublic: ${webpublicKey}`);
@@ -200,7 +199,7 @@ export class DriveService {
 			}
 
 			if (alts.thumbnail) {
-				thumbnailKey = `${prefix}thumbnail-${randomUUID()}.${alts.thumbnail.ext}`;
+				thumbnailKey = `${prefix}thumbnail-${globalThis.crypto.randomUUID()}.${alts.thumbnail.ext}`;
 				thumbnailUrl = `${ baseUrl }/${ thumbnailKey }`;
 
 				this.registerLogger.info(`uploading thumbnail: ${thumbnailKey}`);
@@ -225,22 +224,22 @@ export class DriveService {
 
 			return await this.driveFilesRepository.insertOne(file);
 		} else { // use internal storage
-			const accessKey = randomUUID();
-			const thumbnailAccessKey = 'thumbnail-' + randomUUID();
-			const webpublicAccessKey = 'webpublic-' + randomUUID();
+			const accessKey = globalThis.crypto.randomUUID();
+			const thumbnailAccessKey = 'thumbnail-' + globalThis.crypto.randomUUID();
+			const webpublicAccessKey = 'webpublic-' + globalThis.crypto.randomUUID();
 
-			const url = this.internalStorageService.saveFromPath(accessKey, path);
+			const url = await this.internalStorageService.saveFromPath(accessKey, path);
 
 			let thumbnailUrl: string | null = null;
 			let webpublicUrl: string | null = null;
 
 			if (alts.thumbnail) {
-				thumbnailUrl = this.internalStorageService.saveFromBuffer(thumbnailAccessKey, alts.thumbnail.data);
+				thumbnailUrl = await this.internalStorageService.saveFromBuffer(thumbnailAccessKey, alts.thumbnail.data);
 				this.registerLogger.info(`thumbnail stored: ${thumbnailAccessKey}`);
 			}
 
 			if (alts.webpublic) {
-				webpublicUrl = this.internalStorageService.saveFromBuffer(webpublicAccessKey, alts.webpublic.data);
+				webpublicUrl = await this.internalStorageService.saveFromBuffer(webpublicAccessKey, alts.webpublic.data);
 				this.registerLogger.info(`web stored: ${webpublicAccessKey}`);
 			}
 
@@ -621,9 +620,9 @@ export class DriveService {
 			if (isLink) {
 				file.url = url;
 				// ローカルプロキシ用
-				file.accessKey = randomUUID();
-				file.thumbnailAccessKey = 'thumbnail-' + randomUUID();
-				file.webpublicAccessKey = 'webpublic-' + randomUUID();
+				file.accessKey = globalThis.crypto.randomUUID();
+				file.thumbnailAccessKey = 'thumbnail-' + globalThis.crypto.randomUUID();
+				file.webpublicAccessKey = 'webpublic-' + globalThis.crypto.randomUUID();
 			}
 		}
 
@@ -821,9 +820,9 @@ export class DriveService {
 				webpublicUrl: null,
 				storedInternal: false,
 				// ローカルプロキシ用
-				accessKey: randomUUID(),
-				thumbnailAccessKey: 'thumbnail-' + randomUUID(),
-				webpublicAccessKey: 'webpublic-' + randomUUID(),
+				accessKey: globalThis.crypto.randomUUID(),
+				thumbnailAccessKey: 'thumbnail-' + globalThis.crypto.randomUUID(),
+				webpublicAccessKey: 'webpublic-' + globalThis.crypto.randomUUID(),
 			});
 		} else {
 			await this.driveFilesRepository.delete(file.id);

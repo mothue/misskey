@@ -25,7 +25,7 @@ async function run(args, env = {}) {
 test('lists only matching cases and rejects an unknown filter', async () => {
 	const list = await run(['storage/copy/4KiB', '--list']);
 	expect(list.code).toBe(0);
-	expect(list.stdout.trim().split('\n')).toEqual(['storage/copy/4KiB/fs-sync', 'storage/copy/4KiB/bun-write']);
+	expect(list.stdout.trim().split('\n')).toEqual(['storage/copy/4KiB/fs-sync', 'storage/copy/4KiB/fs-async', 'storage/copy/4KiB/bun-write']);
 	expect((await run(['does-not-exist', '--list'])).code).not.toBe(0);
 });
 
@@ -36,7 +36,7 @@ test('storage smoke run saves raw measurements and cleans temporary fixtures', a
 		const result = await run(['storage/buffer/4KiB', '--iterations', '2', '--warmup', '0', '--directory', root, '--output', output]);
 		expect(result.code).toBe(0);
 		const report = JSON.parse(await readFile(output, 'utf8'));
-		expect(report.results).toHaveLength(2);
+		expect(report.results).toHaveLength(3);
 		for (const item of report.results) {
 			expect(item.status).toBe('pass');
 			expect(item.samplesMs).toHaveLength(2);

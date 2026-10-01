@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-import { randomUUID } from 'crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import { IsNull } from 'typeorm';
 import { DI } from '@/di-symbols.js';
@@ -107,7 +106,7 @@ export class SigninWithPasskeyApiService {
 
 		// Initiate Passkey Auth challenge with context
 		if (!credential) {
-			const context = randomUUID();
+			const context = globalThis.crypto.randomUUID();
 			this.logger.info(`Initiate Passkey challenge: context: ${context}`);
 			const authChallengeOptions = {
 				option: await this.webAuthnService.initiateSignInWithPasskeyAuthentication(context),
@@ -118,7 +117,7 @@ export class SigninWithPasskeyApiService {
 		}
 
 		const context = body.context;
-		// context is always generated server-side by randomUUID(), so reject anything that is not a UUID
+		// context is always generated server-side by globalThis.crypto.randomUUID(), so reject anything that is not a UUID
 		if (!context || typeof context !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(context)) {
 			// If try Authentication without valid context
 			return error(400, {
