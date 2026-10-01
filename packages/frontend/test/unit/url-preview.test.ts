@@ -3,14 +3,24 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-import { describe, test, assert, afterEach } from 'vitest';
+import { describe, test, assert, afterEach, beforeEach, vi } from 'vitest';
 import { render, cleanup, type RenderResult } from '@testing-library/vue';
+import { PropertySymbol } from 'happy-dom';
+import type { Document as HappyDOMDocument } from 'happy-dom';
 import type { SummalyResult } from '@misskey-dev/summaly';
 import { components } from '@/components/index.js';
 import { directives } from '@/directives/index.js';
 import MkUrlPreview from '@/components/MkUrlPreview.vue';
 
 describe('MkUrlPreview', () => {
+	let domErrors: unknown[][];
+	beforeEach(() => {
+		domErrors = [];
+		// Vitest replaces the global console after Happy DOM captures its own.
+		const domWindow = (document as unknown as HappyDOMDocument)[PropertySymbol.window];
+		vi.spyOn(domWindow.console, 'error').mockImplementation((...args: unknown[]) => { domErrors.push(args); });
+	});
+
 	const renderPreviewBy = async (summary: Partial<SummalyResult>): Promise<RenderResult> => {
 		if (!summary.player) {
 			summary.player = {
@@ -54,12 +64,25 @@ describe('MkUrlPreview', () => {
 		// Wait for the click event to be fired
 		await Promise.resolve();
 
+		assert.isNotEmpty(domErrors, 'unit iframe loading should be disabled');
 		return mkUrlPreview.container.querySelector('iframe');
 	};
 
 	afterEach(() => {
 		fetchMock.resetMocks();
 		cleanup();
+		// Assert known test-DOM limitations instead of hiding arbitrary errors.
+		for (const args of domErrors) {
+			assert.strictEqual(args.length, 1);
+			const error = args[0];
+			if (typeof error === 'string') {
+				assert.strictEqual(error, "Error while parsing the 'sandbox' attribute: 'allow-storage-access-by-user-activation' is an invalid sandbox flag.");
+			} else {
+				assert.instanceOf(error, DOMException);
+				assert.strictEqual((error as DOMException).name, 'NotSupportedError');
+				assert.match((error as DOMException).message, /^Failed to load iframe page "https:\/\/(?:example\.local|platform\.twitter\.com)\/.*"\. Iframe page loading is disabled\.$/);
+			}
+		}
 	});
 
 	test('Should render the description', async () => {
