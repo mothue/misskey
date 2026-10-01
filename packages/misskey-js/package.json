@@ -21,13 +21,13 @@
 	"scripts": {
 		"build": "bun ./build.js",
 		"watch": "bun ./build.js --watch",
-		"tsd": "bun run --bun tsd",
+		"tsd": "bun ./node_modules/tsd/dist/cli.js",
 		"api": "bun run --bun api-extractor run --local --verbose",
 		"api-prod": "bun run --bun api-extractor run --verbose",
 		"eslint": "bunx --bun eslint './**/*.{js,jsx,ts,tsx}'",
 		"typecheck": "bun run --bun tsc --noEmit",
 		"lint": "bun run typecheck && bunx --bun eslint",
-		"vitest": "bun run --bun vitest run --coverage",
+		"vitest": "bun ./node_modules/vitest/vitest.mjs run --coverage",
 		"test": "bun run vitest && bun run tsd",
 		"update-autogen-code": "bun run --filter misskey-js-type-generator generate && cp -R generator/built/autogen/. src/autogen"
 	},

@@ -74,7 +74,7 @@
 		"e2e-dev-container": "cp ./.config/playwright-devcontainer.yml ./.config/test.yml && bun run start-server-and-test start:test http://localhost:61812 \"bun run --filter frontend test:e2e\"",
 		"backend-unit-test": "cd packages/backend && bun run test",
 		"backend-unit-test-and-coverage": "cd packages/backend && bun run test-and-coverage",
-		"test": "bun run --workspaces --if-present test",
+		"test": "bun run build-pre && bun run --filter i18n --filter misskey-reversi --filter misskey-js build && bun run --workspaces --if-present test",
 		"test-and-coverage": "bun run --workspaces --if-present test-and-coverage",
 		"clean": "bun scripts/clean.mjs",
 		"clean-all": "bun scripts/clean-all.mjs",
