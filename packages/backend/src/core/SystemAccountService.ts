@@ -136,6 +136,10 @@ export class SystemAccountService implements OnApplicationShutdown {
 
 		// Start transaction
 		await this.db.transaction(async transactionalEntityManager => {
+			// HTTP and queue contexts (and clustered processes) have separate
+			// fetching maps. Serialize creation in PostgreSQL before checking
+			// existence; transaction-scoped locks also release on rollback.
+			await transactionalEntityManager.query('SELECT pg_advisory_xact_lock($1, $2)', [0x4d4b5341, SYSTEM_ACCOUNT_TYPES.indexOf(type)]);
 			const exist = await transactionalEntityManager.findOneBy(MiUser, {
 				usernameLower: extra.username.toLowerCase(),
 				host: IsNull(),
