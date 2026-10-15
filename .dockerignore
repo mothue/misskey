@@ -11,6 +11,9 @@ db/
 .devcontainer/compose.yml
 node_modules/
 packages/*/node_modules
+packages-private/*/node_modules
+packages-private/slacc/target/
+packages-private/slacc/built/
 redis/
 files/
 fluent-emojis/

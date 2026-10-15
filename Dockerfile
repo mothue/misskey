@@ -1,6 +1,10 @@
 # syntax = docker/dockerfile:1.23
 
 ARG BUN_VERSION=1.4.2
+ARG RUST_VERSION=1.99.0
+
+FROM --platform=$BUILDPLATFORM rust:${RUST_VERSION}-bookworm AS build-rust
+FROM --platform=$TARGETPLATFORM rust:${RUST_VERSION}-bookworm AS target-rust
 
 # build assets & compile TypeScript
 
@@ -12,7 +16,12 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 	; echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache \
 	&& apt-get update \
 	&& apt-get install -yqq --no-install-recommends \
-	build-essential
+	build-essential cmake
+
+COPY --from=build-rust /usr/local/cargo /usr/local/cargo
+COPY --from=build-rust /usr/local/rustup /usr/local/rustup
+ENV RUSTUP_HOME=/usr/local/rustup CARGO_HOME=/usr/local/cargo
+ENV PATH=/usr/local/cargo/bin:$PATH
 
 WORKDIR /misskey
 
@@ -36,6 +45,7 @@ COPY --link ["packages-private/diagnostics-backend/package.json", "./packages-pr
 COPY --link ["packages-private/diagnostics-frontend/package.json", "./packages-private/diagnostics-frontend/"]
 COPY --link ["packages-private/diagnostics-shared/package.json", "./packages-private/diagnostics-shared/"]
 COPY --link ["packages-private/re2-compat/package.json", "./packages-private/re2-compat/"]
+COPY --link ["packages-private/slacc/package.json", "./packages-private/slacc/"]
 
 ARG NODE_ENV=production
 
@@ -57,7 +67,12 @@ FROM --platform=$TARGETPLATFORM oven/bun:${BUN_VERSION} AS target-builder
 
 RUN apt-get update \
 	&& apt-get install -yqq --no-install-recommends \
-	build-essential
+	build-essential cmake
+
+COPY --from=target-rust /usr/local/cargo /usr/local/cargo
+COPY --from=target-rust /usr/local/rustup /usr/local/rustup
+ENV RUSTUP_HOME=/usr/local/rustup CARGO_HOME=/usr/local/cargo
+ENV PATH=/usr/local/cargo/bin:$PATH
 
 WORKDIR /misskey
 
@@ -81,11 +96,15 @@ COPY --link ["packages-private/diagnostics-backend/package.json", "./packages-pr
 COPY --link ["packages-private/diagnostics-frontend/package.json", "./packages-private/diagnostics-frontend/"]
 COPY --link ["packages-private/diagnostics-shared/package.json", "./packages-private/diagnostics-shared/"]
 COPY --link ["packages-private/re2-compat/package.json", "./packages-private/re2-compat/"]
+COPY --link ["packages-private/slacc/package.json", "./packages-private/slacc/"]
 
 ARG NODE_ENV=production
 
 RUN --mount=type=cache,target=/root/.bun/install/cache,sharing=locked \
 	bun install --frozen-lockfile
+
+COPY --link ["packages-private/slacc", "./packages-private/slacc"]
+RUN bun run --filter slacc build
 
 FROM --platform=$TARGETPLATFORM oven/bun:${BUN_VERSION} AS runner
 
@@ -122,6 +141,8 @@ COPY --chown=misskey:misskey --from=native-builder /misskey/packages/misskey-bub
 COPY --chown=misskey:misskey --from=native-builder /misskey/packages/backend/built ./packages/backend/built
 COPY --chown=misskey:misskey --from=native-builder /misskey/packages/i18n/built ./packages/i18n/built
 COPY --chown=misskey:misskey . ./
+
+COPY --chown=misskey:misskey --from=target-builder /misskey/packages-private/slacc/built ./packages-private/slacc/built
 
 ENV LD_PRELOAD=/usr/local/lib/libjemalloc.so
 ENV NODE_ENV=production
