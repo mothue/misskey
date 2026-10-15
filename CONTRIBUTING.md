@@ -161,6 +161,8 @@ For newly added languages, once the translation progress per language exceeds 70
 ### Setup
 Before developing, you have to set up environment. Misskey requires Redis, PostgreSQL, and FFmpeg.
 
+Building the local MIT-licensed slacc addon also requires Rust/Cargo (1.99.0 or newer), CMake, and a C/C++ compiler. Backend build and test commands compile it automatically; see [the local slacc guide](packages-private/slacc/README.md) for rebuilding and deployment requirements.
+
 You would want to install Meilisearch to experiment related features. Technically, meilisearch is not strict requirement, but some features and tests require it.
 
 There are a few ways to proceed.
