@@ -1,0 +1,66 @@
+{
+	"licenses": {
+		"(MIT OR Apache-2.0) AND Unicode-3.0": "MIT AND Unicode-3.0",
+		"Apache-2.0": "Apache-2.0",
+		"Apache-2.0 OR MIT": "MIT",
+		"BSD-3-Clause": "BSD-3-Clause",
+		"CC0-1.0 OR MIT-0": "MIT-0",
+		"CC0-1.0 OR MIT-0 OR Apache-2.0": "MIT-0",
+		"ISC": "ISC",
+		"ISC AND (Apache-2.0 OR ISC)": "ISC",
+		"ISC AND (Apache-2.0 OR ISC) AND Apache-2.0 AND MIT AND BSD-3-Clause AND (Apache-2.0 OR ISC OR MIT) AND (Apache-2.0 OR ISC OR MIT-0)": "ISC AND Apache-2.0 AND MIT AND BSD-3-Clause",
+		"MIT": "MIT",
+		"MIT OR Apache-2.0": "MIT",
+		"MIT OR Apache-2.0 OR LGPL-2.1-or-later": "MIT",
+		"Unlicense OR MIT": "MIT",
+		"Zlib": "Zlib",
+		"bzip2-1.0.6": "bzip2-1.0.6"
+	},
+	"supplements": {
+		"napi@3.14.2": {
+			"license": "MIT",
+			"files": [
+				{
+					"path": "license-texts/napi-3.14.2-LICENSE",
+					"source": "https://raw.githubusercontent.com/napi-rs/napi-rs/8bab46ee5dfd48a7b51e8bad3d09aed315ada4df/LICENSE"
+				}
+			]
+		},
+		"napi-build@2.6.0": {
+			"license": "MIT",
+			"files": [
+				{
+					"path": "license-texts/napi-build-2.6.0-LICENSE",
+					"source": "https://raw.githubusercontent.com/napi-rs/napi-rs/a94cef33f62e74682963dd085e283f52dcec2600/LICENSE"
+				}
+			]
+		},
+		"napi-derive@3.6.12": {
+			"license": "MIT",
+			"files": [
+				{
+					"path": "license-texts/napi-derive-3.6.12-LICENSE",
+					"source": "https://raw.githubusercontent.com/napi-rs/napi-rs/8bab46ee5dfd48a7b51e8bad3d09aed315ada4df/LICENSE"
+				}
+			]
+		},
+		"napi-derive-backend@6.1.5": {
+			"license": "MIT",
+			"files": [
+				{
+					"path": "license-texts/napi-derive-backend-6.1.5-LICENSE",
+					"source": "https://raw.githubusercontent.com/napi-rs/napi-rs/4694e6d7c7d7eb2ac6b9a634374c3519a9e5851f/LICENSE"
+				}
+			]
+		},
+		"napi-sys@3.4.0": {
+			"license": "MIT",
+			"files": [
+				{
+					"path": "license-texts/napi-sys-3.4.0-LICENSE",
+					"source": "https://raw.githubusercontent.com/napi-rs/napi-rs/37109f133043aff379a38edfb8b1548e7e9309e5/LICENSE"
+				}
+			]
+		}
+	}
+}

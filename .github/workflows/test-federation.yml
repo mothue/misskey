@@ -8,6 +8,7 @@ on:
     paths:
       - packages/backend/**
       - packages/misskey-js/**
+      - packages-private/slacc/**
       - .github/workflows/test-federation.yml
   pull_request:
     branches-ignore:
@@ -15,6 +16,7 @@ on:
     paths:
       - packages/backend/**
       - packages/misskey-js/**
+      - packages-private/slacc/**
       - .github/workflows/test-federation.yml
   workflow_dispatch:
 
@@ -41,6 +43,9 @@ jobs:
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: '1.4.2'
+
+      - name: Test slacc license generation
+        run: bun run --filter slacc test:licenses
 
       - name: Build Misskey
         run: |
@@ -69,7 +74,7 @@ jobs:
       - name: Test
         run: |
           cd packages/backend/test-federation
-          docker compose run --no-deps tester
+          docker compose run --build --rm --no-deps tester
       - name: Log
         if: always()
         run: |

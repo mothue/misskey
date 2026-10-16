@@ -12,7 +12,10 @@
 	},
 	"types": "index.d.ts",
 	"scripts": {
-		"build": "bun build.mjs",
-		"test": "bun run build && bun test test.test.mjs"
+		"build": "bun run licenses:check && bun build.mjs",
+		"test": "bun run build && bun test test.test.mjs licenses.test.mjs",
+		"licenses": "bun licenses.mjs",
+		"licenses:check": "bun licenses.mjs --check",
+		"test:licenses": "bun test licenses.test.mjs"
 	}
 }

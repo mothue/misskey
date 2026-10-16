@@ -13,6 +13,10 @@ bash ./setup.sh
 NODE_VERSION=22 docker compose up --scale tester=0
 ```
 
+The tester image includes Rust, Cargo, C/C++ build tools, and CMake to build the
+local slacc addon. Compose builds it automatically on first use. After changing
+the tester Dockerfile or toolchain versions, run `docker compose build tester`.
+
 Then you can run all tests by a following command:
 ```sh
 NODE_VERSION=22 docker compose run --no-deps --rm tester

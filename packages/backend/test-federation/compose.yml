@@ -13,7 +13,9 @@ services:
       "
 
   tester:
-    image: oven/bun:1.4.2
+    build:
+      context: ../../..
+      dockerfile: packages/backend/test-federation/Dockerfile
     depends_on:
       a.test:
         condition: service_healthy
