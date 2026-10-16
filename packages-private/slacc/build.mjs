@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import { copyFileSync, cpSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
+import { publishFile } from './publish.mjs';
 
 const root = import.meta.dirname;
 const env = { ...process.env };
@@ -17,7 +18,7 @@ if (result.status !== 0) process.exit(result.status ?? 1);
 const library = process.platform === 'win32' ? 'slacc.dll'
 	: process.platform === 'darwin' ? 'libslacc.dylib' : 'libslacc.so';
 mkdirSync(join(root, 'built'), { recursive: true });
-copyFileSync(join(root, 'target', 'release', library), join(root, 'built', 'slacc.node'));
+publishFile(join(root, 'target', 'release', library), join(root, 'built', 'slacc.node'));
 for (const name of ['LICENSE', 'THIRD-PARTY-NOTICES.txt']) {
 	copyFileSync(join(root, name), join(root, 'built', name));
 }

@@ -44,8 +44,8 @@ jobs:
         with:
           bun-version: '1.4.2'
 
-      - name: Test slacc license generation
-        run: bun run --filter slacc test:licenses
+      - name: Test slacc build tooling
+        run: bun test packages-private/slacc/licenses.test.mjs packages-private/slacc/publish.test.mjs
 
       - name: Build Misskey
         run: |

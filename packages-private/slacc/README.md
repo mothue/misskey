@@ -14,7 +14,9 @@ The output is `built/slacc.node`; intermediate files are in `target/`.
 Both directories are excluded from Git.
 
 Normal Misskey builds, backend builds, backend development startup, and backend
-tests build the addon automatically. Cargo reuses unchanged compilation outputs.
+tests build the addon automatically. Cargo reuses unchanged compilation outputs. The addon is published with an
+atomic rename so rebuilding in a shared workspace preserves libraries already
+loaded by running servers.
 `bun install` does not build Rust or download slacc platform packages.
 
 The backend keeps `slacc` external to its JavaScript bundle and resolves this
