@@ -30,7 +30,8 @@ services:
       - type: bind
         source: ../../..
         target: /misskey
-        read_only: true
+        # Allow nested mountpoints and generated test configuration/build output.
+        read_only: false
       - type: bind
         source: ../package.json
         target: /misskey/packages/backend/package.json
@@ -108,7 +109,8 @@ services:
       - type: bind
         source: ../../..
         target: /misskey
-        read_only: true
+        # The daemon compiles TypeScript into this workspace before starting.
+        read_only: false
       - type: bind
         source: ../package.json
         target: /misskey/packages/backend/package.json
