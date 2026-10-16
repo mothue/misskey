@@ -51,3 +51,12 @@ describe('local slacc addon', () => {
 		}
 	});
 });
+
+test('ships dependency and Rust standard library notices beside the addon', () => {
+	const root = import.meta.dirname;
+	for (const name of ['LICENSE', 'THIRD-PARTY-NOTICES.txt']) {
+		expect(readFileSync(join(root, 'built', name), 'utf8')).toBe(readFileSync(join(root, name), 'utf8'));
+	}
+	expect(readFileSync(join(root, 'built', 'rust-licenses', 'COPYRIGHT-library.html'), 'utf8')).toContain('Copyright notices for The Rust Standard Library');
+	expect(readFileSync(join(root, 'built', 'rust-licenses', 'licenses', 'MIT.txt'), 'utf8')).toContain('Permission is hereby granted');
+});

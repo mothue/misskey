@@ -20,7 +20,7 @@ tests build the addon automatically. Cargo reuses unchanged compilation outputs.
 The backend keeps `slacc` external to its JavaScript bundle and resolves this
 workspace's `index.js` (or `index.cjs` for CommonJS), which loads only the local addon.
 Deploy this package (including both loaders, `LICENSE`,
-`THIRD-PARTY-NOTICES.txt`, and `built/slacc.node`) alongside the backend
+`THIRD-PARTY-NOTICES.txt`, and the entire `built/` directory) alongside the backend
 and its workspace dependency links. Build on the same OS, architecture, and
 libc as the runtime. Docker builds the addon separately in its target-platform
 stage and copies that binary into the runtime image.
@@ -40,6 +40,12 @@ It covers slacc's Cargo dependencies, not every component of the Docker base ima
 Distribute this file together with `LICENSE` and the addon. Both are committed,
 so the source archive and Docker runtime's repository copy include them.
 Every addon build checks that the notices match the locked dependencies.
+It also copies `LICENSE` and `THIRD-PARTY-NOTICES.txt` beside `built/slacc.node`.
+`built/rust-licenses/` contains the standard library copyright notices and license
+texts shipped with the exact Rust compiler used for that build. Keep this
+entire directory when distributing the addon. Rust's standard library is outside
+Cargo's dependency graph; it is covered by these additional build-time notices.
+Docker copies the entire `built/` directory, including these files.
 
 After updating Rust dependencies:
 
