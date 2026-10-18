@@ -31,7 +31,7 @@ export function isCheckableDeclarationFile(filePath, rootDir = defaultRootDir) {
 
 	const relativePath = toPosixPath(path.relative(absoluteRootDir, absoluteFilePath));
 	const segments = relativePath.split('/');
-	if (segments.includes('node_modules') || segments.includes('.pnpm')) return false;
+	if (segments.includes('node_modules')) return false;
 	if (segments.includes('built') || segments.includes('js-built')) return false;
 
 	return true;

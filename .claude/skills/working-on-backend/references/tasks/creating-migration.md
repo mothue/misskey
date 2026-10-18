@@ -52,28 +52,28 @@ export class PascalCaseName1234567890123 {
 ## A. エンティティ差分から自動生成
 
 ```bash
-# リポジトリルートから実行してよい。--filter backend exec が cwd を packages/backend に移すので、
+# リポジトリルートから実行する。サブシェルで cwd を packages/backend に移すので、
 # 出力パス migration/<PascalName> と -d ormconfig.js は packages/backend/ 基準で解決される
-pnpm --filter backend exec typeorm migration:generate -d ormconfig.js -o --esm migration/<PascalName>
+(cd packages/backend && bun x --bun --no-install typeorm migration:generate -d ormconfig.js -o --esm migration/<PascalName>)
 ```
 
-**CONTRIBUTING.md との違い**: CONTRIBUTING.md は `pnpm dlx typeorm ...` を案内しているが、`dlx` はパッケージを一時ダウンロードするため、バージョンが backend の依存関係と揃わない可能性がある。`pnpm --filter backend exec typeorm` はワークスペースにインストール済みの typeorm を使うため **こちらを推奨**。
+**ローカル依存を使用**: CONTRIBUTING.md と同じく `bun x --bun --no-install typeorm` で backend にインストール済みの typeorm を使う。`--no-install` で別バージョンの一時ダウンロードを防ぎ、`--bun` で Bun 上で実行する。
 
 **`-o --esm` について**: `-o` (`--outputJs`) は「TS ではなく JS を出力する」オプション、`--esm` は「ESM 形式 (`export class ...`) で出力する」オプション。Misskey の既存 migration はすべて ESM JS であるため **両方が必須**。`--esm` を省略すると CommonJS 形式の JS が生成されスタイルが揃わない。
 
 ### 事前準備 (一括スクリプト)
 
-`migration:generate` には backend ビルド + ローカル DB が必要。一括で揃えるスクリプトを同梱している (node 製。pure Windows でも動く)。リポジトリルートから:
+`migration:generate` には backend ビルド + ローカル DB が必要。一括で揃えるスクリプトを同梱している (Bun で実行。pure Windows でも動く)。リポジトリルートから:
 
 ```bash
-node .claude/skills/working-on-backend/scripts/prepare-generate.mjs
+bun .claude/skills/working-on-backend/scripts/prepare-generate.mjs
 ```
 
 スクリプトがやること:
 
-- `pnpm build-pre` → `built/meta.json` を生成 (`loadConfig()` が要求)
-- `pnpm --filter backend compile-config` → `built/.config.json` を生成 (`ormconfig.js` の `loadConfig()` が要求するのはこれ。ソースの `.config/default.yml` はその入力なので、無ければ `.config/example.yml` から作っておく)
-- `pnpm --filter backend build` → エンティティを `built/` に反映 (CLI は `built/` を読む)
+- `bun run build-pre` → `built/meta.json` を生成 (`loadConfig()` が要求)
+- `bun run --filter backend compile-config` → `built/.config.json` を生成 (`ormconfig.js` の `loadConfig()` が要求するのはこれ。ソースの `.config/default.yml` はその入力なので、無ければ `.config/example.yml` から作っておく)
+- `bun run --filter backend build` → エンティティを `built/` に反映 (CLI は `built/` を読む)
 - `docker compose -f compose.local-db.yml up -d --wait db` → ローカル DB (postgres) を起動。`--wait` は Docker Compose v2.1.1 (2021-11) 以降が必要 (v2 の `docker compose` 前提。EOL の `docker-compose` v1 は対象外)
 
 `migration:create` (空雛形) しか使わないなら DB もビルドも不要なので、このスクリプトは不要。
@@ -83,7 +83,7 @@ node .claude/skills/working-on-backend/scripts/prepare-generate.mjs
 ## B. 空雛形を作る (手書き SQL / データ移行用)
 
 ```bash
-pnpm --filter backend exec typeorm migration:create -o --esm migration/<PascalName>
+(cd packages/backend && bun x --bun --no-install typeorm migration:create -o --esm migration/<PascalName>)
 ```
 
 ローカル DB の起動とビルドは不要。空の `up` / `down` だけが生成される。
@@ -133,16 +133,16 @@ CLI 出力には SPDX ヘッダーが含まれない。**必ず冒頭に追加�
 
 ```bash
 # 未反映の差分が無いか (新規 migration が生成すべき DDL を取り逃していないか)
-pnpm --filter backend check-migrations
+bun run --filter backend check-migrations
 
 # ローカル DB に適用
-pnpm migrate
+bun run migrate
 
 # ロールバック (down が壊れていないか)
-pnpm revert
+bun run revert
 
 # 再適用 (順方向にもう一度通す)
-pnpm migrate
+bun run migrate
 ```
 
 `check-migrations` の実体は [scripts/check_migrations_clean.js](../../../../../packages/backend/scripts/check_migrations_clean.js)。TypeORM の `dataSource.driver.createSchemaBuilder().log()` で pending DDL を取得し、`upQueries` / `downQueries` のいずれかが残っていれば非ゼロ終了する。**順序検査ではなく**「エンティティと migration が同期しているか」の検査。
@@ -169,5 +169,5 @@ pnpm migrate
 - [ ] ファイル冒頭に **SPDX ヘッダー**がある
 - [ ] `export class <PascalName><ms>` と `name = '<PascalName><ms>'` の **文字列が完全一致** している (PascalCase + 13 桁タイムスタンプ)
 - [ ] `up()` の各文に対応する巻き戻しが `down()` にあり、**`down()` が空でない** (難ケースは [knowledge/typeorm-patterns.md](../knowledge/typeorm-patterns.md) を確認済み)
-- [ ] `pnpm --filter backend check-migrations` が **0 件 (pending DDL なし)** で通る
-- [ ] (可能なら) `pnpm migrate` → `pnpm revert` → `pnpm migrate` が通る
+- [ ] `bun run --filter backend check-migrations` が **0 件 (pending DDL なし)** で通る
+- [ ] (可能なら) `bun run migrate` → `bun run revert` → `bun run migrate` が通る

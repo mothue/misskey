@@ -182,10 +182,10 @@ export const Default = {
 ## 確認方法
 
 ```bash
-pnpm --filter frontend storybook-dev    # http://localhost:6006
-pnpm --filter frontend build-storybook  # 静的ビルド
+bun run --filter frontend storybook-dev    # http://localhost:6006
+bun run --filter frontend build-storybook  # 静的ビルド
 ```
 
 新規コンポーネントの stories が Sidebar に出ない場合、多くは [generate.tsx](../../../../../packages/frontend/.storybook/generate.tsx) の生成対象 **allowlist** に入っていないため。`src/{components,pages,...}/**/*.vue` の全体 glob はコメントアウトされており、対象は `globSync('src/components/global/Mk*.vue')` / `globSync('src/components/Mk[B-E]*.vue')` などの**明示列挙**になっている。`.stories.impl.ts` を併設しただけでは自動では出ないことがあるので、対象外なら generate.tsx に 1 行追加する。加えて、ファイル名 (`.stories.impl.ts`) と SPDX ヘッダー以降に構文エラーが無いかも確認する。
 
-Chromatic (`pnpm --filter frontend chromatic`) で視覚回帰チェックも行われる。
+Chromatic (`bun run --filter frontend chromatic`) で視覚回帰チェックも行われる。

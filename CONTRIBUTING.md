@@ -59,7 +59,7 @@ Thank you for your PR! Before creating a PR, please check the following:
 - Check if there are any documents that need to be created or updated due to this change.
 - If you have added a feature or fixed a bug, please add a test case if possible.
 - Please make sure that tests and Lint are passed in advance.
-	- You can run it with `pnpm test` and `pnpm lint`. [See more info](#testing)
+	- You can run it with `bun run test` and `bun run lint`. [See more info](#testing)
 - If this PR includes UI changes, please attach a screenshot in the text.
 
 Thanks for your cooperation 🤗
@@ -176,17 +176,17 @@ You could obtain middleware container by typing `docker compose -f $PROJECT_ROOT
 #### Use Devcontainer
 Devcontainer also has necessary setting. This method can be done by connecting from VSCode.
 
-Instead of running `pnpm` locally, you can use Dev Container to set up your development environment.
+Instead of running Bun locally, you can use Dev Container to set up your development environment.
 To use Dev Container, open the project directory on VSCode with Dev Containers installed.
 **Note:** If you are using Windows, please clone the repository with WSL. Using Git for Windows will result in broken files due to the difference in how newlines are handled.
 
 It will run the following command automatically inside the container.
 ``` bash
 git submodule update --init
-pnpm install --frozen-lockfile
+bun install --frozen-lockfile
 cp .devcontainer/devcontainer.yml .config/default.yml
-pnpm build
-pnpm migrate
+bun run build
+bun run migrate
 ```
 
 After finishing the migration, you can proceed.
@@ -202,7 +202,7 @@ HTTPSでしか動作しない機能を検証したい時や、スマホなど別
 ### Start developing
 During development, it is useful to use the
 ```
-pnpm dev
+bun run dev
 ```
 command.
 
@@ -215,8 +215,8 @@ command.
 ## Testing
 You can run non-backend tests by executing following commands:
 ```sh
-pnpm --filter frontend test
-pnpm --filter misskey-js test
+bun run --filter frontend test
+bun run --filter misskey-js test
 ```
 
 Backend tests require manual preparation of servers. See the next section for more on this.
@@ -241,13 +241,13 @@ Instead, you can prepare an empty (data can be erased) DB and edit `.config/test
 
 3. Run all tests:
 ```sh
-pnpm --filter backend test     # unit tests
-pnpm --filter backend test:e2e # single-server E2E tests
+bun run --filter backend test     # unit tests
+bun run --filter backend test:e2e # single-server E2E tests
 ```
 If you want to run a specific test, run as a following command:
 ```sh
-pnpm --filter backend test -- packages/backend/test/unit/activitypub.ts
-pnpm --filter backend test:e2e -- packages/backend/test/e2e/nodeinfo.ts
+bun run --filter backend test test/unit/activitypub.ts
+bun run --filter backend test:e2e test/e2e/nodeinfo.ts
 ```
 
 #### Running Multiple-server E2E Tests
@@ -310,13 +310,13 @@ Misskey uses [Storybook](https://storybook.js.org/) for UI development.
 #### Setup
 
 ```bash
-pnpm --filter misskey-js build
+bun run --filter misskey-js build
 ```
 
 #### Run
 
 ```bash
-pnpm --filter frontend storybook-dev
+bun run --filter frontend storybook-dev
 ```
 
 ### Usage
@@ -493,12 +493,12 @@ describe('test', () => {
 
 ### Misskey.jsの型生成
 ```bash
-pnpm build-misskey-js-with-types
+bun run build-misskey-js-with-types
 ```
 
-### How to resolve conflictions occurred at pnpm-lock.yaml?
+### How to resolve conflictions occurred at bun.lock?
 
-Just execute `pnpm` to fix it.
+Resolve any conflicts in `package.json` first, then run `bun install` to update `bun.lock` and review the resulting diff.
 
 ### INSERTするときにはsaveではなくinsertを使用する
 #6441
@@ -585,7 +585,7 @@ enumの列挙の内容の削除は、その値をもつレコードを全て削�
 ### Migration作成方法
 packages/backendで:
 ```sh
-pnpm dlx typeorm migration:generate -d ormconfig.js -o --esm <migration name>
+bun x --bun --no-install typeorm migration:generate -d ormconfig.js -o --esm <migration name>
 ```
 
 - 生成後、ファイルをmigration下に移してください

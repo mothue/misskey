@@ -5,7 +5,7 @@
 ## 最重要事実 (見落とすと CI / 本番が壊れる)
 
 1. **エンドポイントは glob 自動収集されない**。[endpoint-list.ts](../../../../../packages/backend/src/server/api/endpoint-list.ts) への 1 行追加が必須 → [knowledge/endpoint-list.md](../knowledge/endpoint-list.md)
-2. **`meta` / `paramDef` / `res` を変えたら misskey-js 再生成が必須**。`pnpm build-misskey-js-with-types` を忘れると CI の `check-misskey-js-autogen` で必ず落ちる
+2. **`meta` / `paramDef` / `res` を変えたら misskey-js 再生成が必須**。`bun run build-misskey-js-with-types` を忘れると CI の `check-misskey-js-autogen` で必ず落ちる
 3. **`meta.errors` の各 `id` は UUID v4 で、リポジトリ内で一意**。`crypto.randomUUID()` で生成し、`grep -r "id: '<UUID>'" packages/backend/src/server/api/endpoints/` で衝突確認
 
 ## ワークフロー全体図
@@ -227,18 +227,18 @@ describe('<人間可読ラベル>', () => {
 実行 (前提: `.config/test.yml` — [knowledge/backend-testing.md](../knowledge/backend-testing.md) §前提 参照):
 
 ```bash
-pnpm --filter backend test:e2e
+bun run --filter backend test:e2e
 ```
 
 ### 4.2 lint / typecheck
 
 ```bash
 # 個別ファイルを高速にチェック
-pnpm exec eslint --fix packages/backend/src/server/api/endpoints/<category>/<name>.ts
-pnpm --filter backend typecheck      # tsc --noEmit (backend のみ)
+(cd packages/backend && bun x --bun --no-install eslint --fix src/server/api/endpoints/<category>/<name>.ts)
+bun run --filter backend typecheck      # tsc --noEmit (backend のみ)
 
 # 一括 (PR 提出前)
-pnpm --filter backend lint
+bun run --filter backend lint
 ```
 
 ### 4.3 misskey-js 再生成 (★必須)
@@ -246,7 +246,7 @@ pnpm --filter backend lint
 `meta` / `paramDef` / `res` を変えたら必ず:
 
 ```bash
-pnpm build-misskey-js-with-types
+bun run build-misskey-js-with-types
 ```
 
 PR に `packages/misskey-js/src/autogen/` 配下の差分が含まれていないと CI の `check-misskey-js-autogen` で必ず落ちる (最頻ミス)。詳細手順は [shipping-misskey-change/references/tasks/regenerate-misskey-js.md](../../../shipping-misskey-change/references/tasks/regenerate-misskey-js.md)。
@@ -258,7 +258,7 @@ PR に `packages/misskey-js/src/autogen/` 配下の差分が含まれていな�
 詳細な症状 → 原因 → 修正 のフォーマット → **[knowledge/api-meta-paramdef.md](../knowledge/api-meta-paramdef.md) §落とし穴**
 
 - **404 になる** → `endpoint-list.ts` 登録漏れ
-- **CI `check-misskey-js-autogen` で落ちる** → `pnpm build-misskey-js-with-types` 忘れ
+- **CI `check-misskey-js-autogen` で落ちる** → `bun run build-misskey-js-with-types` 忘れ
 - **CI `spdx` で落ちる** → SPDX ヘッダー欠落
 - **クライアントが 500 と error 型不在を受け取る** → `meta.errors` 列挙なしに `throw new ApiError(...)` した
 - **`me.id` で TypeError** → `requireCredential: false` で null チェックを忘れた

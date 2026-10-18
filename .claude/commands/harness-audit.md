@@ -60,7 +60,7 @@ git log --since='30 days ago' --pretty=format: --name-only -- 'locales/*.yml' \
 # → 出力が無い、または全て Crowdin 由来 commit なら満点
 
 # 3. [Security Guardrails] migration の pending DDL 検査 (TypeORM schema builder)
-pnpm --filter backend check-migrations
+bun run --filter backend check-migrations
 # → 0 errors (= "All migrations are clean.") なら満点
 
 # 4. [Tool Coverage] endpoint-list.ts 登録漏れ (新規 endpoint がリストにない場合)
@@ -129,7 +129,7 @@ Suggested next skills to apply:
 
 - 確定的: 同じ commit / 同じ `.claude/` 構成なら同じスコア
 - ヒューリスティクス: 「description の冗長度」のような主観項目は同一基準で機械的に判定
-- 専用 audit script 不要: repository の `pnpm` / `git` コマンドと SPDX checker を使う
+- 専用 audit script 不要: repository の `bun` / `git` コマンドと SPDX checker を使う
 
 ## 参考: ECC オリジナルとの差分
 

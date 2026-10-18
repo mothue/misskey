@@ -9,9 +9,9 @@
 	},
 	"jest.runMode": "on-demand",
 	"jest.virtualFolders": [
-		{ "name": "backend unit", "jestCommandLine": "pnpm -F backend run test" },
-		{ "name": "backend e2e", "jestCommandLine": "pnpm -F backend run test:e2e"},
-		{ "name": "misskey-js", "jestCommandLine": "pnpm -F misskey-js run jest" }
+		{ "name": "backend unit", "jestCommandLine": "bun run --filter backend test" },
+		{ "name": "backend e2e", "jestCommandLine": "bun run --filter backend test:e2e" },
+		{ "name": "misskey-js", "jestCommandLine": "bun run --filter misskey-js vitest" }
 	],
 	"editor.codeActionsOnSave": {
 		"source.fixAll": "explicit"

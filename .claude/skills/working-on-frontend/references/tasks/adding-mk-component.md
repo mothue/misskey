@@ -159,19 +159,19 @@ const emit = defineEmits<{
 
 ```bash
 # 型チェック (vue-tsc)
-pnpm --filter frontend typecheck
+bun run --filter frontend typecheck
 
 # ESLint (規約全体)
-pnpm --filter frontend eslint
+bun run --filter frontend eslint
 
 # 単一ファイルに ESLint --fix
-pnpm exec eslint --fix packages/frontend/src/components/Mk<Name>.vue
+(cd packages/frontend && bun x --bun --no-install eslint --fix src/components/Mk<Name>.vue)
 
 # Storybook で目視確認
-pnpm --filter frontend storybook-dev    # localhost:6006
+bun run --filter frontend storybook-dev    # localhost:6006
 
 # Vitest unit test (component spec があれば)
-pnpm --filter frontend test
+bun run --filter frontend test
 ```
 
 ## 既存コンポーネントとの整合性

@@ -5,8 +5,8 @@ Misskey frontend のテスト構成。
 ## Vitest (unit)
 
 ```bash
-pnpm --filter frontend test                # 1 回実行
-pnpm --filter frontend test-and-coverage   # カバレッジ付き
+bun run --filter frontend test                # 1 回実行
+bun run --filter frontend test-and-coverage   # カバレッジ付き
 ```
 
 ### 配置
@@ -27,10 +27,10 @@ docker compose -f packages/backend/test/compose.yml up -d
 cp .github/misskey/test.yml .config/test.yml
 
 # 3. 全体ビルド
-pnpm build
+bun run build
 
 # 4. テストサーバー起動 + Playwright 実行 (いずれもルートから)
-pnpm e2e                # 内部で pnpm start:test を起動し http://localhost:61812 を待って Playwright を実行
+bun run e2e                # 内部で bun run start:test を起動し http://localhost:61812 を待って Playwright を実行
 ```
 
 - 設定: ルート [packages/frontend/playwright.config.ts](../../../../../packages/frontend/playwright.config.ts) で、`packages/frontend/test/e2e/` 配下の `*.spec.ts` を対象にする
@@ -43,17 +43,17 @@ pnpm e2e                # 内部で pnpm start:test を起動し http://localhos
 詳細は → [storybook.md](storybook.md)。
 
 ```bash
-pnpm --filter frontend storybook-dev      # http://localhost:6006
-pnpm --filter frontend build-storybook    # 静的ビルド
+bun run --filter frontend storybook-dev      # http://localhost:6006
+bun run --filter frontend build-storybook    # 静的ビルド
 ```
 
-各コンポーネント横に `*.stories.impl.ts` を併設する慣習 (例: `MkButton.stories.impl.ts`)。Chromatic (`pnpm --filter frontend chromatic`) で視覚回帰チェック。
+各コンポーネント横に `*.stories.impl.ts` を併設する慣習 (例: `MkButton.stories.impl.ts`)。Chromatic (`bun run --filter frontend chromatic`) で視覚回帰チェック。
 
 ## ローカル DB / Redis
 
 frontend のテスト種別で DB / Redis の要否が違う:
 
 - **Vitest (unit)** — DB 不要。ロジック / コンポーネント単体のテストで backend に繋がない (CI の `vitest` ジョブにも `services:` は無い)
-- **Playwright (E2E)** — テストサーバー (`pnpm start:test`) 経由で backend に繋ぐため DB / Redis が必要。**テスト用ポートの [packages/backend/test/compose.yml](../../../../../packages/backend/test/compose.yml)** を使う (上記 Playwright E2E の手順を参照)
+- **Playwright (E2E)** — テストサーバー (`bun run start:test`) 経由で backend に繋ぐため DB / Redis が必要。**テスト用ポートの [packages/backend/test/compose.yml](../../../../../packages/backend/test/compose.yml)** を使う (上記 Playwright E2E の手順を参照)
 
 開発用の `compose.local-db.yml` (db `5432` / redis `6379`) は **テストには使わない**。テスト用の `packages/backend/test/compose.yml` (`54312` / `56312`) とはポートが異なり、混同すると接続できない。

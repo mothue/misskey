@@ -11,5 +11,5 @@
 ## 使い方
 
 ```bash
-pnpm build
+bun run build
 ```

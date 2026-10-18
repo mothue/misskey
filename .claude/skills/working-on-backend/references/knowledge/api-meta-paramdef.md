@@ -363,6 +363,6 @@ PR レビューで頻発するミスを「**症状 → 原因 → 修正**」で
 
 ### 13. e2e テストが起動しない
 
-- **症状**: `pnpm --filter backend test:e2e` 実行直後にこける / DB 接続エラー
+- **症状**: `bun run --filter backend test:e2e` 実行直後にこける / DB 接続エラー
 - **原因**: `.config/test.yml` が無い
 - **修正**: → [knowledge/backend-testing.md §前提](backend-testing.md)

@@ -30,7 +30,7 @@
    - 対象: `packages/backend/migration/{unixMs}-{name}.js` のうち、既に `develop` / `master` にマージされたもの
    - 本番環境で履歴改変が起きると深刻なデータ不整合を引き起こす
    - スキーマ変更が必要な場合は **新しいタイムスタンプで新規ファイル** を作成する (`node -e "console.log(Date.now())"` でタイムスタンプ取得)
-   - 新規 migration は `up()` と `down()` の両方を実装し、`pnpm --filter backend check-migrations` を通すこと (TypeORM schema builder で pending DDL を検出)
+   - 新規 migration は `up()` と `down()` の両方を実装し、`bun run --filter backend check-migrations` を通すこと (TypeORM schema builder で pending DDL を検出)
 
 ### Git / リポジトリ操作
 
@@ -64,8 +64,8 @@
 
 1. **lint / test**: ESLint 対象の変更ファイルへ package root から `eslint --quiet` を最後に 1 回実行し、実装変更には最も近い test を選んで実行する。
    package / repo 全体 lint と広域 test は任意
-2. **backend API 変更時**: `pnpm build-misskey-js-with-types` を実行し `packages/misskey-js/src/autogen/` の差分も commit に含めた
-3. **entity / migration 変更時**: `pnpm --filter backend check-migrations` が pending DDL 0 件で通る / 新規 migration は `up()` と `down()` 両方実装済
+2. **backend API 変更時**: `bun run build-misskey-js-with-types` を実行し `packages/misskey-js/src/autogen/` の差分も commit に含めた
+3. **entity / migration 変更時**: `bun run --filter backend check-migrations` が pending DDL 0 件で通る / 新規 migration は `up()` と `down()` 両方実装済
 4. **SPDX**: `node scripts/check-spdx.mjs` が `SPDX: OK` を返すことを確認する
 5. **locale safety**: commit 済み・未commit・untracked の変更集合に `locales/ja-JP.yml` / `locales/en-US.yml` 以外の locale YAML が無いことを確認する
 6. **[CHANGELOG](.claude/skills/shipping-misskey-change/references/tasks/changelog-update.md)**: ユーザーが明示しない限り編集しない。
@@ -73,18 +73,18 @@
 
 ### Validation commands
 
-各チェックで使う pnpm コマンド一覧。状況に応じて最も近いコマンドから検証する。
+各チェックで使う Bun コマンド一覧。状況に応じて最も近いコマンドから検証する。
 
 | 用途 | コマンド |
 | --- | --- |
-| 全体 lint (任意) | `pnpm lint` |
-| Backend unit test | `pnpm --filter backend test` |
-| Backend e2e test | `pnpm --filter backend test:e2e` |
-| Backend federation test | `pnpm --filter backend test:fed` |
-| Frontend unit test | `pnpm --filter frontend test` |
-| Migration 差分検査 (pending DDL) | `pnpm --filter backend check-migrations` |
-| `misskey-js` 再生成 (API 変更後必須) | `pnpm build-misskey-js-with-types` |
-| 全体ビルド | `pnpm build` |
-| 開発サーバー (backend + frontend watch) | `pnpm dev` |
+| 全体 lint (任意) | `bun run lint` |
+| Backend unit test | `bun run --filter backend test` |
+| Backend e2e test | `bun run --filter backend test:e2e` |
+| Backend federation test | `bun run --filter backend test:fed` |
+| Frontend unit test | `bun run --filter frontend test` |
+| Migration 差分検査 (pending DDL) | `bun run --filter backend check-migrations` |
+| `misskey-js` 再生成 (API 変更後必須) | `bun run build-misskey-js-with-types` |
+| 全体ビルド | `bun run build` |
+| 開発サーバー (backend + frontend watch) | `bun run dev` |
 
-**注意:** backend テスト (`test` / `test:e2e` / `test:fed`) 実行前に `.config/test.yml` が必要 (`ncp .github/misskey/test.yml .config/test.yml` または `cp .github/misskey/test.yml .config/test.yml` で作成)。
+**注意:** backend テスト (`test` / `test:e2e` / `test:fed`) 実行前に `.config/test.yml` が必要 (`cp .github/misskey/test.yml .config/test.yml` で作成)。

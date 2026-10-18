@@ -41,19 +41,19 @@ greeting: "こんにちは、{name}さん"
 
 ### 自動 (推奨)
 
-`pnpm dev` 実行中なら、`packages/i18n` の watch スクリプト (`nodemon ... tsx ./build.ts --watch`) が yml の変更を検知して自動再生成する。
+`bun run dev` 実行中なら、`packages/i18n` の watch スクリプト (`bun ./build.ts --watch`) が yml の変更を検知して自動再生成する。
 
 ### 手動
 
 ```bash
-pnpm --filter i18n generate
+bun run --filter i18n generate
 ```
 
-実体は `tsx scripts/generateLocaleInterface.ts`。
+実体は `bun scripts/generateLocaleInterface.ts`。
 
 ### 失敗パターン
 
-これを実行せずに frontend 側で `i18n.ts.<newKey>` を参照すると、`Locale` インターフェースに追加されていないため typecheck で `Property '<newKey>' does not exist on type 'Locale'` というエラーになる (`pnpm --filter frontend lint` で発覚)。型エラー・実行時警告 (`Unexpected locale key`, `Missing locale parameters`) と対処は → [knowledge/i18n-usage.md §トラブルシュート](../knowledge/i18n-usage.md)。
+これを実行せずに frontend 側で `i18n.ts.<newKey>` を参照すると、`Locale` インターフェースに追加されていないため typecheck で `Property '<newKey>' does not exist on type 'Locale'` というエラーになる (`bun run --filter frontend lint` で発覚)。型エラー・実行時警告 (`Unexpected locale key`, `Missing locale parameters`) と対処は → [knowledge/i18n-usage.md §トラブルシュート](../knowledge/i18n-usage.md)。
 
 ## ステップ 3: frontend での参照
 
@@ -76,11 +76,11 @@ import { i18n } from '@/i18n.js';
 
 ```bash
 # i18n の型再生成 → typecheck + eslint (lint は generate を呼ばないので順番が必須)
-pnpm --filter i18n generate
-pnpm --filter i18n lint
+bun run --filter i18n generate
+bun run --filter i18n lint
 
 # frontend で新キー参照箇所の型チェック
-pnpm --filter frontend lint
+bun run --filter frontend lint
 
 # 他言語 yml に diff が出ていないことを確認 (出力が空であれば OK)
 git diff --name-only develop -- 'locales/*.yml' | grep -v '^locales/ja-JP\.yml$'
@@ -95,7 +95,7 @@ git diff --name-only develop -- 'locales/*.yml' | grep -v '^locales/ja-JP\.yml$'
    _notes:
      deleteConfirm: "このノートを削除しますか？"
    ```
-2. `pnpm --filter i18n generate` (または `pnpm dev` で watch 中)
+2. `bun run --filter i18n generate` (または `bun run dev` で watch 中)
 3. SFC:
    ```vue
    <script setup lang="ts">

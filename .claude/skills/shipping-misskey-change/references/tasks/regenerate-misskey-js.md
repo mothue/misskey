@@ -19,12 +19,12 @@ backend の API endpoint やスキーマ (`meta` / `paramDef` / `res`) を変更
 
 ```bash
 # リポジトリルートから実行する
-pnpm build-misskey-js-with-types
+bun run build-misskey-js-with-types
 ```
 
 内部で以下が一括実行される:
 
-1. backend ビルド (`pnpm --filter backend build`)
+1. backend ビルド (`bun run --filter backend build`)
 2. OpenAPI spec 生成 (`packages/backend/built/api.json`)
 3. misskey-js 用 schema 生成 (`packages/misskey-js/generator/api.json`)
 4. misskey-js の TypeScript 型再生成 (`packages/misskey-js/src/autogen/{types,entities,endpoint,models,apiClientJSDoc}.ts`)
@@ -66,7 +66,7 @@ git diff -- packages/misskey-js/src/autogen/
 ```
 CI: check-misskey-js-autogen
 > Please regenerate misskey-js by running:
->   pnpm build-misskey-js-with-types
+>   bun run build-misskey-js-with-types
 > and commit the changes under packages/misskey-js/src/autogen/.
 ```
 

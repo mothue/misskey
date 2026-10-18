@@ -18,7 +18,7 @@ test('detects repository-owned declaration files that should be checked', () => 
 test('ignores declarations outside the repository-owned surface', () => {
 	assert.equal(isCheckableDeclarationFile(`${rootDir}/node_modules/@types/node/index.d.ts`, rootDir), false);
 	assert.equal(isCheckableDeclarationFile(`${rootDir}/packages/frontend/node_modules/@types/foo/index.d.ts`, rootDir), false);
-	assert.equal(isCheckableDeclarationFile(`${rootDir}/node_modules/.pnpm/typescript/lib/lib.dom.d.ts`, rootDir), false);
+	assert.equal(isCheckableDeclarationFile(`${rootDir}/node_modules/.bun/typescript@6.0.3/node_modules/typescript/lib/lib.dom.d.ts`, rootDir), false);
 	assert.equal(isCheckableDeclarationFile(`${rootDir}/packages/misskey-js/built/index.d.ts`, rootDir), false);
 	assert.equal(isCheckableDeclarationFile(`${rootDir}/packages/frontend-shared/js-built/i18n.d.ts`, rootDir), false);
 	assert.equal(isCheckableDeclarationFile(`${rootDir}/packages/frontend/src/theme.ts`, rootDir), false);

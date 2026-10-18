@@ -20,9 +20,6 @@ packages/frontend/.yarn/cache
 packages/backend/.yarn/cache
 packages/sw/.yarn/cache
 
-# pnpm
-.pnpm-store
-
 # Playwright
 packages/frontend/test/e2e/artifacts
 

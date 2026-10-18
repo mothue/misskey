@@ -6,14 +6,14 @@
 ## 使い方
 
 まず、Misskeyのバックエンドからapi.jsonを取得する必要があります。任意のMisskeyインスタンスの/api-docからダウンロードしても良いですし、
-backendモジュール配下で`pnpm generate-api-json`を実行しても良いでしょう。
+backendモジュール配下で`bun run generate-api-json`を実行しても良いでしょう。
 
 api.jsonを入手したら、このファイルがあるディレクトリに置いてください。
 
 その後、以下コマンドを実行します。
 
 ```shell
-pnpm generate
+bun run generate
 ```
 
 上記を実行することで、`./built`ディレクトリ配下にtsファイルが生成されます。

@@ -21,7 +21,7 @@ CLIに渡すパスはすべて呼び出し側のカレントディレクトリ�
 - name: Generate report
   working-directory: head
   run: >-
-    pnpm --filter diagnostics-frontend run render-md
+    bun run --filter diagnostics-frontend render-md
     "$GITHUB_WORKSPACE/base" "$GITHUB_WORKSPACE/head"
     "$REPORT_DIR/base-bundle-stats.json" "$REPORT_DIR/head-bundle-stats.json"
     "$REPORT_DIR/base-browser.json" "$REPORT_DIR/head-browser.json"

@@ -7,7 +7,7 @@ Misskey backend は TypeORM 1 + PostgreSQL。エンティティ定義と migrati
 - エンティティ: `packages/backend/src/models/<Name>.ts` (`@Entity` + `@Column`)
 - DI 経由で注入される Repository を経由してアクセス (`@Inject(DI.notesRepository)` 等) → [nestjs-di.md](nestjs-di.md)
 
-エンティティ側の `@Column` / `@Entity` / `@Index` 変更は migration の DDL と整合させる必要がある。`pnpm --filter backend check-migrations` がエンティティと migration の不一致を検出する ([scripts/check_migrations_clean.js](../../../../../packages/backend/scripts/check_migrations_clean.js))。
+エンティティ側の `@Column` / `@Entity` / `@Index` 変更は migration の DDL と整合させる必要がある。`bun run --filter backend check-migrations` がエンティティと migration の不一致を検出する ([scripts/check_migrations_clean.js](../../../../../packages/backend/scripts/check_migrations_clean.js))。
 
 ## migration ファイルの構造
 

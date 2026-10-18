@@ -244,9 +244,9 @@ packages/frontend/src/components/MkXxx.vue
 
 **対処**:
 
-- `pnpm dev` を起動中なら、`packages/i18n` の watch (`nodemon ... tsx ./build.ts --watch`) が自動再生成するので、yml 保存後に typecheck をやり直す
-- 一回だけ手動再生成したいなら: `pnpm --filter i18n generate` (実体は `tsx scripts/generateLocaleInterface.ts`)
-- 検出経路: `pnpm --filter frontend lint`
+- `bun run dev` を起動中なら、`packages/i18n` の watch (`bun ./build.ts --watch`) が自動再生成するので、yml 保存後に typecheck をやり直す
+- 一回だけ手動再生成したいなら: `bun run --filter i18n generate` (実体は `bun scripts/generateLocaleInterface.ts`)
+- 検出経路: `bun run --filter frontend lint`
 
 実装根拠: [packages/i18n/scripts/generateLocaleInterface.ts](../../../../../packages/i18n/scripts/generateLocaleInterface.ts) (パラメータ抽出の正規表現 `/\{(\w+)\}/g`)。
 
@@ -296,7 +296,7 @@ i18n.tsx.save({...})
 
 ### YAML パース失敗
 
-**症状**: `pnpm --filter i18n generate` 実行時に `YAMLException: ...`、または `pnpm dev` の watch ログにエラー。
+**症状**: `bun run --filter i18n generate` 実行時に `YAMLException: ...`、または `bun run dev` の watch ログにエラー。
 
 **原因**: 値に YAML の特殊文字 (`<` `>` `:` `'` `&` `*` `|` `>` `#`) を含むのに **クォートしていない**。
 
@@ -329,10 +329,10 @@ YAML の block scalar (`|` / `>`) も使えるが、HTML タグ + プレース�
 
 **原因**:
 
-- `pnpm dev` ではなく `pnpm --filter frontend watch` だけ起動していて、`packages/i18n` の watch が走っていない
+- `bun run dev` ではなく `bun run --filter frontend watch` だけ起動していて、`packages/i18n` の watch が走っていない
 - もしくは frontend へ配信される生成物 (`built/_frontend_dist_/locales/*.json`) がブラウザ側でキャッシュされている
 
-**対処**: ルートの `pnpm dev` を起動する (frontend + backend + i18n watch が全部立ち上がる)。それでも反映しないならブラウザのキャッシュをクリア、または `pnpm --filter i18n build` を手動実行。
+**対処**: ルートの `bun run dev` を起動する (frontend + backend + i18n watch が全部立ち上がる)。それでも反映しないならブラウザのキャッシュをクリア、または `bun run --filter i18n build` を手動実行。
 
 ## 制約と補足
 

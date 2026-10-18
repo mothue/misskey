@@ -14,32 +14,30 @@ Misskey backend のテスト構成、`.config/test.yml` の前提、e2e テス�
 
 ## 前提: `.config/test.yml`
 
-backend のテストスクリプト (`test` / `test:e2e` / `test:fed`) はすべて内部で `cross-env NODE_ENV=test pnpm compile-config` を実行し、`.config/test.yml` を読み込む ([packages/backend/package.json](../../../../../packages/backend/package.json), [packages/backend/scripts/compile_config.js](../../../../../packages/backend/scripts/compile_config.js))。**未作成だとテスト自体が起動しない**。
+backend のテストスクリプト (`test` / `test:e2e` / `test:fed`) はすべて内部で `NODE_ENV=test bun run compile-config` を実行し、`.config/test.yml` を読み込む ([packages/backend/package.json](../../../../../packages/backend/package.json), [packages/backend/scripts/compile_config.js](../../../../../packages/backend/scripts/compile_config.js))。**未作成だとテスト自体が起動しない**。
 
-未作成なら以下を 1 回だけ手動コピーする (どちらでも可):
+未作成なら以下を 1 回だけ手動コピーする:
 
 ```bash
-ncp .github/misskey/test.yml .config/test.yml
-# または
 cp .github/misskey/test.yml .config/test.yml
 ```
 
 補足:
 
-- ルートの `pnpm start:test` (Playwright 用にテストサーバーを起動するコマンド) を使う経路では実行時に `ncp` で自動コピーされる ([package.json](../../../../../package.json))。それ以外で backend テストを直接走らせる時は上記の手動コピーが必要
-- すでに `.config/test.yml` があれば各テストスクリプトの内部 `compile-config` で十分なので、追加で `pnpm --filter backend compile-config` を叩く必要はない
-- `pnpm start:test` は backend e2e テスト (`pnpm --filter backend test:e2e`) の前提ではない (ポート競合の元になるため使わないこと)
+- ルートの `bun run start:test` (Playwright 用にテストサーバーを起動するコマンド) を使う経路では実行時に `cp` で自動コピーされる ([package.json](../../../../../package.json))。それ以外で backend テストを直接走らせる時は上記の手動コピーが必要
+- すでに `.config/test.yml` があれば各テストスクリプトの内部 `compile-config` で十分なので、追加で `bun run --filter backend compile-config` を叩く必要はない
+- `bun run start:test` は backend e2e テスト (`bun run --filter backend test:e2e`) の前提ではない (ポート競合の元になるため使わないこと)
 
 ## テスト種別と実行コマンド
 
 | 種別 | 設定ファイル | 実行コマンド |
 | --- | --- | --- |
-| Unit | `packages/backend/vitest.config.unit.ts` | `pnpm --filter backend test` |
-| E2E (HTTP / DB) | `packages/backend/vitest.config.e2e.ts` | `pnpm --filter backend test:e2e` |
-| Federation | `packages/backend/vitest.config.fed.ts` | `pnpm --filter backend test:fed` |
+| Unit | `packages/backend/vitest.config.unit.ts` | `bun run --filter backend test` |
+| E2E (HTTP / DB) | `packages/backend/vitest.config.e2e.ts` | `bun run --filter backend test:e2e` |
+| Federation | `packages/backend/vitest.config.fed.ts` | `bun run --filter backend test:fed` |
 
 - 配置: `packages/backend/test/` 配下
-- カバレッジ: `pnpm --filter backend test-and-coverage`
+- カバレッジ: `bun run --filter backend test-and-coverage`
 
 ## e2e テストの配置
 
@@ -196,7 +194,7 @@ backend の **テスト** と **開発** では用途別に別の compose ファ
 | 用途 | compose ファイル | host ポート (db / redis) |
 | --- | --- | --- |
 | テスト (`test` / `test:e2e` / `test:fed`) | [packages/backend/test/compose.yml](../../../../../packages/backend/test/compose.yml) | `54312` / `56312` ([.github/misskey/test.yml](../../../../../.github/misskey/test.yml) のポート設定と一致) |
-| 開発 (`pnpm dev` 等) | `compose.local-db.yml` (リポジトリルート) | `5432` / `6379` |
+| 開発 (`bun run dev` 等) | `compose.local-db.yml` (リポジトリルート) | `5432` / `6379` |
 
 ```bash
 # テスト用 DB / Redis (テスト時はこちら)

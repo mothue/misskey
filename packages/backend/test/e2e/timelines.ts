@@ -6,7 +6,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 // How to run:
-// pnpm jest -- e2e/timelines.ts
+// bun run --filter backend test:e2e --run test/e2e/timelines.ts
 
 import * as assert from 'assert';
 import { describe, beforeAll, test, vi } from 'vitest';
