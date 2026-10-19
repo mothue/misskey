@@ -119,6 +119,8 @@ export class WebAuthnService {
 
 		const { verified } = verification;
 
+		// TODO: verification.registrationInfoは常にfalseらしい？ あとで調べる
+		// > Unnecessary conditional, value is always falsy.
 		if (!verified || !verification.registrationInfo) {
 			throw new IdentifiableError('bb333667-3832-4a80-8bb5-c505be7d710d', 'verification failed');
 		}
