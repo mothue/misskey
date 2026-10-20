@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
-const defaultRootDir = path.resolve(scriptDir, '..');
+const defaultRootDir = path.resolve(scriptDir, '../..');
 
 // パス判定は OS 差分を避けるため、必要なところだけ POSIX 形式へ寄せる。
 function toPosixPath(filePath) {

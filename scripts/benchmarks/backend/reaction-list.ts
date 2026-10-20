@@ -4,7 +4,7 @@
  */
 import assert from 'node:assert/strict';
 import { post, reactionNote, rows } from './scenarios.js';
-import { id } from '../../fixtures/benchmark/definition.js';
+import { id } from '../../../fixtures/benchmark/definition.js';
 import type { BenchmarkScenario } from './types.js';
 export const benchmark: BenchmarkScenario = {
 	name: 'reaction/list',

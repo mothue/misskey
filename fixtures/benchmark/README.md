@@ -3,12 +3,12 @@
 リポジトリのルートから実行します。Bun、インストール済み依存関係、起動済みのDockerが必要です。
 
 ```sh
-bun run bench                       # small、全22シナリオ
-bun run bench --list                 # Docker・ビルド・DB接続なし
-bun run bench timeline              # 名前の部分一致、複数フィルタはOR
-bun run bench timeline/user --requests 10000 --concurrency 32 --warmup 1000
-bun run bench --fixture standard --json /tmp/benchmark.json
-bun run bench:test
+bun run bench:backend                  # small、全22シナリオ
+bun run bench:backend --list           # Docker・ビルド・DB接続なし
+bun run bench:backend timeline         # 名前の部分一致、複数フィルタはOR
+bun run bench:backend timeline/user --requests 10000 --concurrency 32 --warmup 1000
+bun run bench:backend --fixture standard --json /tmp/benchmark.json
+bun run test:scripts
 ```
 
 既定値はsmall、測定1,000件、warmup100件、concurrency8、timeout10,000msです。
@@ -138,7 +138,7 @@ success/HTTP error/timeout/transport error/validation failureを排他的に数�
 強制終了では最後に取得したprogressまでしか保存できない場合があります。
 `--save/--compare`、複数run、open model、cold/warm、サーバーprofile、SQL自動収集は未実装です。
 
-ストレージmicrobenchmarkは`bun run bench:storage`へ分離しています。詳細は`scripts/bench-storage.md`を参照してください。
+ストレージmicrobenchmarkは`bun run bench:storage`へ分離しています。詳細は`scripts/benchmarks/storage/README.md`を参照してください。
 
 ### レビュー修正
 

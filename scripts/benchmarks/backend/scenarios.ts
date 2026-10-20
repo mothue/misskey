@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 import assert from 'node:assert/strict';
-import { timelineEligible } from '../../fixtures/benchmark/definition.js';
-import type { Manifest } from '../../fixtures/benchmark/definition.js';
+import { timelineEligible } from '../../../fixtures/benchmark/definition.js';
+import type { Manifest } from '../../../fixtures/benchmark/definition.js';
 import type { BenchmarkScenario, RequestContext } from './types.js';
 export function viewer(context: RequestContext) {
 	return context.manifest.users[(context.requestIndex + context.workerId) % context.manifest.users.length];

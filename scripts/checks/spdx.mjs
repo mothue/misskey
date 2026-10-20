@@ -8,10 +8,10 @@
  * Misskey SPDX ヘッダーの検査 / 自動修正。
  *
  * 使い方:
- *   bun scripts/check-spdx.mjs                    ローカル検査 (repo 全体 + HTML コメント形式)
- *   bun scripts/check-spdx.mjs --check            同上 (明示形)
- *   bun scripts/check-spdx.mjs --ci               CI 互換検査 (現行の OR 判定を維持)
- *   bun scripts/check-spdx.mjs --fix [--base REF] このブランチの欠落だけ自動修正して全体を再検査
+ *   bun scripts/checks/spdx.mjs                    ローカル検査 (repo 全体 + HTML コメント形式)
+ *   bun scripts/checks/spdx.mjs --check            同上 (明示形)
+ *   bun scripts/checks/spdx.mjs --ci               CI 互換検査 (現行の OR 判定を維持)
+ *   bun scripts/checks/spdx.mjs --fix [--base REF] このブランチの欠落だけ自動修正して全体を再検査
  *
  * 終了コード:
  *   0 = 選択したモードの検査に合格
@@ -29,7 +29,7 @@
 import { lstatSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, extname } from 'node:path';
 
-import { DEFAULT_INTEGRATION_REFS, findClosestMergeBase, gitLines, gitMergeBase, gitPaths } from './lib/git.mjs';
+import { DEFAULT_INTEGRATION_REFS, findClosestMergeBase, gitLines, gitMergeBase, gitPaths } from '../lib/git.mjs';
 
 /** CI の対象ディレクトリ。この配列を CI とローカル検査の両方が使う。 */
 const TARGET_DIRECTORIES = [
@@ -273,7 +273,7 @@ function inspectTargets(targets) {
 function main() {
 	const options = parseArgs(process.argv.slice(2));
 	if (options === null) {
-		console.error('usage: bun scripts/check-spdx.mjs [--check | --ci | --fix [--base <ref>]]');
+		console.error('usage: bun scripts/checks/spdx.mjs [--check | --ci | --fix [--base <ref>]]');
 		return 2;
 	}
 

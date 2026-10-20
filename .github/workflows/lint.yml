@@ -17,7 +17,7 @@ on:
       - packages/misskey-bubble-game/**
       - packages/misskey-reversi/**
       - packages/shared/eslint.config.js
-      - scripts/check-dts*.mjs
+      - scripts/checks/declarations*.mjs
       - .github/workflows/lint.yml
       - package.json
   pull_request:
@@ -35,7 +35,7 @@ on:
       - packages/misskey-bubble-game/**
       - packages/misskey-reversi/**
       - packages/shared/eslint.config.js
-      - scripts/check-dts*.mjs
+      - scripts/checks/declarations*.mjs
       - .github/workflows/lint.yml
       - package.json
 jobs:
@@ -112,7 +112,7 @@ jobs:
     - run: bun run build
     - name: Verify Vue typecheck detects template errors
       if: matrix.workspace == 'frontend'
-      run: bun test scripts/vue-typecheck.test.mjs --timeout 60000
+      run: bun test scripts/checks/vue-typecheck.test.mjs --timeout 60000
     - run: bun run --filter ${{ matrix.workspace }} typecheck
 
   check-dts:
@@ -128,5 +128,5 @@ jobs:
         bun-version: '1.4.2'
 
     - run: bun install --frozen-lockfile
-    - run: node --test scripts/check-dts.test.mjs
-    - run: bun run check-dts
+    - run: node --test scripts/checks/declarations.test.mjs
+    - run: bun run check:declarations

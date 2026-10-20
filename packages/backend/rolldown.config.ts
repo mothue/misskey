@@ -13,8 +13,8 @@ function backendDevServerPlugin(): Plugin {
 	let backendProcess: ResultPromise | null = null;
 	let backendShutdownPromise: Promise<void> | null = null;
 
-	async function runBuildAssets() {
-		await execa(process.execPath, ['run', 'build-assets'], {
+	async function buildOptionalTarball() {
+		await execa(process.execPath, ['run', 'build:tarball:optional'], {
 			cwd: '../../',
 			stdout: process.stdout,
 			stderr: process.stderr,
@@ -52,7 +52,7 @@ function backendDevServerPlugin(): Plugin {
 	return {
 		name: 'backend-dev-server',
 		async closeBundle() {
-			await runBuildAssets();
+			await buildOptionalTarball();
 			if (backendProcess) {
 				await killBackendProcess();
 			}
@@ -67,7 +67,7 @@ function backendDevServerPlugin(): Plugin {
 		async watchChange() {
 			if (backendProcess) {
 				await killBackendProcess();
-				await runBuildAssets();
+				await buildOptionalTarball();
 			}
 		},
 		async closeWatcher() {

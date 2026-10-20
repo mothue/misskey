@@ -232,7 +232,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 
 <script lang="ts" setup>
 import * as Misskey from 'misskey-js';
-import { CodeDiff } from 'v-code-diff';
+import { CodeDiff } from 'v-code-diff/vue3';
 import JSON5 from 'json5';
 import { i18n } from '@/i18n.js';
 import MkFolder from '@/components/MkFolder.vue';

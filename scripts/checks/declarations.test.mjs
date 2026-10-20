@@ -5,7 +5,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { isCheckableDeclarationFile } from './check-dts.mjs';
+import { isCheckableDeclarationFile } from './declarations.mjs';
 
 const rootDir = '/repo';
 

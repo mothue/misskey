@@ -47,7 +47,7 @@ Misskey リポジトリの `.claude/` 構成を 7 カテゴリで採点し、改
 
 ```bash
 # 1. [Security Guardrails] SPDX 対象・CI 判定・HTML コメント形式
-node scripts/check-spdx.mjs
+node scripts/checks/spdx.mjs
 # → exit 0 (`SPDX: OK`) なら満点。追加の目視判定はしない
 
 # 2. [Security Guardrails] ja-JP.yml 以外の locales が直近で手動編集されていないか

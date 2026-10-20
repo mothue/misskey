@@ -5,8 +5,8 @@
 import assert from 'node:assert/strict';
 import { post, rows, target, timeline, viewer } from './scenarios.js';
 import type { BenchmarkScenario, RequestContext } from './types.js';
-import { timelineEligible } from '../../fixtures/benchmark/definition.js';
-import type { Manifest, FixtureUser } from '../../fixtures/benchmark/definition.js';
+import { timelineEligible } from '../../../fixtures/benchmark/definition.js';
+import type { Manifest, FixtureUser } from '../../../fixtures/benchmark/definition.js';
 const ordinal = (context: RequestContext) => context.requestOrdinal ?? context.requestIndex;
 const extra = (context: RequestContext) => context.manifest.extension;
 const actors = new WeakMap<Manifest, Map<string, FixtureUser>>();

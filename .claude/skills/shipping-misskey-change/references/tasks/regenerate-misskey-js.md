@@ -19,7 +19,7 @@ backend の API endpoint やスキーマ (`meta` / `paramDef` / `res`) を変更
 
 ```bash
 # リポジトリルートから実行する
-bun run build-misskey-js-with-types
+bun run generate:api-types
 ```
 
 内部で以下が一括実行される:
@@ -66,7 +66,7 @@ git diff -- packages/misskey-js/src/autogen/
 ```
 CI: check-misskey-js-autogen
 > Please regenerate misskey-js by running:
->   bun run build-misskey-js-with-types
+>   bun run generate:api-types
 > and commit the changes under packages/misskey-js/src/autogen/.
 ```
 

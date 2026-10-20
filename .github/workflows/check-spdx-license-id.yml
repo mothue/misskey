@@ -16,4 +16,4 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7.0.0
       - name: Check
-        run: node scripts/check-spdx.mjs --ci
+        run: node scripts/checks/spdx.mjs --ci

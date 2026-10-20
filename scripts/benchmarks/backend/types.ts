@@ -2,7 +2,7 @@
  * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
-import type { Manifest } from '../../fixtures/benchmark/definition.js';
+import type { Manifest } from '../../../fixtures/benchmark/definition.js';
 export interface LoadOptions { requests: number; concurrency: number; warmup: number; timeout: number; }
 export interface RequestContext { manifest: Manifest; url: string; workerId: number; requestIndex: number; phase: 'warmup' | 'measure'; signal: AbortSignal; requestOrdinal?: number; }
 export interface BenchmarkScenario {

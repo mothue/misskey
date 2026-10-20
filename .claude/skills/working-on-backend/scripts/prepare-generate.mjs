@@ -7,7 +7,7 @@
  * migration:create (空雛形) しか使わないなら DB もビルドも不要なのでこのスクリプトは不要。
  *
  * JavaScript で書いているのは pure Windows (bash の無い環境) でも動かすため。Bun はこのリポジトリの
- * ランタイムなので必ず存在し、build-pre.mjs / compile_config.js と同じ流儀に揃う。
+ * ランタイムなので必ず存在し、scripts/build/metadata.mjs / compile_config.js と同じ流儀に揃う。
  */
 
 import { execSync } from 'node:child_process';
@@ -46,8 +46,8 @@ if (!existsSync('.config/docker.env')) {
 }
 console.log('OK: .config/default.yml と .config/docker.env あり');
 
-step('2/5 built/meta.json の生成 (build-pre)');
-run('bun run build-pre');
+step('2/5 built/meta.json の生成 (build:metadata)');
+run('bun run build:metadata');
 
 step('3/5 設定のコンパイル (compile-config -> built/.config.json)');
 run('bun run --filter backend compile-config');

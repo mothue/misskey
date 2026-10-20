@@ -11,8 +11,8 @@ import { performance } from 'node:perf_hooks';
 import process from 'node:process';
 import { parseArgs } from 'node:util';
 import * as Bun from 'bun';
-import { storageCases } from './bench-storage.mjs';
-import { runtimeCases } from './bench-runtime.mjs';
+import { storageCases } from './files.mjs';
+import { runtimeCases } from './runtime.mjs';
 
 const { values, positionals } = parseArgs({
 	args: process.argv.slice(2), allowPositionals: true,

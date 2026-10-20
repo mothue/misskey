@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 import type { BenchmarkScenario, LoadOptions, Outcome, PhaseResult } from './types.js';
-import type { Manifest } from '../../fixtures/benchmark/definition.js';
+import type { Manifest } from '../../../fixtures/benchmark/definition.js';
 export const outcomes: Outcome[] = ['success', 'httpError', 'timeout', 'transportError', 'validationFailure'];
 export async function phase(scenario: BenchmarkScenario, manifest: Manifest, url: string, options: LoadOptions,
 	count: number, name: 'warmup' | 'measure', stop: AbortSignal, progress?: (result: PhaseResult) => void): Promise<PhaseResult> {

@@ -5,16 +5,16 @@
 
 import * as fs from 'node:fs';
 
-const __dirname = import.meta.dirname;
+const rootDir = import.meta.dirname + '/../..';
 
-const packageJsonPath = __dirname + '/../package.json'
+const packageJsonPath = rootDir + '/package.json'
 
 function build() {
 	try {
 		const json = fs.readFileSync(packageJsonPath, 'utf-8')
 		const meta = JSON.parse(json);
-		fs.mkdirSync(__dirname + '/../built', { recursive: true });
-		fs.writeFileSync(__dirname + '/../built/meta.json', JSON.stringify({ version: meta.version }), 'utf-8');
+		fs.mkdirSync(rootDir + '/built', { recursive: true });
+		fs.writeFileSync(rootDir + '/built/meta.json', JSON.stringify({ version: meta.version }), 'utf-8');
 	} catch (e) {
 		console.error(e)
 	}

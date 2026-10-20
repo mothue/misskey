@@ -9,14 +9,14 @@ import { createServer } from 'node:net';
 import { cpus, release } from 'node:os';
 import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
-import { waitForHealth } from './benchmarks/lifecycle.js';
-import { select } from './benchmarks/registry.js';
-import { summary, outcomes, appendProgress } from './benchmarks/runner.js';
-import type { LoadOptions, PhaseResult, WorkerResult } from './benchmarks/types.js';
-import { notificationStreamId } from '../fixtures/benchmark/definition.js';
-import type { FixtureSize, Manifest } from '../fixtures/benchmark/definition.js';
+import { waitForHealth } from './lifecycle.js';
+import { select } from './registry.js';
+import { summary, outcomes, appendProgress } from './runner.js';
+import type { LoadOptions, PhaseResult, WorkerResult } from './types.js';
+import { notificationStreamId } from '../../../fixtures/benchmark/definition.js';
+import type { FixtureSize, Manifest } from '../../../fixtures/benchmark/definition.js';
 
-const root = resolve(import.meta.dirname, '..');
+const root = resolve(import.meta.dirname, '../../..');
 const work = resolve(root, '.benchmark');
 const backend = resolve(root, 'packages/backend');
 const compose = ['docker', 'compose', '-p', 'misskey-benchmark-v1', '-f', resolve(root, 'fixtures/benchmark/compose.yml')];
@@ -26,7 +26,7 @@ const { values, positionals } = parseArgs({ args: process.argv.slice(2), allowPo
 	timeout: { type: 'string', default: '10000' }, fixture: { type: 'string', default: 'small' }, json: { type: 'string' },
 } });
 if (values.help) {
-	console.log('bun run bench [NAME FILTER ...] [--list] [--requests 1000] [--concurrency 8]\n  [--warmup 100] [--timeout 10000] [--fixture small|standard] [--json results.json]');
+	console.log('bun run bench:backend [NAME FILTER ...] [--list] [--requests 1000] [--concurrency 8]\n  [--warmup 100] [--timeout 10000] [--fixture small|standard] [--json results.json]');
 	process.exit(0);
 }
 const options: LoadOptions = { requests: Number(values.requests), concurrency: Number(values.concurrency), warmup: Number(values.warmup), timeout: Number(values.timeout) };
@@ -180,10 +180,10 @@ let failed = false;
 try {
 	lock = await open(resolve(work, 'lock'), 'wx', 0o600);
 	await checkPort();
-	try { await command(['docker', 'info', '--format', '{{.ServerVersion}}']); } catch { throw new Error('Docker is unavailable. Start Docker Desktop, then run bun run bench again.'); }
+	try { await command(['docker', 'info', '--format', '{{.ServerVersion}}']); } catch { throw new Error('Docker is unavailable. Start Docker Desktop, then run bun run bench:backend again.'); }
 	console.log('Preparing dedicated benchmark environment...');
 	await command([...compose, 'up', '-d', '--wait']);
-	await command([process.execPath, 'run', 'build-pre']);
+	await command([process.execPath, 'run', 'build:metadata']);
 	await command([process.execPath, 'run', '--filter', 'i18n', '--filter', 'misskey-reversi', '--filter', 'misskey-js', 'build']);
 	await command([process.execPath, 'run', '--bun', 'rolldown', '-c', '--benchmark'], { cwd: backend });
 	await rm(resolve(work, 'storage'), { recursive: true, force: true });
@@ -259,7 +259,7 @@ try {
 			let workerResult: WorkerResult | undefined;
 			let warmupTask: Promise<void> | undefined;
 			let phaseFailure = false;
-			worker = Bun.spawn([process.execPath, resolve(root, 'scripts/benchmark-worker.ts'), scenario.name, manifestPath, JSON.stringify(options)], {
+			worker = Bun.spawn([process.execPath, resolve(root, 'scripts/benchmarks/backend/worker.ts'), scenario.name, manifestPath, JSON.stringify(options)], {
 				cwd: root, stdout: 'ignore', stderr: 'inherit', ipc(message: any) {
 					if (message.type === 'progress') entry.partialMeasure = appendProgress(entry.partialMeasure, message.result);
 					if (message.type === 'fatal') phaseFailure = true;

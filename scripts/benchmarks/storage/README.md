@@ -11,7 +11,7 @@ bun run bench:storage --directory /path/to/filesystem
 決定的な4KiB/1MiB/16MiB bufferを準備し、同期fs・非同期fs・Bun.writeを同じBunで比較します。
 計測後に内容を検証し、一時ファイルを片付けます。JSONには生sample・median/p95/mean・ops/sと実行環境を保存します。
 fsyncは行わず、OS cacheやfilesystemのcopy-on-writeは有効です。永続化性能や並行処理性能の測定ではありません。
-HTTP/DBを含むbackendベンチは`bun run bench`を使います。
+HTTP/DBを含むbackendベンチは`bun run bench:backend`を使います。
 
 `runtime/`フィルタでhashing・UUID・export writerの旧実装とBun実装も比較できます。
 

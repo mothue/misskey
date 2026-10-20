@@ -11,8 +11,8 @@
  * 最後に終了コードを集約する。
  *
  * 使い方:
- *   bun scripts/check-shipping.mjs
- *   bun scripts/check-shipping.mjs --base <ref>
+ *   bun scripts/checks/shipping.mjs
+ *   bun scripts/checks/shipping.mjs --base <ref>
  *
  * 終了コード:
  *   0 = 全検査に合格 (lint 対象なしの SKIPPED を含む)
@@ -24,7 +24,7 @@ import { statSync } from 'node:fs';
 import { join } from 'node:path';
 import { execaSync } from 'execa';
 
-import { DEFAULT_INTEGRATION_REFS, findClosestMergeBase, gitLines, gitMergeBase, gitPaths } from './lib/git.mjs';
+import { DEFAULT_INTEGRATION_REFS, findClosestMergeBase, gitLines, gitMergeBase, gitPaths } from '../lib/git.mjs';
 
 const LINT_TARGETS = [
 	{ root: 'packages/backend', pattern: /^packages\/backend\/(src|test-federation)\/.*\.ts$/ },
@@ -168,14 +168,14 @@ function runChangedFileLint(changedFiles, repoRoot) {
  */
 function runSpdx(base, repoRoot) {
 	try {
-		let status = normalizeStatus(runCommand(process.execPath, ['scripts/check-spdx.mjs'], repoRoot));
+		let status = normalizeStatus(runCommand(process.execPath, ['scripts/checks/spdx.mjs'], repoRoot));
 		if (status !== 1) return status;
 
 		console.log('SPDX: 違反を検出。ローカル変更の欠落だけを自動修正する。');
-		const fixStatus = normalizeStatus(runCommand(process.execPath, ['scripts/check-spdx.mjs', '--fix', '--base', base], repoRoot));
+		const fixStatus = normalizeStatus(runCommand(process.execPath, ['scripts/checks/spdx.mjs', '--fix', '--base', base], repoRoot));
 		if (fixStatus === 2) return 2;
 
-		status = normalizeStatus(runCommand(process.execPath, ['scripts/check-spdx.mjs'], repoRoot));
+		status = normalizeStatus(runCommand(process.execPath, ['scripts/checks/spdx.mjs'], repoRoot));
 		return status;
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
@@ -225,7 +225,7 @@ function parseBaseRef(args) {
 function main() {
 	const baseRef = parseBaseRef(process.argv.slice(2));
 	if (baseRef === undefined) {
-		console.error('usage: bun scripts/check-shipping.mjs [--base <ref>]');
+		console.error('usage: bun scripts/checks/shipping.mjs [--base <ref>]');
 		return 2;
 	}
 

@@ -30,7 +30,7 @@ cp .github/misskey/test.yml .config/test.yml
 bun run build
 
 # 4. テストサーバー起動 + Playwright 実行 (いずれもルートから)
-bun run e2e                # 内部で bun run start:test を起動し http://localhost:61812 を待って Playwright を実行
+bun run test:e2e                # 内部で bun run start:test を起動し http://localhost:61812 を待って Playwright を実行
 ```
 
 - 設定: ルート [packages/frontend/playwright.config.ts](../../../../../packages/frontend/playwright.config.ts) で、`packages/frontend/test/e2e/` 配下の `*.spec.ts` を対象にする

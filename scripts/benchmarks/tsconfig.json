@@ -6,7 +6,13 @@
     "strict": true,
     "noEmit": true,
     "skipLibCheck": true,
-    "types": ["bun", "node"]
+    "types": [
+      "bun",
+      "node"
+    ]
   },
-  "include": ["*.ts", "../benchmark.ts", "../benchmark-worker.ts", "../../fixtures/benchmark/definition.ts"]
+  "include": [
+    "backend/**/*.ts",
+    "../../fixtures/benchmark/definition.ts"
+  ]
 }

@@ -2,10 +2,10 @@
  * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
-import { scenarios } from './benchmarks/registry.js';
-import { phase } from './benchmarks/runner.js';
-import type { LoadOptions, WorkerResult } from './benchmarks/types.js';
-import type { Manifest } from '../fixtures/benchmark/definition.js';
+import { scenarios } from './registry.js';
+import { phase } from './runner.js';
+import type { LoadOptions, WorkerResult } from './types.js';
+import type { Manifest } from '../../../fixtures/benchmark/definition.js';
 const [name, manifestPath, optionsText, baseUrl = 'http://127.0.0.1:61912'] = process.argv.slice(2);
 const scenario = scenarios.find(item => item.name === name);
 if (!scenario || !manifestPath || !optionsText || !process.send) throw new Error('worker requires controller IPC');

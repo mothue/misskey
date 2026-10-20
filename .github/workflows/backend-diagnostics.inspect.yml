@@ -60,7 +60,7 @@ jobs:
       working-directory: base
       run: |
         cp .github/misskey/test.yml .config/default.yml
-        bun compile-config
+        bun run --filter backend compile-config
     - name: Build base
       working-directory: base
       run: bun run build
@@ -74,7 +74,7 @@ jobs:
       working-directory: head
       run: |
         cp .github/misskey/test.yml .config/default.yml
-        bun compile-config
+        bun run --filter backend compile-config
     - name: Build head
       working-directory: head
       run: bun run build

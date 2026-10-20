@@ -57,7 +57,7 @@ COPY --link . ./
 RUN bun run build
 
 # TODO: Make source tarball generation configurable instead of always running it.
-RUN bun -e "import('./scripts/tarball.mjs').then(async m => { await m.buildTarball(); })"
+RUN bun run build:tarball
 
 RUN rm -rf .git/
 
@@ -148,4 +148,4 @@ ENV LD_PRELOAD=/usr/local/lib/libjemalloc.so
 ENV NODE_ENV=production
 HEALTHCHECK --interval=5s --retries=20 CMD ["/bin/bash", "/misskey/healthcheck.sh"]
 ENTRYPOINT ["/usr/bin/tini", "--"]
-CMD ["bun", "run", "migrateandstart"]
+CMD ["bun", "run", "start:with-migrations"]

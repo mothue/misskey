@@ -3,12 +3,10 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execa } from 'execa';
 
-const _filename = fileURLToPath(import.meta.url);
-const _dirname = dirname(_filename);
+const rootDir = fileURLToPath(new URL('../../', import.meta.url));
 
 /** @type {Set<import('execa').ResultPromise>} */
 const childProcesses = new Set();
@@ -166,103 +164,103 @@ process.on('SIGTERM', () => {
 
 try {
 	await runChildProcess(process.execPath, ['run', 'clean'], {
-		cwd: _dirname + '/../',
+		cwd: rootDir,
 		stdout: process.stdout,
 		stderr: process.stderr,
 	});
 
 	// アセットのビルドで依存しているので一番最初に必要
 	await runChildProcess(process.execPath, ['run', '--filter', 'i18n', 'build'], {
-		cwd: _dirname + '/../',
+		cwd: rootDir,
 		stdout: process.stdout,
 		stderr: process.stderr,
 	});
 
 	await Promise.all([
-		runChildProcess(process.execPath, ['run', 'build-pre'], {
-			cwd: _dirname + '/../',
+		runChildProcess(process.execPath, ['run', 'build:metadata'], {
+			cwd: rootDir,
 			stdout: process.stdout,
 			stderr: process.stderr,
 		}),
-		runChildProcess(process.execPath, ['run', 'build-assets'], {
-			cwd: _dirname + '/../',
+		runChildProcess(process.execPath, ['run', 'build:tarball:optional'], {
+			cwd: rootDir,
 			stdout: process.stdout,
 			stderr: process.stderr,
 		}),
 		runChildProcess(process.execPath, ['run', '--filter', 'misskey-reversi', 'build'], {
-			cwd: _dirname + '/../',
+			cwd: rootDir,
 			stdout: process.stdout,
 			stderr: process.stderr,
 		}),
 		// icons-subsetterは開発段階では使用されないが、型エラーを抑制するためにはじめの一度だけビルドする
 		runChildProcess(process.execPath, ['run', '--filter', 'icons-subsetter', 'build'], {
-			cwd: _dirname + '/../',
+			cwd: rootDir,
 			stdout: process.stdout,
 			stderr: process.stderr,
 		}),
 		runChildProcess(process.execPath, ['run', '--filter', 'misskey-js', 'build'], {
-			cwd: _dirname + '/../',
+			cwd: rootDir,
 			stdout: process.stdout,
 			stderr: process.stderr,
 		}),
 	]);
 
-	startChildProcess(process.execPath, ['run', 'build-pre', '--watch'], {
-		cwd: _dirname + '/../',
+	startChildProcess(process.execPath, ['run', 'build:metadata', '--watch'], {
+		cwd: rootDir,
 		stdout: process.stdout,
 		stderr: process.stderr,
 	});
 
-	startChildProcess(process.execPath, ['run', 'build-assets', '--watch'], {
-		cwd: _dirname + '/../',
+	startChildProcess(process.execPath, ['run', 'build:tarball:optional', '--watch'], {
+		cwd: rootDir,
 		stdout: process.stdout,
 		stderr: process.stderr,
 	});
 
 	startChildProcess(process.execPath, ['run', '--filter', 'backend', 'dev'], {
-		cwd: _dirname + '/../',
+		cwd: rootDir,
 		stdout: process.stdout,
 		stderr: process.stderr,
 	});
 
 	startChildProcess(process.execPath, ['run', '--filter', 'frontend', 'watch'], {
-		cwd: _dirname + '/../',
+		cwd: rootDir,
 		stdout: process.stdout,
 		stderr: process.stderr,
 	});
 
 	startChildProcess(process.execPath, ['run', '--filter', 'frontend-embed', 'watch'], {
-		cwd: _dirname + '/../',
+		cwd: rootDir,
 		stdout: process.stdout,
 		stderr: process.stderr,
 	});
 
 	startChildProcess(process.execPath, ['run', '--filter', 'sw', 'watch'], {
-		cwd: _dirname + '/../',
+		cwd: rootDir,
 		stdout: process.stdout,
 		stderr: process.stderr,
 	});
 
 	startChildProcess(process.execPath, ['run', '--filter', 'misskey-js', 'watch', '--no-clean'], {
-		cwd: _dirname + '/../',
+		cwd: rootDir,
 		stdout: process.stdout,
 		stderr: process.stderr,
 	});
 
 	startChildProcess(process.execPath, ['run', '--filter', 'i18n', 'watch', '--no-clean'], {
-		cwd: _dirname + '/../',
+		cwd: rootDir,
 		stdout: process.stdout,
 		stderr: process.stderr,
 	});
 
 	startChildProcess(process.execPath, ['run', '--filter', 'misskey-reversi', 'watch', '--no-clean'], {
-		cwd: _dirname + '/../',
+		cwd: rootDir,
 		stdout: process.stdout,
 		stderr: process.stderr,
 	});
 
 	startChildProcess(process.execPath, ['run', '--filter', 'misskey-bubble-game', 'watch', '--no-clean'], {
-		cwd: _dirname + '/../',
+		cwd: rootDir,
 		stdout: process.stdout,
 		stderr: process.stderr,
 	});

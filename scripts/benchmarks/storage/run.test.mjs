@@ -10,7 +10,7 @@ import process from 'node:process';
 import * as Bun from 'bun';
 import { expect, test } from 'bun:test';
 
-const script = new URL('./bench.mjs', import.meta.url).pathname;
+const script = new URL('./run.mjs', import.meta.url).pathname;
 
 async function run(args, env = {}) {
 	const child = Bun.spawn([process.execPath, script, ...args], {

@@ -71,7 +71,7 @@ bun .claude/skills/working-on-backend/scripts/prepare-generate.mjs
 
 スクリプトがやること:
 
-- `bun run build-pre` → `built/meta.json` を生成 (`loadConfig()` が要求)
+- `bun run build:metadata` → `built/meta.json` を生成 (`loadConfig()` が要求)
 - `bun run --filter backend compile-config` → `built/.config.json` を生成 (`ormconfig.js` の `loadConfig()` が要求するのはこれ。ソースの `.config/default.yml` はその入力なので、無ければ `.config/example.yml` から作っておく)
 - `bun run --filter backend build` → エンティティを `built/` に反映 (CLI は `built/` を読む)
 - `docker compose -f compose.local-db.yml up -d --wait db` → ローカル DB (postgres) を起動。`--wait` は Docker Compose v2.1.1 (2021-11) 以降が必要 (v2 の `docker compose` 前提。EOL の `docker-compose` v1 は対象外)

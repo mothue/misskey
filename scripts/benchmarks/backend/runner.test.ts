@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 import { expect, test } from 'bun:test';
-import { definition, timelineEligible } from '../../fixtures/benchmark/definition.js';
+import { definition, timelineEligible } from '../../../fixtures/benchmark/definition.js';
 import { scenarios, select } from './registry.js';
 import { phase, summary, appendProgress } from './runner.js';
 import type { BenchmarkScenario, PhaseResult } from './types.js';
@@ -107,7 +107,7 @@ test('cancelled phases stop issuing requests and preserve completed samples', as
 
 test('controller CLI lists without Docker and rejects bad arguments', async () => {
 	const run = async (...args: string[]) => {
-		const child = Bun.spawn([process.execPath, 'scripts/benchmark.ts', ...args], { stdout: 'pipe', stderr: 'pipe' });
+		const child = Bun.spawn([process.execPath, 'scripts/benchmarks/backend/controller.ts', ...args], { stdout: 'pipe', stderr: 'pipe' });
 		const [stdout, stderr, code] = await Promise.all([new Response(child.stdout).text(), new Response(child.stderr).text(), child.exited]);
 		return { stdout, stderr, code };
 	};
@@ -155,7 +155,7 @@ test('separate generator transfers all samples and waits for controller acknowle
 	let result: any;
 	let warmup: any;
 	try {
-		child = Bun.spawn([process.execPath, 'scripts/benchmark-worker.ts', 'timeline/global', manifestPath,
+		child = Bun.spawn([process.execPath, 'scripts/benchmarks/backend/worker.ts', 'timeline/global', manifestPath,
 			JSON.stringify({ requests: 1000, concurrency: 8, warmup: 100, timeout: 1000 }), server.url.toString()], {
 			stdout: 'ignore', stderr: 'pipe', ipc(message: any) {
 				if (message.type === 'warmup') { warmup = message.result; child!.send({ type: 'measure' }); }
@@ -182,7 +182,7 @@ test('port conflict preserves the unrelated server and saves an incomplete repor
 	const server = Bun.serve({ port: 61912, hostname: '0.0.0.0', fetch() { return new Response('unrelated'); } });
 	try {
 		const output = join(directory, 'result.json');
-		const child = Bun.spawn([process.execPath, 'scripts/benchmark.ts', '--json', output], { stdout: 'ignore', stderr: 'ignore' });
+		const child = Bun.spawn([process.execPath, 'scripts/benchmarks/backend/controller.ts', '--json', output], { stdout: 'ignore', stderr: 'ignore' });
 		expect(await child.exited).toBe(1);
 		const result = JSON.parse(await readFile(output, 'utf8'));
 		expect(result.status).toBe('fail');
@@ -202,7 +202,7 @@ test('SIGINT during the generator phase barrier returns a partial result and lea
 	let child: ReturnType<typeof Bun.spawn> | undefined;
 	let result: any;
 	try {
-		child = Bun.spawn([process.execPath, 'scripts/benchmark-worker.ts', 'timeline/global', manifestPath,
+		child = Bun.spawn([process.execPath, 'scripts/benchmarks/backend/worker.ts', 'timeline/global', manifestPath,
 			JSON.stringify({ requests: 1000, concurrency: 1, warmup: 1, timeout: 1000 }), server.url.toString()], {
 			stdout: 'ignore', stderr: 'pipe', ipc(message: any) {
 				if (message.type === 'warmup') child!.kill('SIGINT');
@@ -241,7 +241,7 @@ test('abnormal generator exit leaves a usable partial checkpoint', async () => {
 	let child: ReturnType<typeof Bun.spawn> | undefined;
 	let checkpoint: PhaseResult | undefined;
 	try {
-		child = Bun.spawn([process.execPath, 'scripts/benchmark-worker.ts', 'timeline/global', manifestPath,
+		child = Bun.spawn([process.execPath, 'scripts/benchmarks/backend/worker.ts', 'timeline/global', manifestPath,
 			JSON.stringify({ requests: 10000, concurrency: 4, warmup: 1, timeout: 1000 }), server.url.toString()], {
 			stdout: 'ignore', stderr: 'pipe', ipc(message: any) {
 				if (message.type === 'warmup') child!.send({ type: 'measure' });

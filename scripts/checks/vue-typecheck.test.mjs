@@ -14,7 +14,7 @@ import { test } from 'node:test';
 test('Vue typecheck checks templates and accepts valid components under Bun', () => {
 	const fixture = mkdtempSync(join(tmpdir(), 'misskey-vue-typecheck-'));
 	try {
-		symlinkSync(fileURLToPath(new URL('../packages/frontend/node_modules/', import.meta.url)), join(fixture, 'node_modules'), 'dir');
+		symlinkSync(fileURLToPath(new URL('../../packages/frontend/node_modules/', import.meta.url)), join(fixture, 'node_modules'), 'dir');
 		writeFileSync(join(fixture, 'tsconfig.json'), JSON.stringify({
 			compilerOptions: { strict: true, skipLibCheck: true, types: [], target: 'ESNext', module: 'ESNext', moduleResolution: 'Bundler' },
 			include: ['*.vue'],
@@ -22,7 +22,7 @@ test('Vue typecheck checks templates and accepts valid components under Bun', ()
 		const check = () => spawnSync(process.execPath, [
 			fileURLToPath(new URL('./vue-typecheck.cjs', import.meta.url)),
 			'--noEmit', '--project', join(fixture, 'tsconfig.json'),
-		], { cwd: fileURLToPath(new URL('../packages/frontend/', import.meta.url)), encoding: 'utf8', timeout: 60000 });
+		], { cwd: fileURLToPath(new URL('../../packages/frontend/', import.meta.url)), encoding: 'utf8', timeout: 60000 });
 		writeFileSync(join(fixture, 'Probe.vue'), '<script setup lang="ts">const value: string = "hello";</script><template>{{ value.toFixed() }}</template>');
 		const invalid = check();
 		assert.equal(invalid.status, 2, invalid.stdout + invalid.stderr);

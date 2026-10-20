@@ -37,12 +37,12 @@ package または repo 全体の状態が必要なときに任意で使う。
 ### Repo scope
 
 各パッケージの `lint` スクリプト実体は `bun run typecheck && bun run eslint` ([packages/backend/package.json](../../packages/backend/package.json), [packages/frontend/package.json](../../packages/frontend/package.json))。
-ルートの `bun run lint` は `bun run --sequential --no-exit-on-error --workspaces --if-present lint && bun run check-dts` なので、そのまま実行すると workspace lint の失敗時に `check-dts` が実行されない。
+ルートの `bun run lint` は `bun run --sequential --no-exit-on-error --workspaces --if-present lint && bun run check:declarations` なので、そのまま実行すると workspace lint の失敗時に `check:declarations` が実行されない。
 次の 4 コマンドをそれぞれ独立した Bash 呼び出しとして実行し、先の失敗にかかわらず全結果を収集する:
 
 ```bash
 bun run --sequential --no-exit-on-error --workspaces --if-present lint
-bun run check-dts
+bun run check:declarations
 bun run --filter backend test
 bun run --filter frontend test
 ```
@@ -108,7 +108,7 @@ Other tests: SKIPPED (repo scope の対象外)
 ## 関連 skill / コマンド
 
 - [`shipping-misskey-change` スキル](../skills/shipping-misskey-change/SKILL.md) — commit / PR 直前の最終チェックリスト
-- [`shipping-misskey-change/references/tasks/regenerate-misskey-js.md`](../skills/shipping-misskey-change/references/tasks/regenerate-misskey-js.md) — API 変更時の `bun run build-misskey-js-with-types` 実行手順
+- [`shipping-misskey-change/references/tasks/regenerate-misskey-js.md`](../skills/shipping-misskey-change/references/tasks/regenerate-misskey-js.md) — API 変更時の `bun run generate:api-types` 実行手順
 - [.github/copilot-instructions.md §Validation コマンド](../../.github/copilot-instructions.md) — Bun コマンド一覧 (Copilot / Codex 向けに再掲)
 
 ## 元 ECC 版との差分

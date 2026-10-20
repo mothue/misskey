@@ -493,7 +493,7 @@ describe('test', () => {
 
 ### Misskey.jsの型生成
 ```bash
-bun run build-misskey-js-with-types
+bun run generate:api-types
 ```
 
 ### How to resolve conflictions occurred at bun.lock?

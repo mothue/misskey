@@ -18,8 +18,8 @@
 
 1. **SPDX ヘッダー欠落のまま AGPL 管轄ディレクトリへ新規ファイルを追加しない**
    - 対象: 新規 `.ts` / `.js` / `.cjs` / `.mjs` / `.vue` / `.scss` / `.html` ファイル
-   - 対象と判定は [scripts/check-spdx.mjs](scripts/check-spdx.mjs) が一元管理する
-   - `node scripts/check-spdx.mjs` を 1 回実行し、欠落は `--fix` で補う。
+   - 対象と判定は [scripts/checks/spdx.mjs](scripts/checks/spdx.mjs) が一元管理する
+   - `node scripts/checks/spdx.mjs` を 1 回実行し、欠落は `--fix` で補う。
      `SPDX: OK` なら追加の目視確認はしない
    - `packages/misskey-js` は MIT ライセンスのサブパッケージなので、この AGPL ヘッダーを一律に付けない (サブパッケージ固有の `package.json` / `LICENSE` / 既存ファイルのヘッダーに従う)
 
@@ -64,9 +64,9 @@
 
 1. **lint / test**: ESLint 対象の変更ファイルへ package root から `eslint --quiet` を最後に 1 回実行し、実装変更には最も近い test を選んで実行する。
    package / repo 全体 lint と広域 test は任意
-2. **backend API 変更時**: `bun run build-misskey-js-with-types` を実行し `packages/misskey-js/src/autogen/` の差分も commit に含めた
+2. **backend API 変更時**: `bun run generate:api-types` を実行し `packages/misskey-js/src/autogen/` の差分も commit に含めた
 3. **entity / migration 変更時**: `bun run --filter backend check-migrations` が pending DDL 0 件で通る / 新規 migration は `up()` と `down()` 両方実装済
-4. **SPDX**: `node scripts/check-spdx.mjs` が `SPDX: OK` を返すことを確認する
+4. **SPDX**: `node scripts/checks/spdx.mjs` が `SPDX: OK` を返すことを確認する
 5. **locale safety**: commit 済み・未commit・untracked の変更集合に `locales/ja-JP.yml` / `locales/en-US.yml` 以外の locale YAML が無いことを確認する
 6. **[CHANGELOG](.claude/skills/shipping-misskey-change/references/tasks/changelog-update.md)**: ユーザーが明示しない限り編集しない。
    ユーザー影響がある変更では引き継ぎに候補を 1 行だけ示す
@@ -83,7 +83,7 @@
 | Backend federation test | `bun run --filter backend test:fed` |
 | Frontend unit test | `bun run --filter frontend test` |
 | Migration 差分検査 (pending DDL) | `bun run --filter backend check-migrations` |
-| `misskey-js` 再生成 (API 変更後必須) | `bun run build-misskey-js-with-types` |
+| `misskey-js` 再生成 (API 変更後必須) | `bun run generate:api-types` |
 | 全体ビルド | `bun run build` |
 | 開発サーバー (backend + frontend watch) | `bun run dev` |
 

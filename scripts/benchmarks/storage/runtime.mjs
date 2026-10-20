@@ -9,7 +9,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { mkdtemp, open, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import * as Bun from 'bun';
-import { FileWriterStream } from '../packages/backend/src/misc/FileWriterStream.ts';
+import { FileWriterStream } from '../../../packages/backend/src/misc/FileWriterStream.ts';
 
 // Comparators execute the old and new implementations on the same Bun runtime.
 export function runtimeCases(directory) {

@@ -59,7 +59,7 @@ jobs:
 
             example:
             ```sh
-            bun run build-misskey-js-with-types
+            bun run generate:api-types
             ```
 
       - name: send message

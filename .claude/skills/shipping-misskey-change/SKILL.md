@@ -24,7 +24,7 @@ Misskey の変更を commit / PR / merge する直前、または未commitでユ
 repo root で次を 1 回実行する。
 
 ```bash
-node scripts/check-shipping.mjs
+node scripts/checks/shipping.mjs
 ```
 
 統合先を明示する場合は `--base <ref>`、または `MISSKEY_BASE_REF` を使う。
@@ -39,7 +39,7 @@ script は次を行い、独立した検査を最後まで続けて exit 0 (合�
 
 ## 2. 変更別チェック
 
-- backend API の `meta` / `paramDef` / `res`: `bun run build-misskey-js-with-types`。
+- backend API の `meta` / `paramDef` / `res`: `bun run generate:api-types`。
   手順は [regenerate-misskey-js.md](references/tasks/regenerate-misskey-js.md)
 - entity / migration: `bun run --filter backend check-migrations`。
   新規 migration は `up()` / `down()`、既存のマージ済 migration は差分なし
