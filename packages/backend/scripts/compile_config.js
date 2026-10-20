@@ -17,7 +17,9 @@ const _filename = fileURLToPath(import.meta.url);
 const _dirname = dirname(_filename);
 
 const configDir = resolve(_dirname, '../../../.config');
-const OUTPUT_PATH = resolve(_dirname, '../../../built/.config.json');
+const OUTPUT_PATH = process.env.MISSKEY_CONFIG_JSON
+	? resolve(process.env.MISSKEY_CONFIG_JSON)
+	: resolve(_dirname, '../../../built/.config.json');
 
 // TODO: yamlのパースに失敗したときのエラーハンドリング
 

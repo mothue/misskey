@@ -173,6 +173,18 @@ You could install them in system-wide (such as from package manager).
 #### Use `docker compose`
 You could obtain middleware container by typing `docker compose -f $PROJECT_ROOT/compose.local-db.yml up -d`.
 
+For an automatically configured development environment with dedicated Docker volumes, run:
+
+```sh
+bun run dev-docker:setup
+bun run dev-docker:migrate
+bun run dev-docker:start
+```
+
+Each command asks for `y/N` confirmation. PostgreSQL and Redis run in Docker; Misskey runs natively with Bun.
+Development configuration is stored separately in `.config/dev-docker/`; existing production configuration is preserved.
+See [the development Docker commands](scripts/README.md#docker-を使うローカル開発環境) for prerequisites, reset commands, and build-cache cleanup.
+
 #### Use Devcontainer
 Devcontainer also has necessary setting. This method can be done by connecting from VSCode.
 

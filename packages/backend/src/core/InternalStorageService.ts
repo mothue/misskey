@@ -18,7 +18,9 @@ export class InternalStorageService {
 		@Inject(DI.config)
 		private config: Config,
 	) {
-		this.path = Path.resolve(this.config.rootDir, 'files');
+		this.path = process.env.MISSKEY_FILES_DIR
+			? Path.resolve(process.env.MISSKEY_FILES_DIR)
+			: Path.resolve(this.config.rootDir, 'files');
 	}
 
 	@bindThis

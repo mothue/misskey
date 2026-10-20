@@ -7,7 +7,7 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { buffer } from 'node:stream/consumers';
-import { afterEach, beforeEach, describe, expect, test } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { mockDeep } from 'vitest-mock-extended';
 import { InternalStorageService } from '@/core/InternalStorageService.js';
 import type { Config } from '@/config.js';
@@ -19,16 +19,30 @@ describe('InternalStorageService', () => {
 	const binary = Buffer.from([0x00, 0xff, 0x80, 0x0a, 0x0d, 0x41]);
 
 	beforeEach(async () => {
+		vi.stubEnv('MISSKEY_FILES_DIR', '');
 		rootDir = await mkdtemp(join(tmpdir(), 'misskey-internal-storage-'));
 		storage = new InternalStorageService(mockDeep<Config>({ rootDir, url }));
 	});
 
 	afterEach(async () => {
+		vi.unstubAllEnvs();
 		await rm(rootDir, { recursive: true, force: true });
 	});
 
 	test('resolves keys under the configured files directory', () => {
 		expect(storage.resolvePath('file.bin')).toBe(join(rootDir, 'files', 'file.bin'));
+	});
+
+	test('isolates uploads with MISSKEY_FILES_DIR while keeping the asset root unchanged', async () => {
+		const files = join(rootDir, 'development/uploads');
+		vi.stubEnv('MISSKEY_FILES_DIR', files);
+		const config = mockDeep<Config>({ rootDir, url });
+		const isolatedStorage = new InternalStorageService(config);
+		expect(await isolatedStorage.saveFromBuffer('dev.bin', binary)).toBe(`${url}/files/dev.bin`);
+		expect(await readFile(join(files, 'dev.bin'))).toEqual(binary);
+		expect(await buffer(isolatedStorage.read('dev.bin'))).toEqual(binary);
+		expect(config.rootDir).toBe(rootDir);
+		await expect(readFile(join(rootDir, 'files/dev.bin'))).rejects.toThrow();
 	});
 
 	// Await saves so these contracts also apply to a future asynchronous implementation.
