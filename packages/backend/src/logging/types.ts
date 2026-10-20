@@ -97,6 +97,8 @@ export type LogRecordInput = LogWriteInput & {
 export type SerializedError = {
 	readonly type: string;
 	readonly message: string;
+	readonly code?: LogAttributeValue;
+	readonly details?: LogAttributeValue;
 	readonly stack?: string;
 	readonly cause?: SerializedError | LogAttributeValue;
 };

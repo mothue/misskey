@@ -129,6 +129,65 @@ describe('LogNormalizer', () => {
 		});
 	});
 
+	test('preserves JSON-LD validation details and error codes, including nested causes', () => {
+		const cause = Object.assign(new Error('Safe mode validation error.'), {
+			name: 'jsonld.ValidationError',
+			code: 'ERR_JSONLD',
+			details: { event: { code: 'invalid property', message: 'Dropping property.', details: { property: 'unmapped' } } },
+		});
+		expect(serializeLogError(new Error('verification failed', { cause }))).toMatchObject({
+			cause: { type: cause.name, code: cause.code, details: cause.details },
+		});
+	});
+
+	test('redacts secrets inside error details and handles cycles and throwing getters', () => {
+		const details: Record<string, unknown> = { token: 'secret', nested: { password: 'secret', property: 'unmapped' } };
+		details.self = details;
+		Object.defineProperty(details, 'broken', { enumerable: true, get() { throw new Error('getter failed'); } });
+		const error = Object.assign(new Error('validation failed'), { details });
+
+		expect(serializeLogError(error)).toMatchObject({
+			details: {
+				token: '[REDACTED]', nested: { password: '[REDACTED]', property: 'unmapped' },
+				self: '[Circular]', broken: '[Unsupported]: property access failed',
+			},
+		});
+	});
+
+	test('bounds large error details while retaining the diagnostic code', () => {
+		const error = Object.assign(new Error('validation failed'), {
+			code: 'ERR_JSONLD',
+			details: { value: 'あ'.repeat(1000) },
+		});
+		const serialized = serializeLogError(error, { limits: { maxBytes: 256 } });
+
+		expect(serialized).toMatchObject({ code: 'ERR_JSONLD' });
+		expect(serialized).toHaveProperty('details');
+		expect(Buffer.byteLength(JSON.stringify(serialized), 'utf8')).toBeLessThanOrEqual(256);
+	});
+
+	test('keeps nested Error details finite, redacted, and subject to the depth limit', () => {
+		const details: Record<string, unknown> = { token: 'secret', property: 'unmapped' };
+		const inner = Object.assign(new Error('inner'), { details });
+		const outer = Object.assign(new Error('outer'), { details: { cause: inner } });
+		details.cause = outer;
+		const serialized = serializeLogError(outer);
+		expect(serialized).toMatchObject({
+			details: { cause: { message: 'inner', details: { token: '[REDACTED]', cause: { type: 'CircularError' } } } },
+		});
+		expect(JSON.stringify(serialized)).not.toContain('secret');
+		expect(serializeLogError(outer, { limits: { maxDepth: 2 } })).toMatchObject({
+			details: { cause: '[Truncated]' },
+		});
+	});
+
+	test('limits chains of Errors stored directly in details', () => {
+		let error: Error = new Error('root');
+		for (let depth = 0; depth < 100; depth++) error = Object.assign(new Error('outer'), { details: error });
+		const result = serializeLogError(error, { limits: { maxDepth: 2 } });
+		expect(result).toMatchObject({ details: { details: '[Truncated]' } });
+	});
+
 	test('keeps serialized Error output within its byte limit', () => {
 		const serialized = serializeLogError(new Error('a long message'), { limits: { maxBytes: 32 } });
 

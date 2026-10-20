@@ -4472,6 +4472,24 @@ export interface Locale extends ILocale {
      * すべてのキューを今すぐ再試行
      */
     "retryAllQueuesNow": string;
+    "_jobQueue": {
+        /**
+         * ログを読み込む
+         */
+        "loadLogs": string;
+        /**
+         * 保存されたログはありません。
+         */
+        "noLogs": string;
+        /**
+         * 具体的な理由
+         */
+        "reason": string;
+        /**
+         * 問題の項目
+         */
+        "property": string;
+    };
     /**
      * 今すぐ再試行しますか？
      */

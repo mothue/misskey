@@ -191,6 +191,10 @@ function normalizeValue(
 	if (typeof value === 'bigint') return value.toString(10);
 	if (typeof value === 'undefined') return `${UNSUPPORTED}: undefined`;
 	if (typeof value === 'function' || typeof value === 'symbol') return `${UNSUPPORTED}: ${typeof value}`;
+	// jsonldなどはdetails.causeにもErrorを格納するため、原因の連鎖を保持します。
+	if (isErrorValue(value)) {
+		return depth >= limits.maxDepth ? TRUNCATED : serializeErrorValue(value, depth, seen, limits, redactor) as unknown as LogAttributeValue;
+	}
 	let isArray = false;
 	try {
 		if (value instanceof Date) {
@@ -347,10 +351,16 @@ function serializeErrorValue(
 				: typeof constructorName === 'string' && constructorName.length > 0 ? constructorName : 'Error',
 			limits.maxStringBytes,
 		);
-		const result: { type: string; message: string; stack?: string; cause?: SerializedError | LogAttributeValue } = {
+		const result: { -readonly [K in keyof SerializedError]: SerializedError[K] } = {
 			type,
 			message: normalizeString(typeof message === 'string' ? message : stringifySafely(value), limits.maxStringBytes),
 		};
+		for (const key of ['code', 'details'] as const) {
+			const property = readProperty(value, key);
+			if (typeof property !== 'undefined') {
+				result[key] = redactor([], key) ? REDACTED : normalizeValue(property, [key], depth + 1, seen, limits, redactor);
+			}
+		}
 		if (typeof stack === 'string') result.stack = normalizeString(stack, limits.maxStringBytes);
 		if (typeof cause !== 'undefined') {
 			result.cause = depth < limits.maxDepth
@@ -368,23 +378,23 @@ function serializeErrorValue(
 /** エラーの必須項目を残したまま、全体の出力サイズを上限内へ縮めます。 */
 function trimSerializedError(value: SerializedError, maxBytes: number): SerializedError {
 	const requiredLimit = Math.max(0, Math.floor((maxBytes - 24) / 2));
-	const result: { type: string; message: string; stack?: string; cause?: SerializedError | LogAttributeValue } = {
+	const result: { -readonly [K in keyof SerializedError]: SerializedError[K] } = {
 		type: normalizeString(value.type, requiredLimit),
 		message: normalizeString(value.message, requiredLimit),
 	};
 	if (serializedByteLength(result as unknown as LogAttributeValue) > maxBytes) {
 		return { type: '', message: '' };
 	}
-	if (value.stack != null) {
-		const candidate = { ...result, stack: value.stack };
-		if (serializedByteLength(candidate as unknown as LogAttributeValue) <= maxBytes) result.stack = value.stack;
-	}
-	if (value.cause != null) {
-		const cause = typeof value.cause === 'object'
-			? trimToByteLimit(value.cause as LogAttributeValue, maxBytes)
-			: value.cause;
-		const candidate = { ...result, cause };
-		if (serializedByteLength(candidate as unknown as LogAttributeValue) <= maxBytes) result.cause = cause as SerializedError | LogAttributeValue;
+	// スタックが大きくても、原因を示すコード・詳細・causeを先に残します。
+	for (const key of ['code', 'details', 'cause', 'stack'] as const) {
+		if (typeof value[key] === 'undefined') continue;
+		const remaining = maxBytes - serializedByteLength(result as LogAttributeValue) - byteLength(JSON.stringify(key)) - 2;
+		if (remaining < 2) continue;
+		const trimmed = trimToByteLimit(value[key] as LogAttributeValue, remaining);
+		const candidate = { ...result, [key]: trimmed };
+		if (serializedByteLength(candidate as LogAttributeValue) <= maxBytes) {
+			Object.assign(result, { [key]: trimmed });
+		}
 	}
 	return result;
 }

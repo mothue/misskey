@@ -155,9 +155,9 @@ SPDX-License-Identifier: AGPL-3.0-only
 	<div v-else-if="tab === 'error'" class="_gaps_s">
 		<MkCode v-for="log in job.stacktrace" :code="log" lang="stacktrace"/>
 	</div>
-	<div v-else-if="tab === 'logs'">
-		<MkButton primary rounded @click="loadLogs()"><i class="ti ti-refresh"></i> Load logs</MkButton>
-		<div v-for="log in logs">{{ log }}</div>
+	<div v-else-if="tab === 'logs'" class="_gaps_s">
+		<MkButton primary rounded :disabled="logsLoading" @click="loadLogs()"><i class="ti ti-refresh"></i> {{ i18n.ts._jobQueue.loadLogs }}</MkButton>
+		<XJobLogs v-if="logsLoaded" :logs="logs"/>
 	</div>
 </MkFolder>
 </template>
@@ -177,6 +177,7 @@ import MkKeyValue from '@/components/MkKeyValue.vue';
 import MkCodeEditor from '@/components/MkCodeEditor.vue';
 import MkTl from '@/components/MkTl.vue';
 import { copyToClipboard } from '@/utility/copy-to-clipboard.js';
+import XJobLogs from './job-queue.job.logs.vue';
 
 function msSMH(v: number | null) {
 	if (v == null) return 'N/A';
@@ -203,6 +204,8 @@ const tab = ref('info');
 const editData = ref(JSON5.stringify(props.job.data, null, '\t'));
 const canEdit = true;
 const logs = ref<string[]>([]);
+const logsLoaded = ref(false);
+const logsLoading = ref(false);
 
 type TlType = TlEvent<{
 	type: 'created' | 'processed' | 'finished';
@@ -274,7 +277,13 @@ async function removeJob() {
 }
 
 async function loadLogs() {
-	logs.value = await os.apiWithDialog('admin/queue/show-job-logs', { queue: props.queueType, jobId: props.job.id });
+	logsLoading.value = true;
+	try {
+		logs.value = await os.apiWithDialog('admin/queue/show-job-logs', { queue: props.queueType, jobId: props.job.id });
+		logsLoaded.value = true;
+	} finally {
+		logsLoading.value = false;
+	}
 }
 
 // TODO

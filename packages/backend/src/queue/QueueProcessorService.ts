@@ -312,12 +312,18 @@ export class QueueProcessorService implements OnApplicationShutdown {
 					() => this.inboxProcessorService.process(job),
 					err => {
 						const activityId = job.data.activity ? job.data.activity.id : 'none';
-						logger.error(`failed(${err.name}: ${err.message}) ${getJobInfo(job)} activity=${activityId}`, { job: renderJob(job), e: renderError(err) });
+						logger.error({
+							message: `failed(${err.name}: ${err.message}) ${getJobInfo(job)} activity=${activityId}`,
+							eventName: 'queue.job.failed',
+							attributes: { jobId: job.id, activityId },
+							error: err,
+						});
 						this.telemetryService.captureMessage(`Queue: Inbox: ${err.name}: ${err.message}`, {
 							level: 'error',
 							extra: { job, err },
 						});
 					},
+					job,
 				);
 			}, {
 				...baseWorkerOptions(this.config, QUEUE.INBOX),
