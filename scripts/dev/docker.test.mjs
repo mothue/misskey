@@ -181,6 +181,25 @@ test('setup preserves credentials across runs and backs up modified development 
 	).toBe('custom development config');
 });
 
+test('setup omits the initial setup password while preserving database credentials when upgrading old config', async () => {
+	const f = await fixture();
+	await runDevDocker('setup', f.options);
+	const originalState = await state(f);
+	const path = join(f.root, '.config/dev-docker/default.yml');
+	const previous = `setupPassword: old-setup-password\n${(await readFile(path, 'utf8')).replace(/^setupPassword:.*\n/m, '')}`;
+	await writeFile(path, previous);
+	f.log.length = 0;
+	await runDevDocker('setup', f.options);
+	const config = await readFile(path, 'utf8');
+	expect(config).not.toContain('setupPassword');
+	expect(config).toContain(`  pass: ${originalState.password}\n`);
+	expect(await state(f)).toEqual(originalState);
+	expect(f.log.join('\n')).not.toContain('setupPassword');
+	const backupRoot = join(f.root, '.config/dev-docker/backups');
+	const [backup] = await readdir(backupRoot);
+	expect(await readFile(join(backupRoot, backup, 'default.yml'), 'utf8')).toBe(previous);
+});
+
 test('destroy without ownership state never reaches Docker', async () => {
 	const f = await fixture();
 	await expect(runDevDocker('destroy', f.options)).rejects.toThrow('state');
@@ -278,7 +297,7 @@ test('clean-cache prunes only build cache, with confirmation describing the shar
 			return true;
 		},
 	});
-	expect(prompt).toContain('他プロジェクト');
+	expect(prompt).toContain('other projects');
 	expect(f.calls.at(-1).args).toEqual([
 		'docker',
 		'builder',
@@ -425,7 +444,8 @@ test.each(['n\n', '\n', '', 'yes\n'])(
 		]);
 		expect(code).toBe(0);
 		expect(stdout).toContain('[y/N]');
-		expect(stdout).toContain('中止');
+		expect(stdout).toContain('Continue?');
+		expect(stdout).toContain('Cancelled.');
 		expect(stderr).toBe('');
 	},
 );

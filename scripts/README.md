@@ -50,10 +50,10 @@ bun run dev-docker:migrate
 bun run dev-docker:start
 ```
 
-すべてのコマンドで実行前に `y/N` を確認します。`y` または `Y` だけが続行で、空入力・`n`・EOF・確認中の Ctrl+C は中止です。
+CLI のメッセージは英語で表示します。すべてのコマンドで実行前に `Continue? [y/N]` を確認します。`y` または `Y` だけが続行で、空入力・`n`・EOF・確認中の Ctrl+C は中止です。
 `setup` は migration と本体起動を自動では行いません。初回の Rust ビルドには時間がかかります。
 
-ブラウザで `http://localhost:3000` を開きます。初期設定パスワードは `.config/dev-docker/default.yml` の `setupPassword` です。
+ブラウザで `http://localhost:3000` を開きます。開発環境では初期設定パスワードを設定しないため、その欄は空欄で進めてください。
 PostgreSQL は `127.0.0.1:15432`、Redis は `127.0.0.1:16379` で待ち受けます。既に同じポートを使うコンテナがある場合は、先にその開発環境を停止してください。
 外部サーバーとの連合受信を行うには、別途公開 HTTPS URL を使う環境が必要です。
 
