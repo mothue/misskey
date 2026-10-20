@@ -4,7 +4,7 @@
 	"codename": "nasubi",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/misskey-dev/misskey.git"
+		"url": "https://github.com/mothue/misskey.git"
 	},
 	"packageManager": "bun@1.4.2",
 	"engines": {
