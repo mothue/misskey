@@ -1,0 +1,50 @@
+# Development only. Managed by bun run dev-docker:setup.
+services:
+  db:
+    image: postgres:18-alpine
+    env_file:
+      - ${MISSKEY_DEV_DOCKER_ENV:?Run dev-docker:setup}
+    ports:
+      - "127.0.0.1:15432:5432"
+    labels:
+      org.misskey.environment: development
+      org.misskey.dev-docker.owner: ${MISSKEY_DEV_DOCKER_OWNER:?Run dev-docker:setup}
+    volumes:
+      - postgres:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 2s
+      timeout: 3s
+      retries: 60
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "127.0.0.1:16379:6379"
+    labels:
+      org.misskey.environment: development
+      org.misskey.dev-docker.owner: ${MISSKEY_DEV_DOCKER_OWNER:?Run dev-docker:setup}
+    volumes:
+      - redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 60
+
+volumes:
+  postgres:
+    labels:
+      org.misskey.environment: development
+      org.misskey.dev-docker.owner: ${MISSKEY_DEV_DOCKER_OWNER:?Run dev-docker:setup}
+  redis:
+    labels:
+      org.misskey.environment: development
+      org.misskey.dev-docker.owner: ${MISSKEY_DEV_DOCKER_OWNER:?Run dev-docker:setup}
+
+networks:
+  default:
+    labels:
+      org.misskey.environment: development
+      org.misskey.dev-docker.owner: ${MISSKEY_DEV_DOCKER_OWNER:?Run dev-docker:setup}
