@@ -5,13 +5,10 @@ SPDX-License-Identifier: AGPL-3.0-only
 
 <template>
 <div
-	:class="[$style.root, { '_forceShrinkSpacer': deviceKind === 'smartphone', [$style.withBackgroundImage]: backgroundImageStyle != null }]"
+	:class="[$style.root, { '_forceShrinkSpacer': deviceKind === 'smartphone', [$style.withBackgroundImage]: hasBackgroundImage }]"
 	:style="backgroundImageRootStyle"
 >
-	<div v-if="backgroundImageStyle != null" :class="$style.bgWrapper">
-		<div :class="$style.bgImage" :style="backgroundImageStyle"></div>
-		<div :class="$style.bgDarkness"></div>
-	</div>
+	<XBackground @active="hasBackgroundImage = $event"/>
 
 	<XTitlebar v-if="prefer.r.showTitlebar.value" style="flex-shrink: 0;"/>
 
@@ -64,25 +61,16 @@ import { prefer } from '@/preferences.js';
 import { shouldSuggestRestoreBackup } from '@/preferences/utility.js';
 import { DI } from '@/di.js';
 import { shouldSuggestReload } from '@/utility/reload-suggest.js';
-import { useBackgroundImage } from '@/composables/use-background-image.js';
+import XBackground from '@/ui/_common_/background.vue';
 
 const XWidgets = defineAsyncComponent(() => import('./_common_/widgets.vue'));
 const XStatusBars = defineAsyncComponent(() => import('@/ui/_common_/statusbars.vue'));
 const XAnnouncements = defineAsyncComponent(() => import('@/ui/_common_/announcements.vue'));
 
-const backgroundImage = useBackgroundImage(prefer.r['backgroundImage.url']);
-const backgroundImageStyle = computed(() => {
-	const url = backgroundImage.value;
-	if (!url) return null;
-
-	return {
-		backgroundImage: `url(${JSON.stringify(url)})`,
-		filter: `blur(${prefer.r['backgroundImage.blur'].value}px)`,
-	};
-});
-const backgroundImageRootStyle = computed(() => backgroundImageStyle.value == null ? undefined : {
-	'--MI-backgroundImageTransparency': `${(1 - prefer.r['backgroundImage.opacity'].value) * 100}%`,
-	'--MI-backgroundImageDarkness': prefer.r['backgroundImage.darkness'].value,
+const hasBackgroundImage = ref(false);
+const backgroundImageRootStyle = computed(() => !hasBackgroundImage.value ? undefined : {
+ '--MI-backgroundImageTransparency': `${(1 - prefer.r['backgroundImage.opacity'].value) * 100}%`,
+ '--MI-backgroundImageDarkness': prefer.r['backgroundImage.darkness'].value,
 });
 
 const isRoot = computed(() => mainRouter.currentRoute.value.name === 'index');
@@ -164,37 +152,27 @@ $widgets-hide-threshold: 1090px;
 	position: relative;
 	isolation: isolate;
 	background: transparent;
+	--MI-backgroundImageBg: var(--MI_THEME-bg);
 	--MI-backgroundImagePanel: var(--MI_THEME-panel);
 	--MI-backgroundImageNavBg: var(--MI_THEME-navBg);
 	--MI-backgroundImageWindowHeader: var(--MI_THEME-windowHeader);
 
-	& > :not(.bgWrapper) {
+	& > :not(:global(._backgroundImageLayer)) {
 		--MI_THEME-bg: transparent;
 		--MI_THEME-panel: color-mix(in srgb, var(--MI-backgroundImagePanel), transparent var(--MI-backgroundImageTransparency));
 		--MI_THEME-navBg: color-mix(in srgb, var(--MI-backgroundImageNavBg), transparent var(--MI-backgroundImageTransparency));
 		--MI_THEME-windowHeader: color-mix(in srgb, var(--MI-backgroundImageWindowHeader), transparent var(--MI-backgroundImageTransparency));
 	}
-}
 
-.bgWrapper {
-	position: fixed;
-	z-index: -1000;
-	inset: -50px;
-	pointer-events: none;
-}
-
-.bgImage {
-	position: absolute;
-	inset: 0;
-	background-size: cover;
-	background-position: center;
-}
-
-.bgDarkness {
-	position: absolute;
-	inset: 0;
-	background: light-dark(var(--MI_THEME-fg), var(--MI_THEME-bg));
-	opacity: var(--MI-backgroundImageDarkness);
+	:global(._opaqueWindow) {
+		--MI_THEME-bg: var(--MI-backgroundImageBg);
+		--MI_THEME-panel: var(--MI-backgroundImagePanel);
+		--MI_THEME-navBg: var(--MI-backgroundImageNavBg);
+		--MI_THEME-windowHeader: var(--MI-backgroundImageWindowHeader);
+		// Paint an opaque underlay even when a custom theme uses alpha colors.
+		background: var(--MI-backgroundImageBg);
+		background: rgb(from var(--MI-backgroundImageBg) r g b / 1);
+	}
 }
 
 .nonTitlebarArea {

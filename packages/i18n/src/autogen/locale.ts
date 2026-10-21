@@ -13442,19 +13442,59 @@ export interface Locale extends ILocale {
     };
     "_backgroundImage": {
         /**
-         * 背景画像
+         * 表示モード
+         */
+        "mode": string;
+        /**
+         * 単一画像
+         */
+        "single": string;
+        /**
+         * スライドショー
+         */
+        "slideshow": string;
+        /**
+         * フォルダーを選択
+         */
+        "selectFolder": string;
+        /**
+         * 選択したフォルダー直下の画像を作成順に表示します。
+         */
+        "folderDescription": string;
+        /**
+         * 切替間隔
+         */
+        "interval": string;
+        /**
+         * このフォルダーに画像がありません。
+         */
+        "emptyFolder": string;
+        /**
+         * フォルダーを読み込めませんでした
+         */
+        "folderError": string;
+        /**
+         * 画像が存在しない場合は、次の画像が表示されます
+         */
+        "fallbackDescription": string;
+        /**
+         * ドライブのルートは指定できません。
+         */
+        "selectSpecificFolder": string;
+        /**
+         * 背景画像の設定
          */
         "title": string;
         /**
-         * パネルの不透明度
+         * 不透明度
          */
         "opacity": string;
         /**
-         * 背景画像の暗さ
+         * 暗さ
          */
         "darkness": string;
         /**
-         * 背景画像のぼかし
+         * ぼかし
          */
         "blur": string;
     };
