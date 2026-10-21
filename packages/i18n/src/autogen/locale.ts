@@ -13470,31 +13470,31 @@ export interface Locale extends ILocale {
          */
         "emptyFolder": string;
         /**
-         * フォルダーを読み込めませんでした。再読み込みしてください。
+         * フォルダーを読み込めませんでした
          */
         "folderError": string;
         /**
-         * 画像がない場合や読み込めない場合は、以下の単一画像を表示します。
+         * 画像が存在しない場合は、次の画像が表示されます
          */
         "fallbackDescription": string;
         /**
-         * ルートではなく、画像を入れたフォルダーを選択してください。
+         * ドライブのルートは指定できません。
          */
         "selectSpecificFolder": string;
         /**
-         * 背景画像
+         * 背景画像の設定
          */
         "title": string;
         /**
-         * パネルの不透明度
+         * 不透明度
          */
         "opacity": string;
         /**
-         * 背景画像の暗さ
+         * 暗さ
          */
         "darkness": string;
         /**
-         * 背景画像のぼかし
+         * ぼかし
          */
         "blur": string;
     };
