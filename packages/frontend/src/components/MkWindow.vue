@@ -12,7 +12,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 	appear
 	@afterLeave="emit('closed')"
 >
-	<div v-if="showing" ref="rootEl" :class="[$style.root, { [$style.maximized]: maximized }]">
+	<div v-if="showing" ref="rootEl" class="_opaqueWindow" :class="[$style.root, { [$style.maximized]: maximized }]">
 		<div :class="$style.body" class="_shadow" @pointerdown="onBodyPointerDown" @keydown="onKeydown">
 			<div :class="[$style.header, { [$style.mini]: mini }]" @contextmenu.prevent.stop="onContextmenu">
 				<span :class="$style.headerLeft">
@@ -540,11 +540,13 @@ defineExpose({
 	--MI-stickyTop: 0;
 	--MI-stickyBottom: 0;
 
+	border-radius: var(--MI-radius);
 	position: fixed;
 	top: 0;
 	left: 0;
 
 	&.maximized {
+		border-radius: 0;
 		> .body {
 			border-radius: 0;
 		}

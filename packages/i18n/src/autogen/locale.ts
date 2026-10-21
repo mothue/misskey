@@ -13442,6 +13442,46 @@ export interface Locale extends ILocale {
     };
     "_backgroundImage": {
         /**
+         * 表示モード
+         */
+        "mode": string;
+        /**
+         * 単一画像
+         */
+        "single": string;
+        /**
+         * スライドショー
+         */
+        "slideshow": string;
+        /**
+         * フォルダーを選択
+         */
+        "selectFolder": string;
+        /**
+         * 選択したフォルダー直下の画像を作成順に表示します。
+         */
+        "folderDescription": string;
+        /**
+         * 切替間隔
+         */
+        "interval": string;
+        /**
+         * このフォルダーに画像がありません。
+         */
+        "emptyFolder": string;
+        /**
+         * フォルダーを読み込めませんでした。再読み込みしてください。
+         */
+        "folderError": string;
+        /**
+         * 画像がない場合や読み込めない場合は、以下の単一画像を表示します。
+         */
+        "fallbackDescription": string;
+        /**
+         * ルートではなく、画像を入れたフォルダーを選択してください。
+         */
+        "selectSpecificFolder": string;
+        /**
          * 背景画像
          */
         "title": string;

@@ -116,6 +116,11 @@ const menuDef = computed<SuperMenuDef[]>(() => [{
 		to: '/settings/preferences',
 		active: currentPage.value?.route.name === 'preferences',
 	}, {
+		icon: 'ti ti-photo',
+		text: i18n.ts._backgroundImage.title,
+		to: '/settings/background',
+		active: currentPage.value?.route.name === 'background',
+	}, {
 		icon: 'ti ti-palette',
 		text: i18n.ts.theme,
 		to: '/settings/theme',

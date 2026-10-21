@@ -12,7 +12,7 @@ import { refreshBackgroundImage, useBackgroundImage } from '@/composables/use-ba
 
 // IndexedDB and HTTP are the external boundaries; the Vue watcher and Blob
 // lifecycle run normally. Browser persistence is checked separately in Chromium.
-vi.mock('idb-keyval', () => ({ get: vi.fn(), set: vi.fn(), del: vi.fn() }));
+vi.mock('idb-keyval', () => ({ get: vi.fn(), set: vi.fn(), del: vi.fn(), update: vi.fn() }));
 
 const firstUrl = 'https://files.example/background.png';
 const secondUrl = 'https://files.example/other.png';

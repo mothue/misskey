@@ -90,6 +90,9 @@ export const PREF_DEF = definePreferences({
 			data: Record<string, any>;
 		}[],
 	},
+	'backgroundImage.mode': { default: 'single' as 'single' | 'slideshow' },
+	'backgroundImage.slideshowFolderId': { accountDependent: true, default: null as string | null },
+	'backgroundImage.slideshowInterval': { default: 60 },
 	'backgroundImage.url': { default: null as string | null },
 	'backgroundImage.opacity': { default: 0.72 },
 	'backgroundImage.darkness': { default: 0.2 },

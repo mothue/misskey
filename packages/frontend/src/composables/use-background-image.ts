@@ -5,21 +5,15 @@
 
 import { ref, shallowRef, watch } from 'vue';
 import type { Ref } from 'vue';
-import { get, set, del } from 'idb-keyval';
+import { clearBackgroundImageCache, getBackgroundImageBlob } from '@/utility/background-image-cache.js';
 
-const cacheKey = 'background-image';
 const revision = ref(0);
-
-type CachedBackgroundImage = {
-	url: string;
-	blob: Blob;
-};
 
 // Reselecting the same file must also invalidate its saved contents.
 export function refreshBackgroundImage(): void {
 	// Settings can also be opened from another UI where this composable is
 	// not mounted. Invalidate the persistent copy in that case as well.
-	void del(cacheKey).catch(() => {});
+	void clearBackgroundImageCache('single').catch(() => {});
 	revision.value++;
 }
 
@@ -39,38 +33,15 @@ export function useBackgroundImage(url: Ref<string | null>): Ref<string | null> 
 		image.value = null;
 		try {
 			if (!source) {
-				await del(cacheKey);
+				await clearBackgroundImageCache('single');
 				return;
 			}
 
-			// Use IndexedDB directly: idb-proxy's JSON/localStorage fallback cannot
-			// preserve Blobs. The default store is also cleared during signout.
-			const cached = await get<CachedBackgroundImage>(cacheKey);
-			if (controller.signal.aborted) return;
-			const refresh = previous.length > 0 && version !== previous[1];
-			let blob: Blob;
-			if (!refresh && cached?.url === source && cached.blob instanceof Blob && cached.blob.size > 0) {
-				blob = cached.blob;
-			} else {
-				await del(cacheKey);
-				if (controller.signal.aborted) return;
-				const response = await window.fetch(source, {
-					signal: controller.signal,
-					credentials: 'omit',
-					// When the saved copy is missing or invalidated, get fresh bytes
-					// even if an HTTP cache still contains the previous file.
-					cache: 'reload',
-				});
-				if (!response.ok) throw new Error('Background image download failed');
-				blob = await response.blob();
-				if (blob.size === 0 || !blob.type.startsWith('image/')) throw new Error('Invalid background image');
-				if (controller.signal.aborted) return;
-				try {
-					await set(cacheKey, { url: source, blob } satisfies CachedBackgroundImage);
-				} catch {
-					// Storage quota must not prevent displaying the downloaded image.
-				}
-			}
+			const blob = await getBackgroundImageBlob(source, {
+				scope: 'single',
+				signal: controller.signal,
+				refresh: previous.length > 0 && version !== previous[1],
+			});
 
 			if (controller.signal.aborted) return;
 			objectUrl = URL.createObjectURL(blob);
