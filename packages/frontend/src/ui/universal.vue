@@ -64,13 +64,15 @@ import { prefer } from '@/preferences.js';
 import { shouldSuggestRestoreBackup } from '@/preferences/utility.js';
 import { DI } from '@/di.js';
 import { shouldSuggestReload } from '@/utility/reload-suggest.js';
+import { useBackgroundImage } from '@/composables/use-background-image.js';
 
 const XWidgets = defineAsyncComponent(() => import('./_common_/widgets.vue'));
 const XStatusBars = defineAsyncComponent(() => import('@/ui/_common_/statusbars.vue'));
 const XAnnouncements = defineAsyncComponent(() => import('@/ui/_common_/announcements.vue'));
 
+const backgroundImage = useBackgroundImage(prefer.r['backgroundImage.url']);
 const backgroundImageStyle = computed(() => {
-	const url = prefer.r['backgroundImage.url'].value?.trim();
+	const url = backgroundImage.value;
 	if (!url) return null;
 
 	return {

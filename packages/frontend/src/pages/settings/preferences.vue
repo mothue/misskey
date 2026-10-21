@@ -918,6 +918,7 @@ import { ensureSignin } from '@/i.js';
 import { genId } from '@/utility/id.js';
 import { suggestReload } from '@/utility/reload-suggest.js';
 import { selectFile } from '@/utility/drive.js';
+import { refreshBackgroundImage } from '@/composables/use-background-image.js';
 
 const $i = ensureSignin();
 
@@ -1009,6 +1010,7 @@ function selectBackgroundImage(ev: PointerEvent) {
 		}
 
 		backgroundImageUrl.value = file.url;
+		refreshBackgroundImage();
 	});
 }
 
@@ -1020,6 +1022,7 @@ async function removeBackgroundImage() {
 	if (canceled) return;
 
 	backgroundImageUrl.value = null;
+	refreshBackgroundImage();
 }
 
 watch(lang, () => {
