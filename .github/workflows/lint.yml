@@ -20,6 +20,7 @@ on:
       - scripts/checks/declarations*.mjs
       - .github/workflows/lint.yml
       - package.json
+      - bun.lock
   pull_request:
     branches-ignore:
       - master
@@ -38,6 +39,7 @@ on:
       - scripts/checks/declarations*.mjs
       - .github/workflows/lint.yml
       - package.json
+      - bun.lock
 jobs:
   bun_install:
     runs-on: ubuntu-latest
