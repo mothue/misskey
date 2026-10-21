@@ -140,6 +140,7 @@ import { selectFile, selectDriveFolder } from '@/utility/drive.js';
 import { refreshBackgroundImage } from '@/composables/use-background-image.js';
 import { refreshBackgroundSlideshow } from '@/composables/use-background-slideshow.js';
 import { fetchBackgroundSlideshowFiles } from '@/utility/background-slideshow-files.js';
+import { misskeyApi } from '@/utility/misskey-api.js';
 
 ensureSignin();
 const mode = prefer.model('backgroundImage.mode');
@@ -147,11 +148,31 @@ const folderId = prefer.model('backgroundImage.slideshowFolderId');
 const interval = prefer.model('backgroundImage.slideshowInterval');
 const folderState = ref<'loading' | 'ready' | 'empty' | 'error' | null>(null);
 const selectedFolderName = ref<string | null>(null);
+let selectedFolderNameId: string | null = null;
 const backgroundImageUrl = prefer.model('backgroundImage.url');
 const backgroundImageOpacity = prefer.model('backgroundImage.opacity');
 const backgroundImageDarkness = prefer.model('backgroundImage.darkness');
 const backgroundImageBlur = prefer.model('backgroundImage.blur');
 const toPercentage = (value: number) => `${Math.round(value * 100)}%`;
+
+watch(folderId, async (id, _, onCleanup) => {
+	if (selectedFolderNameId !== id) {
+		selectedFolderName.value = null;
+		selectedFolderNameId = null;
+	}
+	if (!id || selectedFolderName.value !== null) return;
+
+	let current = true;
+	onCleanup(() => { current = false; });
+	try {
+		const folder = await misskeyApi('drive/folders/show', { folderId: id });
+		if (!current || folderId.value !== id || selectedFolderName.value !== null) return;
+		selectedFolderName.value = folder.name;
+		selectedFolderNameId = id;
+	} catch {
+		// Keep the generic folder label when the folder cannot be loaded.
+	}
+}, { immediate: true });
 
 let folderRequest = 0;
 let folderController: AbortController | null = null;
@@ -198,8 +219,9 @@ async function chooseFolder() {
 		});
 		return;
 	}
-	folderId.value = folder.id;
 	selectedFolderName.value = folder.name;
+	selectedFolderNameId = folder.id;
+	folderId.value = folder.id;
 	reloadFolder();
 }
 

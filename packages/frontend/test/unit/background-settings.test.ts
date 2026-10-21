@@ -4,10 +4,11 @@
  */
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { cleanup, fireEvent, render } from '@testing-library/vue';
-import { ref } from 'vue';
+import { nextTick, ref } from 'vue';
 import { prefer } from '@/preferences.js';
 import * as os from '@/os.js';
 import { selectFile, selectDriveFolder } from '@/utility/drive.js';
+import { misskeyApi } from '@/utility/misskey-api.js';
 import { refreshBackgroundImage } from '@/composables/use-background-image.js';
 import BackgroundSettings from '@/pages/settings/background.vue';
 
@@ -37,6 +38,7 @@ vi.mock('@/components/MkSelect.vue', () => ({
 vi.mock('@/composables/use-background-image.js', () => ({
 	refreshBackgroundImage: vi.fn(),
 }));
+vi.mock('@/utility/misskey-api.js', () => ({ misskeyApi: vi.fn() }));
 vi.mock('@/page.js', () => ({ definePage: vi.fn() }));
 vi.mock('@/components/MkButton.vue', () => ({
 	default: {
@@ -72,6 +74,8 @@ function show() {
 }
 beforeEach(() => {
 	vi.clearAllMocks();
+	vi.mocked(misskeyApi).mockReset();
+	vi.mocked(misskeyApi).mockRejectedValue(new Error('Folder unavailable'));
 	settings.clear();
 	for (const [key, value] of Object.entries({
 		'backgroundImage.mode': 'single',
@@ -132,7 +136,7 @@ test('rejects a non-image without changing the saved background', async () => {
 
 test('the moved opacity control updates the existing preference key', async () => {
 	const view = show();
-	const range = view.getByLabelText(/Panel opacity|パネルの不透明度/);
+	const range = view.getByLabelText(/Opacity|不透明度/i);
 	expect((range as HTMLInputElement).value).toBe('0.72');
 	await fireEvent.input(range, { target: { value: '0.4' } });
 	expect(settings.get('backgroundImage.opacity')!.value).toBe(0.4);
@@ -148,6 +152,8 @@ test('selecting a folder sets the account-scoped folder and cancel preserves it'
 	expect(settings.get('backgroundImage.slideshowFolderId')!.value).toBe(
 		'folder1',
 	);
+	expect(view.getByText('Slides')).toBeTruthy();
+	expect(misskeyApi).not.toHaveBeenCalled();
 	vi.mocked(selectDriveFolder).mockResolvedValueOnce({
 		canceled: true,
 		folders: undefined,
@@ -167,4 +173,94 @@ test('does not accept the drive root as a slideshow folder', async () => {
 	await fireEvent.click(view.getByTestId('background-folder'));
 	expect(settings.get('backgroundImage.slideshowFolderId')!.value).toBeNull();
 	expect(os.alert).toHaveBeenCalledOnce();
+});
+
+const flushPromises = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+function deferredFolder() {
+	let resolve!: (folder: { id: string; name: string }) => void;
+	const promise = new Promise<{ id: string; name: string }>((done) => { resolve = done; });
+	return { promise, resolve };
+}
+
+test('restores the saved folder name on initial display', async () => {
+	settings.get('backgroundImage.mode')!.value = 'slideshow';
+	settings.get('backgroundImage.slideshowFolderId')!.value = 'saved';
+	vi.mocked(misskeyApi).mockResolvedValueOnce({ id: 'saved', name: 'Saved slides' } as never);
+	const view = show();
+	await flushPromises();
+	expect(view.getByText('Saved slides')).toBeTruthy();
+	expect(misskeyApi).toHaveBeenCalledWith('drive/folders/show', { folderId: 'saved' });
+});
+
+test('clears the previous name when an external preference selects a different folder', async () => {
+	settings.get('backgroundImage.mode')!.value = 'slideshow';
+	settings.get('backgroundImage.slideshowFolderId')!.value = 'saved';
+	vi.mocked(misskeyApi).mockResolvedValueOnce({ id: 'saved', name: 'Saved slides' } as never);
+	const view = show();
+	await flushPromises();
+	expect(view.getByText('Saved slides')).toBeTruthy();
+
+	const pending = deferredFolder();
+	vi.mocked(misskeyApi).mockReturnValueOnce(pending.promise as never);
+	settings.get('backgroundImage.slideshowFolderId')!.value = 'other';
+	await nextTick();
+	expect(view.queryByText('Saved slides')).toBeNull();
+	pending.resolve({ id: 'other', name: 'Other slides' });
+	await flushPromises();
+	expect(view.getByText('Other slides')).toBeTruthy();
+});
+
+test('does not apply an old folder response after the selection changes', async () => {
+	settings.get('backgroundImage.mode')!.value = 'slideshow';
+	settings.get('backgroundImage.slideshowFolderId')!.value = 'old';
+	const old = deferredFolder();
+	vi.mocked(misskeyApi).mockReturnValueOnce(old.promise as never);
+	const view = show();
+	vi.mocked(misskeyApi).mockResolvedValueOnce({ id: 'new', name: 'New slides' } as never);
+	settings.get('backgroundImage.slideshowFolderId')!.value = 'new';
+	await flushPromises();
+	expect(view.getByText('New slides')).toBeTruthy();
+	old.resolve({ id: 'old', name: 'Old slides' });
+	await flushPromises();
+	expect(view.queryByText('Old slides')).toBeNull();
+	expect(view.getByText('New slides')).toBeTruthy();
+});
+
+test('clears a removed folder name and ignores its pending response', async () => {
+	settings.get('backgroundImage.mode')!.value = 'slideshow';
+	const view = show();
+	vi.mocked(selectDriveFolder).mockResolvedValueOnce({ canceled: false, folders: [{ id: 'saved', name: 'Saved slides' }] } as never);
+	await fireEvent.click(view.getByTestId('background-folder'));
+	expect(view.getByText('Saved slides')).toBeTruthy();
+	settings.get('backgroundImage.slideshowFolderId')!.value = null;
+	await nextTick();
+	const pending = deferredFolder();
+	vi.mocked(misskeyApi).mockReturnValueOnce(pending.promise as never);
+	settings.get('backgroundImage.slideshowFolderId')!.value = 'pending';
+	await nextTick();
+	settings.get('backgroundImage.slideshowFolderId')!.value = null;
+	await nextTick();
+	pending.resolve({ id: 'pending', name: 'Pending slides' });
+	await flushPromises();
+
+	vi.mocked(misskeyApi).mockRejectedValueOnce(new Error('Folder unavailable'));
+	settings.get('backgroundImage.slideshowFolderId')!.value = 'deleted';
+	await flushPromises();
+	expect(view.queryByText('Saved slides')).toBeNull();
+	expect(view.queryByText('Pending slides')).toBeNull();
+});
+
+test('does not overwrite a name from the picker with an older response', async () => {
+	settings.get('backgroundImage.mode')!.value = 'slideshow';
+	settings.get('backgroundImage.slideshowFolderId')!.value = 'saved';
+	const pending = deferredFolder();
+	vi.mocked(misskeyApi).mockReturnValueOnce(pending.promise as never);
+	const view = show();
+	vi.mocked(selectDriveFolder).mockResolvedValueOnce({ canceled: false, folders: [{ id: 'saved', name: 'Renamed slides' }] } as never);
+	await fireEvent.click(view.getByTestId('background-folder'));
+	pending.resolve({ id: 'saved', name: 'Old slides' });
+	await flushPromises();
+	expect(view.getByText('Renamed slides')).toBeTruthy();
+	expect(view.queryByText('Old slides')).toBeNull();
 });
