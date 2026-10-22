@@ -33,6 +33,10 @@ export class StreamingApiServerService {
 	) {
 	}
 
+	/**
+	 * Registers streaming upgrades and closes rejected sockets after their HTTP response.
+	 * @param server HTTP server receiving streaming upgrade requests.
+	 */
 	@bindThis
 	public attach(server: http.Server): void {
 		this.#wss = new WebSocket.WebSocketServer({
@@ -47,6 +51,8 @@ export class StreamingApiServerService {
 					// ServerResponse completes the HTTP request directly.
 					const response = new http.ServerResponse(request);
 					response.writeHead(status, responseHeaders);
+					// Close the upgrade socket after flushing the HTTP rejection.
+					response.once('finish', () => socket.end());
 					response.end();
 				} else {
 					socket.end([

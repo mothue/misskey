@@ -327,6 +327,17 @@ export class HttpRequestService {
 		}
 	}
 
+	/**
+	 * Sends a request and returns the response without consuming its body.
+	 * A single deadline covers the fetch and response stream until it finishes or is disposed.
+	 * Callers must consume the body or call {@link disposeResponse} when discarding it.
+	 *
+	 * @param url Destination URL.
+	 * @param args Request settings, including the timeout and maximum response size.
+	 * @param extra Response status checks and validators.
+	 * @throws {StatusError} When status checking is enabled and the response is unsuccessful.
+	 * @throws Fetch and response validation errors are propagated unchanged.
+	 */
 	@bindThis
 	public async send(
 		url: string,
