@@ -177,11 +177,12 @@ export class ApRequestService {
 			},
 		});
 
-		await this.httpRequestService.send(url, {
+		const res = await this.httpRequestService.send(url, {
 			method: req.request.method,
 			headers: req.request.headers,
 			body,
 		});
+		this.httpRequestService.disposeResponse(res);
 	}
 
 	/**
@@ -237,7 +238,12 @@ export class ApRequestService {
 		}
 		//#endregion
 
-		validateContentTypeSetAsActivityPub(res);
+		try {
+			validateContentTypeSetAsActivityPub(res);
+		} catch (error) {
+			this.httpRequestService.disposeResponse(res);
+			throw error;
+		}
 		const finalUrl = res.url; // redirects may have been involved
 		const activity = await res.json() as IObject;
 

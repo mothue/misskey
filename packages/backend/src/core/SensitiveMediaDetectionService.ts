@@ -154,6 +154,7 @@ export class SensitiveMediaDetectionService {
 			});
 
 			if (!res.ok) {
+				this.httpRequestService.disposeResponse(res);
 				this.logger.warn(`sensitive detection request failed: ${res.status} ${res.statusText}`);
 				return chunk.map(() => null);
 			}

@@ -120,6 +120,8 @@ class HttpsRequestServiceAgent extends https.Agent {
 
 @Injectable()
 export class HttpRequestService {
+	private readonly responseDisposers = new WeakMap<Response, () => void>();
+
 	/**
 	 * Get http non-proxy agent (without local address filtering)
 	 */
@@ -310,6 +312,32 @@ export class HttpRequestService {
 		return await res.text();
 	}
 
+	/** Release an intentionally unread response without turning successful delivery into a retry. */
+	@bindThis
+	public disposeResponse(res: Response): void {
+		try {
+			const dispose = this.responseDisposers.get(res);
+			if (dispose) {
+				dispose();
+			} else if (res.body instanceof stream.Readable) {
+				res.body.destroy();
+			}
+		} catch {
+			// Disposal is best-effort; the response status remains authoritative.
+		}
+	}
+
+	/**
+	 * Sends a request and returns the response without consuming its body.
+	 * A single deadline covers the fetch and response stream until it finishes or is disposed.
+	 * Callers must consume the body or call {@link disposeResponse} when discarding it.
+	 *
+	 * @param url Destination URL.
+	 * @param args Request settings, including the timeout and maximum response size.
+	 * @param extra Response status checks and validators.
+	 * @throws {StatusError} When status checking is enabled and the response is unsuccessful.
+	 * @throws Fetch and response validation errors are propagated unchanged.
+	 */
 	@bindThis
 	public async send(
 		url: string,
@@ -329,34 +357,73 @@ export class HttpRequestService {
 		const timeout = args.timeout ?? 5000;
 
 		const controller = new AbortController();
-		setTimeout(() => {
+		const timer = setTimeout(() => {
 			controller.abort();
 		}, timeout);
 
 		const isLocalAddressAllowed = args.isLocalAddressAllowed ?? false;
+		let res: Response | undefined;
 
-		const res = await fetch(url, {
-			method: args.method ?? 'GET',
-			headers: {
-				'User-Agent': this.config.userAgent,
-				...(args.headers ?? {}),
-			},
-			body: args.body,
-			size: args.size ?? 10 * 1024 * 1024,
-			agent: (url) => this.getAgentByUrl(url, false, isLocalAddressAllowed),
-			signal: controller.signal,
-		});
+		try {
+			const response = await fetch(url, {
+				method: args.method ?? 'GET',
+				headers: {
+					'User-Agent': this.config.userAgent,
+					...(args.headers ?? {}),
+				},
+				body: args.body,
+				size: args.size ?? 10 * 1024 * 1024,
+				agent: (url) => this.getAgentByUrl(url, false, isLocalAddressAllowed),
+				signal: controller.signal,
+			});
+			res = response;
 
-		if (!res.ok && extra.throwErrorWhenResponseNotOk) {
-			throw new StatusError(`${res.status} ${res.statusText}`, res.status, res.statusText);
-		}
-
-		if (res.ok) {
-			for (const validator of (extra.validators ?? [])) {
-				validator(res);
+			// Keep the deadline through body consumption, using the original node-fetch stream.
+			const body = response.body;
+			if (body instanceof stream.Readable) {
+				const cleanup = () => {
+					clearTimeout(timer);
+					body.off('end', cleanup);
+					body.off('error', cleanup);
+					body.off('close', cleanup);
+					body.off('finish', cleanup);
+					this.responseDisposers.delete(response);
+				};
+				this.responseDisposers.set(response, () => {
+					cleanup();
+					try {
+						controller.abort();
+					} finally {
+						body.destroy();
+					}
+				});
+				body.once('end', cleanup);
+				body.once('error', cleanup);
+				body.once('close', cleanup);
+				// HEAD/204 streams can finish without their unread side emitting end.
+				body.once('finish', cleanup);
+				if (body.destroyed || body.readableEnded || (body instanceof stream.Writable && body.writableFinished)) {
+					cleanup();
+				}
+			} else {
+				clearTimeout(timer);
 			}
-		}
 
-		return res;
+			if (!response.ok && extra.throwErrorWhenResponseNotOk) {
+				throw new StatusError(`${response.status} ${response.statusText}`, response.status, response.statusText);
+			}
+
+			if (response.ok) {
+				for (const validator of (extra.validators ?? [])) {
+					validator(response);
+				}
+			}
+
+			return response;
+		} catch (error) {
+			clearTimeout(timer);
+			if (res) this.disposeResponse(res);
+			throw error;
+		}
 	}
 }

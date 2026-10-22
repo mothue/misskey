@@ -4,7 +4,8 @@
  */
 
 import { Test, TestingModule } from '@nestjs/testing';
-import { describe, expect, beforeAll, afterAll, test } from 'vitest';
+import { describe, expect, beforeAll, afterAll, afterEach, test, vi } from 'vitest';
+import type { DataSource } from 'typeorm';
 import type { MiUser } from '@/models/User.js';
 import { UserEntityService } from '@/core/entities/UserEntityService.js';
 import { GlobalModule } from '@/GlobalModule.js';
@@ -200,6 +201,78 @@ describe('UserEntityService', () => {
 
 		afterAll(async () => {
 			await app.close();
+		});
+
+		afterEach(() => {
+			vi.restoreAllMocks();
+		});
+
+		describe.each(['anonymous', 'authenticated'] as const)('%s UserLite defaults', (viewer) => {
+			test.each([
+				['omitted', undefined],
+				['empty options', {}],
+				['undefined schema', { schema: undefined }],
+				['explicit UserLite', { schema: 'UserLite' }],
+			] as const)('%s avoids detailed data queries in pack and packMany', async (_label, options) => {
+				const me = viewer === 'authenticated' ? await createUser() : undefined;
+				const first = await createUser({}, { birthday: '2000-01-01' });
+				const second = await createUser({}, { birthday: '2001-02-03' });
+				if (me) {
+					await memo(me, first, 'private memo');
+					await follow(me, first);
+				}
+				const expected = await service.pack(first, me, { schema: 'UserLite' });
+				const expectedBatch = await service.packMany([second, first], me, { schema: 'UserLite' });
+				const queries = vi.spyOn(app.get<DataSource>(DI.db).logger, 'logQuery');
+
+				const actual = await service.pack(first, me, options);
+				const actualBatch = await service.packMany([second, first], me, options);
+
+				expect(actual).toEqual(expected);
+				expect(actual).toMatchObject({ id: first.id, username: first.username });
+				expect(actual).not.toHaveProperty('birthday');
+				expect(actual).not.toHaveProperty('memo');
+				expect(actual).not.toHaveProperty('isFollowing');
+				expect(actualBatch).toEqual(expectedBatch);
+				expect(actualBatch.map(user => user.id)).toEqual([second.id, first.id]);
+				const detailedQueries = queries.mock.calls.map(([sql]) => sql).filter(sql =>
+					/\b(?:FROM|JOIN) "(?:user_profile|user_memo|user_note_pining|following|follow_request|blocking|muting|renote_muting)"/.test(sql));
+				expect(detailedQueries).toEqual([]);
+			});
+		});
+
+		test('empty batches do not query the database for any schema', async () => {
+			const me = await createUser();
+			const queries = vi.spyOn(app.get<DataSource>(DI.db).logger, 'logQuery');
+
+			for (const options of [undefined, {}, { schema: undefined }, { schema: 'UserLite' }, { schema: 'UserDetailed' }] as const) {
+				expect(await service.packMany([], me, options)).toEqual([]);
+			}
+			expect(queries.mock.calls.map(([sql]) => sql)).toEqual([]);
+		});
+
+		test('explicit detailed batches retain profiles, memos and relationships', async () => {
+			const me = await createUser();
+			const who = await createUser({}, { birthday: '2000-01-01' });
+			await memo(me, who, 'private memo');
+			await follow(me, who);
+
+			const [actual] = await service.packMany([who], me, { schema: 'UserDetailedNotMe' });
+
+			expect(actual).toMatchObject({ id: who.id, birthday: '2000-01-01', memo: 'private memo', isFollowing: true });
+			expect(actual).not.toHaveProperty('email');
+		});
+
+		test('explicit detailed secrets are retained by pack and packMany', async () => {
+			const me = await createUser({}, { email: 'user@example.com', emailVerified: true });
+			const options = { schema: 'MeDetailed', includeSecrets: true } as const;
+
+			const actual = await service.pack(me, me, options);
+			const [actualBatch] = await service.packMany([me], me, options);
+
+			for (const user of [actual, actualBatch]) {
+				expect(user).toMatchObject({ id: me.id, email: 'user@example.com', emailVerified: true, securityKeysList: [] });
+			}
 		});
 
 		test('UserLite', async() => {
