@@ -1,6 +1,6 @@
 # syntax = docker/dockerfile:1.23
 
-ARG BUN_VERSION=1.4.2
+ARG BUN_VERSION=1.4.4
 ARG RUST_VERSION=1.99.0
 
 FROM --platform=$BUILDPLATFORM rust:${RUST_VERSION}-bookworm AS build-rust

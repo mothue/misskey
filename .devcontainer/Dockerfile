@@ -1,4 +1,4 @@
-FROM oven/bun:1.4.2 AS bun
+FROM oven/bun:1.4.4 AS bun
 
 FROM mcr.microsoft.com/devcontainers/javascript-node:4.0.3-24-trixie
 

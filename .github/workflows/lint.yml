@@ -50,7 +50,7 @@ jobs:
         submodules: true
     - uses: oven-sh/setup-bun@v2
       with:
-        bun-version: '1.4.2'
+        bun-version: '1.4.4'
 
     - run: bun install --frozen-lockfile
 
@@ -80,7 +80,7 @@ jobs:
         submodules: true
     - uses: oven-sh/setup-bun@v2
       with:
-        bun-version: '1.4.2'
+        bun-version: '1.4.4'
 
     - run: bun install --frozen-lockfile
     - name: Restore eslint cache
@@ -108,7 +108,7 @@ jobs:
         submodules: true
     - uses: oven-sh/setup-bun@v2
       with:
-        bun-version: '1.4.2'
+        bun-version: '1.4.4'
 
     - run: bun install --frozen-lockfile
     - run: bun run build
@@ -127,7 +127,7 @@ jobs:
         submodules: true
     - uses: oven-sh/setup-bun@v2
       with:
-        bun-version: '1.4.2'
+        bun-version: '1.4.4'
 
     - run: bun install --frozen-lockfile
     - run: node --test scripts/checks/declarations.test.mjs

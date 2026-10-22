@@ -103,7 +103,7 @@ services:
     command: bun run --filter backend test:fed
 
   daemon:
-    image: oven/bun:1.4.2
+    image: oven/bun:1.4.4
     depends_on:
       redis.test:
         condition: service_healthy
