@@ -486,7 +486,7 @@
     },
     "packages/misskey-js": {
       "name": "misskey-js",
-      "version": "2026.10.0-cs-0.1.0",
+      "version": "2026.10.0-cs-0.2.0",
       "dependencies": {
         "@simplewebauthn/browser": "13.3.0",
         "eventemitter3": "5.0.4",
