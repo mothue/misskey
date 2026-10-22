@@ -1,0 +1,777 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-22",
+  "baselineCommit": "0e01a7825",
+  "sourceHashes": {
+    "before": [
+      {
+        "sha256": "4246a7f4faa57994ebae894d5f88afd412fbc5887b10351bef4fc33e236050d8",
+        "file": "packages/backend/src/core/entities/UserEntityService.ts"
+      },
+      {
+        "sha256": "e6db33c58ed9083277a7d82acbab74af824aca9c09935a2598fd6ff74bb5f838",
+        "file": "packages/backend/src/core/HttpRequestService.ts"
+      },
+      {
+        "sha256": "144c2b0e8620ef885db8598e9da1a671bf3894aeb2daeddd471b25d02c8a71d1",
+        "file": "packages/backend/src/core/activitypub/ApRequestService.ts"
+      },
+      {
+        "sha256": "172df696fff5e3f2caf6e2b72bf469ecb7cb736dba205e3c87f4e2d3ebd7e9e3",
+        "file": "packages/backend/src/core/SensitiveMediaDetectionService.ts"
+      },
+      {
+        "sha256": "1b21532f1d2d78439023268e99db5cfbae480ce8aef977a7cc3cdb2d656bd357",
+        "file": "packages/backend/src/queue/processors/SystemWebhookDeliverProcessorService.ts"
+      },
+      {
+        "sha256": "a86d5d0302f10cd782100a4e37a21d6c89c664928131ecfdbabdd86c08d625b9",
+        "file": "packages/backend/src/queue/processors/UserWebhookDeliverProcessorService.ts"
+      },
+      {
+        "sha256": "d852ac09793388890bd96ed17ea84d48e85043ce5ab9dca45f88f28f715ade01",
+        "file": ".benchmark/perf-6-25/runtime-before/entry.js"
+      }
+    ],
+    "after": [
+      {
+        "sha256": "18a993af418610a556c58e1255d40bc1e6d18b4cb6320920065534f2448533a3",
+        "file": "packages/backend/src/core/entities/UserEntityService.ts"
+      },
+      {
+        "sha256": "0beddedcb02b550cf2d9b9c7c3b40890ef504958c3032f37e705a96b5b490fce",
+        "file": "packages/backend/src/core/HttpRequestService.ts"
+      },
+      {
+        "sha256": "332fa6f2566344c79dc14af7fa647ae60087f063a60e8894e913e266e9222e0b",
+        "file": "packages/backend/src/core/activitypub/ApRequestService.ts"
+      },
+      {
+        "sha256": "ab07e442fbfef8688d64762fb036a59fb4b6177d14d67714eef6a553cfb290d2",
+        "file": "packages/backend/src/core/SensitiveMediaDetectionService.ts"
+      },
+      {
+        "sha256": "ed867485195f6bc240fe442ac50caccd79c3923110f4bdece180d47dd76c1ea5",
+        "file": "packages/backend/src/queue/processors/SystemWebhookDeliverProcessorService.ts"
+      },
+      {
+        "sha256": "ce6ee5d87c78a6e5e008474f62269be27cf143140fb953792a1f7c4ad6b39e1d",
+        "file": "packages/backend/src/queue/processors/UserWebhookDeliverProcessorService.ts"
+      },
+      {
+        "sha256": "6784deea272b5d6bb4904f937368b97b71d48680b8bf616baa28709761542d99",
+        "file": ".benchmark/perf-6-25/runtime-after/entry.js"
+      }
+    ]
+  },
+  "environment": {
+    "bun": "1.4.4",
+    "os": "darwin",
+    "osRelease": "27.0.0",
+    "arch": "arm64",
+    "cpu": "Apple M1",
+    "serverWorkers": 1,
+    "generatorProcesses": 1,
+    "rateLimit": "disabled (NODE_ENV=benchmark)",
+    "outbound": "HTTP transport disabled, no remote users, localOnly posts, no mail/webhook fixtures",
+    "search": "sqlLike",
+    "daemons": false,
+    "fanoutTimeline": true,
+    "fanoutDbFallback": true,
+    "reactionsBuffering": true,
+    "git": "0e01a7825ed73f4359f01f297b2a6c44e7ab25c5",
+    "dirty": true,
+    "postgres": "PostgreSQL 18.6 (Debian 18.6-1.pgdg13+2) on aarch64-unknown-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit",
+    "redis": "7.4.11"
+  },
+  "fixture": {
+    "id": "misskey-benchmark-v2/small",
+    "version": 2,
+    "seed": "misskey-benchmark-v2",
+    "fingerprint": "547f1ce6c91fee92c7a8a5b30e351e5725d9387d3463975c94a78665b88102c4",
+    "size": "small",
+    "counts": {
+      "users": 128,
+      "notes": 8192,
+      "follows": 8,
+      "heavyFollows": 32,
+      "reactionNotes": 16,
+      "reactionsPerNote": 32
+    },
+    "stats": {
+      "users": 2208,
+      "notes": 8192,
+      "follows": 3840,
+      "mutes": 2048,
+      "blocks": 384,
+      "reactions": 6921,
+      "lists": 128,
+      "memberships": 1792,
+      "files": 16,
+      "polls": 16,
+      "notifications": 6144
+    },
+    "distribution": {
+      "visibility": {
+        "public": 6554,
+        "home": 819,
+        "followers": 819
+      },
+      "textLength": {
+        "32": 4916,
+        "256": 2457,
+        "1024": 819
+      }
+    },
+    "capacity": {
+      "deleteNotes": 6409,
+      "followPairs": 8192,
+      "notificationReaders": 2048
+    },
+    "coreUserDistribution": {
+      "normalUsers": 0.75,
+      "heavyUsers": 0.25,
+      "remoteUsers": 0,
+      "attachments": 16
+    }
+  },
+  "fixtureDumpSha256": "ab603ffd2479c94899f827d8eb53ab33f1696009cd64b127f1c8564a712daace",
+  "load": {
+    "requests": 1000,
+    "concurrency": 8,
+    "warmup": 200,
+    "timeout": 10000
+  },
+  "order": [
+    "before-1",
+    "after-1",
+    "before-2",
+    "after-2",
+    "before-3",
+    "after-3"
+  ],
+  "build": {
+    "compiler": "rolldown1.2.6",
+    "beforeCompilerMs": 1830,
+    "afterCompilerMs": 1530,
+    "note": "Build time separated from startup and steady-state; not interpreted as performance improvement"
+  },
+  "httpApiRuns": [
+    {
+      "pair": 1,
+      "variant": "before",
+      "fixtureFingerprint": "547f1ce6c91fee92c7a8a5b30e351e5725d9387d3463975c94a78665b88102c4",
+      "scenarios": [
+        {
+          "scenario": "timeline/home",
+          "startupHealthAndIpcMs": 2543.712083999999,
+          "counts": {
+            "success": 1000,
+            "httpError": 0,
+            "timeout": 0,
+            "transportError": 0,
+            "validationFailure": 0
+          },
+          "p50Ms": 38.067083000000366,
+          "p95Ms": 53.53033300000061,
+          "p99Ms": 62.13033399999949,
+          "throughputReqPerSec": 202.63240946509376,
+          "measureElapsedMs": 4935.044707999999,
+          "curlSmoke": null
+        },
+        {
+          "scenario": "notification/list",
+          "startupHealthAndIpcMs": 1325.2085420000367,
+          "counts": {
+            "success": 1000,
+            "httpError": 0,
+            "timeout": 0,
+            "transportError": 0,
+            "validationFailure": 0
+          },
+          "p50Ms": 53.16412499999933,
+          "p95Ms": 110.83324999999968,
+          "p99Ms": 166.52637499999992,
+          "throughputReqPerSec": 130.78550312668085,
+          "measureElapsedMs": 7646.1073750000005,
+          "curlSmoke": null
+        }
+      ],
+      "rawFile": ".benchmark/perf-6-25/before-1.json"
+    },
+    {
+      "pair": 1,
+      "variant": "after",
+      "fixtureFingerprint": "547f1ce6c91fee92c7a8a5b30e351e5725d9387d3463975c94a78665b88102c4",
+      "scenarios": [
+        {
+          "scenario": "timeline/home",
+          "startupHealthAndIpcMs": 2301.2423750000003,
+          "counts": {
+            "success": 1000,
+            "httpError": 0,
+            "timeout": 0,
+            "transportError": 0,
+            "validationFailure": 0
+          },
+          "p50Ms": 27.048291000000063,
+          "p95Ms": 38.74295799999982,
+          "p99Ms": 66.52487500000007,
+          "throughputReqPerSec": 277.54262785894497,
+          "measureElapsedMs": 3603.0501249999998,
+          "curlSmoke": {
+            "status": 200,
+            "items": 20
+          }
+        },
+        {
+          "scenario": "notification/list",
+          "startupHealthAndIpcMs": 1153.7637920000016,
+          "counts": {
+            "success": 1000,
+            "httpError": 0,
+            "timeout": 0,
+            "transportError": 0,
+            "validationFailure": 0
+          },
+          "p50Ms": 26.815625000000182,
+          "p95Ms": 39.896124999999756,
+          "p99Ms": 50.04895799999986,
+          "throughputReqPerSec": 266.77142189950575,
+          "measureElapsedMs": 3748.5274580000005,
+          "curlSmoke": {
+            "status": 200,
+            "items": 20
+          }
+        }
+      ],
+      "rawFile": ".benchmark/perf-6-25/after-1.json"
+    },
+    {
+      "pair": 2,
+      "variant": "before",
+      "fixtureFingerprint": "547f1ce6c91fee92c7a8a5b30e351e5725d9387d3463975c94a78665b88102c4",
+      "scenarios": [
+        {
+          "scenario": "timeline/home",
+          "startupHealthAndIpcMs": 1323.53825,
+          "counts": {
+            "success": 1000,
+            "httpError": 0,
+            "timeout": 0,
+            "transportError": 0,
+            "validationFailure": 0
+          },
+          "p50Ms": 35.90187500000002,
+          "p95Ms": 47.52145799999926,
+          "p99Ms": 57.28079200000002,
+          "throughputReqPerSec": 217.2449414719045,
+          "measureElapsedMs": 4603.099125000001,
+          "curlSmoke": {
+            "status": 200,
+            "items": 20
+          }
+        },
+        {
+          "scenario": "notification/list",
+          "startupHealthAndIpcMs": 1245.519833000002,
+          "counts": {
+            "success": 1000,
+            "httpError": 0,
+            "timeout": 0,
+            "transportError": 0,
+            "validationFailure": 0
+          },
+          "p50Ms": 46.661292000000685,
+          "p95Ms": 61.60466699999961,
+          "p99Ms": 71.20849999999973,
+          "throughputReqPerSec": 166.99145460891512,
+          "measureElapsedMs": 5988.330375,
+          "curlSmoke": {
+            "status": 200,
+            "items": 20
+          }
+        }
+      ],
+      "rawFile": ".benchmark/perf-6-25/before-2.json"
+    },
+    {
+      "pair": 2,
+      "variant": "after",
+      "fixtureFingerprint": "547f1ce6c91fee92c7a8a5b30e351e5725d9387d3463975c94a78665b88102c4",
+      "scenarios": [
+        {
+          "scenario": "timeline/home",
+          "startupHealthAndIpcMs": 1144.3527919999997,
+          "counts": {
+            "success": 1000,
+            "httpError": 0,
+            "timeout": 0,
+            "transportError": 0,
+            "validationFailure": 0
+          },
+          "p50Ms": 25.765457999999853,
+          "p95Ms": 34.9275419999999,
+          "p99Ms": 39.71354199999996,
+          "throughputReqPerSec": 296.6623153602896,
+          "measureElapsedMs": 3370.835958,
+          "curlSmoke": {
+            "status": 200,
+            "items": 20
+          }
+        },
+        {
+          "scenario": "notification/list",
+          "startupHealthAndIpcMs": 1257.1185000000005,
+          "counts": {
+            "success": 1000,
+            "httpError": 0,
+            "timeout": 0,
+            "transportError": 0,
+            "validationFailure": 0
+          },
+          "p50Ms": 27.471040999999786,
+          "p95Ms": 40.408416999999645,
+          "p99Ms": 48.88945799999965,
+          "throughputReqPerSec": 277.46772047157003,
+          "measureElapsedMs": 3604.022833,
+          "curlSmoke": {
+            "status": 200,
+            "items": 20
+          }
+        }
+      ],
+      "rawFile": ".benchmark/perf-6-25/after-2.json"
+    },
+    {
+      "pair": 3,
+      "variant": "before",
+      "fixtureFingerprint": "547f1ce6c91fee92c7a8a5b30e351e5725d9387d3463975c94a78665b88102c4",
+      "scenarios": [
+        {
+          "scenario": "timeline/home",
+          "startupHealthAndIpcMs": 1148.5268339999998,
+          "counts": {
+            "success": 1000,
+            "httpError": 0,
+            "timeout": 0,
+            "transportError": 0,
+            "validationFailure": 0
+          },
+          "p50Ms": 37.96233399999983,
+          "p95Ms": 54.2660420000002,
+          "p99Ms": 101.96391700000004,
+          "throughputReqPerSec": 198.39991626190286,
+          "measureElapsedMs": 5040.324708,
+          "curlSmoke": {
+            "status": 200,
+            "items": 20
+          }
+        },
+        {
+          "scenario": "notification/list",
+          "startupHealthAndIpcMs": 1221.2580000000016,
+          "counts": {
+            "success": 1000,
+            "httpError": 0,
+            "timeout": 0,
+            "transportError": 0,
+            "validationFailure": 0
+          },
+          "p50Ms": 48.377707999999984,
+          "p95Ms": 73.99737499999992,
+          "p99Ms": 106.23329199999989,
+          "throughputReqPerSec": 155.6363126442481,
+          "measureElapsedMs": 6425.23575,
+          "curlSmoke": {
+            "status": 200,
+            "items": 20
+          }
+        }
+      ],
+      "rawFile": ".benchmark/perf-6-25/before-3.json"
+    },
+    {
+      "pair": 3,
+      "variant": "after",
+      "fixtureFingerprint": "547f1ce6c91fee92c7a8a5b30e351e5725d9387d3463975c94a78665b88102c4",
+      "scenarios": [
+        {
+          "scenario": "timeline/home",
+          "startupHealthAndIpcMs": 1142.1729999999998,
+          "counts": {
+            "success": 1000,
+            "httpError": 0,
+            "timeout": 0,
+            "transportError": 0,
+            "validationFailure": 0
+          },
+          "p50Ms": 25.52033300000039,
+          "p95Ms": 36.10316699999976,
+          "p99Ms": 73.49579200000016,
+          "throughputReqPerSec": 282.97039920622365,
+          "measureElapsedMs": 3533.938542,
+          "curlSmoke": {
+            "status": 200,
+            "items": 20
+          }
+        },
+        {
+          "scenario": "notification/list",
+          "startupHealthAndIpcMs": 1118.9067079999986,
+          "counts": {
+            "success": 1000,
+            "httpError": 0,
+            "timeout": 0,
+            "transportError": 0,
+            "validationFailure": 0
+          },
+          "p50Ms": 26.65441699999974,
+          "p95Ms": 36.39466700000003,
+          "p99Ms": 40.761375000000044,
+          "throughputReqPerSec": 292.56567221644247,
+          "measureElapsedMs": 3418.036,
+          "curlSmoke": {
+            "status": 200,
+            "items": 20
+          }
+        }
+      ],
+      "rawFile": ".benchmark/perf-6-25/after-3.json"
+    }
+  ],
+  "medians": [
+    {
+      "before": {
+        "p50Ms": 37.96233399999983,
+        "p95Ms": 53.53033300000061,
+        "p99Ms": 62.13033399999949,
+        "throughputReqPerSec": 202.63240946509376,
+        "startupHealthAndIpcMs": 1323.53825
+      },
+      "after": {
+        "p50Ms": 25.765457999999853,
+        "p95Ms": 36.10316699999976,
+        "p99Ms": 66.52487500000007,
+        "throughputReqPerSec": 282.97039920622365,
+        "startupHealthAndIpcMs": 1144.3527919999997
+      },
+      "scenario": "timeline/home",
+      "p50ReductionPercent": 32.128888597840245,
+      "throughputIncreasePercent": 39.64715711233213
+    },
+    {
+      "before": {
+        "p50Ms": 48.377707999999984,
+        "p95Ms": 73.99737499999992,
+        "p99Ms": 106.23329199999989,
+        "throughputReqPerSec": 155.6363126442481,
+        "startupHealthAndIpcMs": 1245.519833000002
+      },
+      "after": {
+        "p50Ms": 26.815625000000182,
+        "p95Ms": 39.896124999999756,
+        "p99Ms": 48.88945799999965,
+        "throughputReqPerSec": 277.46772047157003,
+        "startupHealthAndIpcMs": 1153.7637920000016
+      },
+      "scenario": "notification/list",
+      "p50ReductionPercent": 44.57028638066072,
+      "throughputIncreasePercent": 78.27955170449388
+    }
+  ],
+  "httpLifecycleRuns": [
+    {
+      "variant": "before-1",
+      "bun": "1.4.4",
+      "evidence": "real signedPost + HttpRequestService; actual verified RSA signatures; local HTTP wrapper + never-ending 202 upstream",
+      "requests": 64,
+      "curlSmoke": {
+        "status": 204
+      },
+      "completed": 64,
+      "statuses": {
+        "204": 64
+      },
+      "deliveries": 65,
+      "signaturesVerified": 65,
+      "bodyBytes": 5005,
+      "elapsedMs": 148.64841599999997,
+      "after100ms": {
+        "pendingUpstreamResponses": 65,
+        "upstreamSockets": 65,
+        "pendingServiceTimeouts5000ms": 65
+      },
+      "pair": 1
+    },
+    {
+      "variant": "after-1",
+      "bun": "1.4.4",
+      "evidence": "real signedPost + HttpRequestService; actual verified RSA signatures; local HTTP wrapper + never-ending 202 upstream",
+      "requests": 64,
+      "curlSmoke": {
+        "status": 204
+      },
+      "completed": 64,
+      "statuses": {
+        "204": 64
+      },
+      "deliveries": 65,
+      "signaturesVerified": 65,
+      "bodyBytes": 5005,
+      "elapsedMs": 152.69487499999997,
+      "after100ms": {
+        "pendingUpstreamResponses": 0,
+        "upstreamSockets": 0,
+        "pendingServiceTimeouts5000ms": 0
+      },
+      "pair": 1
+    },
+    {
+      "variant": "before-2",
+      "bun": "1.4.4",
+      "evidence": "real signedPost + HttpRequestService; actual verified RSA signatures; local HTTP wrapper + never-ending 202 upstream",
+      "requests": 64,
+      "curlSmoke": {
+        "status": 204
+      },
+      "completed": 64,
+      "statuses": {
+        "204": 64
+      },
+      "deliveries": 65,
+      "signaturesVerified": 65,
+      "bodyBytes": 5005,
+      "elapsedMs": 148.620792,
+      "after100ms": {
+        "pendingUpstreamResponses": 65,
+        "upstreamSockets": 65,
+        "pendingServiceTimeouts5000ms": 65
+      },
+      "pair": 2
+    },
+    {
+      "variant": "after-2",
+      "bun": "1.4.4",
+      "evidence": "real signedPost + HttpRequestService; actual verified RSA signatures; local HTTP wrapper + never-ending 202 upstream",
+      "requests": 64,
+      "curlSmoke": {
+        "status": 204
+      },
+      "completed": 64,
+      "statuses": {
+        "204": 64
+      },
+      "deliveries": 65,
+      "signaturesVerified": 65,
+      "bodyBytes": 5005,
+      "elapsedMs": 151.68362499999998,
+      "after100ms": {
+        "pendingUpstreamResponses": 0,
+        "upstreamSockets": 0,
+        "pendingServiceTimeouts5000ms": 0
+      },
+      "pair": 2
+    },
+    {
+      "variant": "before-3",
+      "bun": "1.4.4",
+      "evidence": "real signedPost + HttpRequestService; actual verified RSA signatures; local HTTP wrapper + never-ending 202 upstream",
+      "requests": 64,
+      "curlSmoke": {
+        "status": 204
+      },
+      "completed": 64,
+      "statuses": {
+        "204": 64
+      },
+      "deliveries": 65,
+      "signaturesVerified": 65,
+      "bodyBytes": 5005,
+      "elapsedMs": 151.781625,
+      "after100ms": {
+        "pendingUpstreamResponses": 65,
+        "upstreamSockets": 65,
+        "pendingServiceTimeouts5000ms": 65
+      },
+      "pair": 3
+    },
+    {
+      "variant": "after-3",
+      "bun": "1.4.4",
+      "evidence": "real signedPost + HttpRequestService; actual verified RSA signatures; local HTTP wrapper + never-ending 202 upstream",
+      "requests": 64,
+      "curlSmoke": {
+        "status": 204
+      },
+      "completed": 64,
+      "statuses": {
+        "204": 64
+      },
+      "deliveries": 65,
+      "signaturesVerified": 65,
+      "bodyBytes": 5005,
+      "elapsedMs": 159.3245,
+      "after100ms": {
+        "pendingUpstreamResponses": 0,
+        "upstreamSockets": 0,
+        "pendingServiceTimeouts5000ms": 0
+      },
+      "pair": 3
+    }
+  ],
+  "limits": [
+    "Synthetic local-only fixture; not production traffic",
+    "Closed-model HTTP latency includes full response body; each run has128-user preflight +200warmup;1000measured requests/concurrency8",
+    "Same dump and Redis snapshot restored before every scenario; explicit ANALYZE; single backend worker; readiness requires health HTTP + IPC",
+    "No timing overlapped implementation tests/builds/typechecks or reviews; initial controller report wall time contains a preparation pause and is not used",
+    "API harness disables outbound transport; lifecycle probe separately exercises real production signedPost and HttpRequestService using real RSA-verified signatures",
+    "Lifecycle timings include100ms observation wait; they are resource-release evidence, not claimed throughput gain",
+    "SQL query reduction from real-database unit regression is separate evidence, not HTTP query instrumentation",
+    "First baseline run predates optional curl smoke hook; all runs use same128 preflight +200warmup and later curls occur before these phases",
+    "Healthy-peer connection counts are single functional runs without timing, collected while other checks ran; immediate completed loopback empty/small202 bodies, no delayed body/TLS/internet realism; scheduling changes connection totals. Idle keep-alive sockets are healthy and distinct from pending responses."
+  ],
+  "sourceVerification": {
+    "checkedAt": "2026-10-22T13:43:08.502989+00:00",
+    "allAfterHashesMatchedAtEndOfMeasurement": true,
+    "files": [
+      "packages/backend/src/core/entities/UserEntityService.ts",
+      "packages/backend/src/core/HttpRequestService.ts",
+      "packages/backend/src/core/activitypub/ApRequestService.ts",
+      "packages/backend/src/core/SensitiveMediaDetectionService.ts",
+      "packages/backend/src/queue/processors/SystemWebhookDeliverProcessorService.ts",
+      "packages/backend/src/queue/processors/UserWebhookDeliverProcessorService.ts",
+      ".benchmark/perf-6-25/runtime-after/entry.js"
+    ],
+    "note": "Core3 hashes captured at build and checked immediately before/after timing. Extra3 lifecycle caller files unchanged since22:30:39, prior to after-runtime build22:36:52; final hashes recorded after measurement."
+  },
+  "healthyPeerFunctionalRuns": [
+    {
+      "variant": "before",
+      "bun": "1.4.4",
+      "functionalOnly": true,
+      "peerMode": "empty",
+      "evidence": "real signedPost + HttpRequestService; actual RSA verified; completed healthy202 peer; no latency or throughput measurement",
+      "requests": 64,
+      "curlSmoke": {
+        "status": 204
+      },
+      "completed": 64,
+      "statuses": {
+        "204": 64
+      },
+      "deliveries": 65,
+      "signaturesVerified": 65,
+      "bodyBytes": 5005,
+      "totalUpstreamConnections": 6,
+      "reusedConnectionRequests": 59,
+      "requestsPerConnection": [
+        21,
+        32,
+        1,
+        1,
+        1,
+        9
+      ],
+      "after100ms": {
+        "pendingUpstreamResponses": 0,
+        "upstreamSockets": 6,
+        "pendingServiceTimeouts5000ms": 65
+      }
+    },
+    {
+      "variant": "after",
+      "bun": "1.4.4",
+      "functionalOnly": true,
+      "peerMode": "empty",
+      "evidence": "real signedPost + HttpRequestService; actual RSA verified; completed healthy202 peer; no latency or throughput measurement",
+      "requests": 64,
+      "curlSmoke": {
+        "status": 204
+      },
+      "completed": 64,
+      "statuses": {
+        "204": 64
+      },
+      "deliveries": 65,
+      "signaturesVerified": 65,
+      "bodyBytes": 5005,
+      "totalUpstreamConnections": 5,
+      "reusedConnectionRequests": 60,
+      "requestsPerConnection": [
+        24,
+        35,
+        4,
+        1,
+        1
+      ],
+      "after100ms": {
+        "pendingUpstreamResponses": 0,
+        "upstreamSockets": 5,
+        "pendingServiceTimeouts5000ms": 0
+      }
+    },
+    {
+      "variant": "before",
+      "bun": "1.4.4",
+      "functionalOnly": true,
+      "peerMode": "small",
+      "evidence": "real signedPost + HttpRequestService; actual RSA verified; completed healthy202 peer; no latency or throughput measurement",
+      "requests": 64,
+      "curlSmoke": {
+        "status": 204
+      },
+      "completed": 64,
+      "statuses": {
+        "204": 64
+      },
+      "deliveries": 65,
+      "signaturesVerified": 65,
+      "bodyBytes": 5005,
+      "totalUpstreamConnections": 4,
+      "reusedConnectionRequests": 61,
+      "requestsPerConnection": [
+        33,
+        19,
+        2,
+        11
+      ],
+      "after100ms": {
+        "pendingUpstreamResponses": 0,
+        "upstreamSockets": 4,
+        "pendingServiceTimeouts5000ms": 65
+      }
+    },
+    {
+      "variant": "after",
+      "bun": "1.4.4",
+      "functionalOnly": true,
+      "peerMode": "small",
+      "evidence": "real signedPost + HttpRequestService; actual RSA verified; completed healthy202 peer; no latency or throughput measurement",
+      "requests": 64,
+      "curlSmoke": {
+        "status": 204
+      },
+      "completed": 64,
+      "statuses": {
+        "204": 64
+      },
+      "deliveries": 65,
+      "signaturesVerified": 65,
+      "bodyBytes": 5005,
+      "totalUpstreamConnections": 4,
+      "reusedConnectionRequests": 61,
+      "requestsPerConnection": [
+        37,
+        6,
+        7,
+        15
+      ],
+      "after100ms": {
+        "pendingUpstreamResponses": 0,
+        "upstreamSockets": 4,
+        "pendingServiceTimeouts5000ms": 0
+      }
+    }
+  ]
+}

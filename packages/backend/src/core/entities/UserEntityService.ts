@@ -414,10 +414,11 @@ export class UserEntityService implements OnModuleInit {
 			pinNotes?: Map<MiUser['id'], MiUserNotePining[]>,
 		},
 	): Promise<Packed<S>> {
-		const opts = Object.assign({
-			schema: 'UserLite',
+		const opts = {
 			includeSecrets: false,
-		}, options);
+			...options,
+			schema: options?.schema ?? 'UserLite',
+		};
 
 		const user = typeof src === 'object' ? src : await this.usersRepository.findOneByOrFail({ id: src });
 
@@ -664,6 +665,10 @@ export class UserEntityService implements OnModuleInit {
 			includeSecrets?: boolean,
 		},
 	): Promise<Packed<S>[]> {
+		if (users.length === 0) return [];
+
+		const schema = options?.schema ?? 'UserLite';
+
 		// -- IDのみの要素を補完して完全なエンティティ一覧を作る
 
 		const _users = users.filter((user): user is MiUser => typeof user !== 'string');
@@ -683,7 +688,7 @@ export class UserEntityService implements OnModuleInit {
 		let userMemos: Map<MiUser['id'], string | null> = new Map();
 		let pinNotes: Map<MiUser['id'], MiUserNotePining[]> = new Map();
 
-		if (options?.schema !== 'UserLite') {
+		if (schema !== 'UserLite') {
 			profilesMap = await this.userProfilesRepository.findBy({ userId: In(_userIds) })
 				.then(profiles => new Map(profiles.map(p => [p.userId, p])));
 
