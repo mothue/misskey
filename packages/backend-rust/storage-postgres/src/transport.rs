@@ -374,25 +374,32 @@ impl SocketSettings {
         }
     }
 
-    async fn open(
+    async fn connect(
         &self,
         address: SocketAddr,
         observation: &AttemptObservation,
     ) -> Result<TcpStream, QueryFault> {
         observation.stage(ConnectStage::SocketConnect);
         let connect = TcpStream::connect(address);
-        let stream = match self.connect_timeout {
+        match self.connect_timeout {
             Some(limit) => tokio::time::timeout(limit, connect)
                 .await
                 .map_err(|_| QueryFault::socket_timeout())?
-                .map_err(QueryFault::socket)?,
-            None => connect.await.map_err(QueryFault::socket)?,
-        };
+                .map_err(QueryFault::socket),
+            None => connect.await.map_err(QueryFault::socket),
+        }
+    }
+
+    fn configure(
+        &self,
+        stream: &TcpStream,
+        observation: &AttemptObservation,
+    ) -> Result<(), QueryFault> {
         // Match tokio-postgres connect_socket's ordering and platform guards.
         // Disabled keepalive leaves the newly created socket's default intact.
         observation.stage(ConnectStage::SocketOptions);
         stream.set_nodelay(true).map_err(QueryFault::socket)?;
-        let socket = SockRef::from(&stream);
+        let socket = SockRef::from(stream);
         #[cfg(target_os = "linux")]
         if let Some(timeout) = self.tcp_user_timeout {
             socket
@@ -425,7 +432,7 @@ impl SocketSettings {
                 .map_err(QueryFault::socket)?;
         }
         observation.stage(ConnectStage::SocketReady);
-        Ok(stream)
+        Ok(())
     }
 }
 
@@ -438,17 +445,33 @@ pub(crate) struct TcpRoute {
     negotiation: tokio_postgres::config::SslNegotiation,
 }
 impl TcpRoute {
-    async fn open(
+    async fn connect_socket(
         &self,
+        observation: &AttemptObservation,
+    ) -> Result<TcpStream, QueryFault> {
+        self.settings.connect(self.address, observation).await
+    }
+
+    fn prepare_socket(
+        &self,
+        stream: TcpStream,
         observation: AttemptObservation,
     ) -> Result<ObservedStream<TcpStream>, QueryFault> {
-        let stream = self.settings.open(self.address, &observation).await?;
+        self.settings.configure(&stream, &observation)?;
         Ok(ObservedStream::new(
             stream,
             observation,
             self.mode,
             self.negotiation,
         ))
+    }
+
+    async fn open(
+        &self,
+        observation: AttemptObservation,
+    ) -> Result<ObservedStream<TcpStream>, QueryFault> {
+        let stream = self.connect_socket(&observation).await?;
+        self.prepare_socket(stream, observation)
     }
 }
 
@@ -544,34 +567,37 @@ where
             mode: config.get_ssl_mode(),
             negotiation: config.get_ssl_negotiation(),
         };
-        let attempt = async {
-            let stream = route.open(observation.clone()).await?;
-            let mut factory = make_tls(Some(observation.clone()));
-            let tls = <T as MakeTlsConnect<ObservedStream<TcpStream>>>::make_tls_connect(
-                &mut factory,
-                host,
-            )
-            .map_err(|error| QueryFault::tls_factory(error.into()))?;
-            // connect_raw retains the original SSLRequest/direct negotiation,
-            // authentication, startup options and BackendKeyData handling.
-            // Target does not configure target_session_attrs beyond Any.
-            config
-                .connect_raw(stream, tls)
-                .await
-                .map_err(|error| QueryFault::postgres(FaultPhase::Connect, error))
-        }
-        .await;
-        match attempt {
-            Ok((client, driver)) => {
-                observation.established();
-                return Ok(Connected {
-                    client,
-                    driver: Box::pin(driver),
-                    cancel_route: CancelRoute::Tcp(route),
-                });
+        let stream = match route.connect_socket(&observation).await {
+            Ok(stream) => stream,
+            Err(error) => {
+                last_error = Some(error.with_context(context.snapshot()));
+                continue;
             }
-            Err(error) => last_error = Some(error.with_context(context.snapshot())),
-        }
+        };
+        // Bun pg selects an address at the first TCP success. Socket setup,
+        // TLS and PostgreSQL startup failures on that socket are terminal for
+        // this operation; a later independent query can establish again.
+        let stream = route
+            .prepare_socket(stream, observation.clone())
+            .map_err(|error| error.with_context(context.snapshot()))?;
+        let mut factory = make_tls(Some(observation.clone()));
+        let tls =
+            <T as MakeTlsConnect<ObservedStream<TcpStream>>>::make_tls_connect(&mut factory, host)
+                .map_err(|error| {
+                    QueryFault::tls_factory(error.into()).with_context(context.snapshot())
+                })?;
+        // connect_raw retains the original SSLRequest/direct negotiation,
+        // authentication, startup options and BackendKeyData handling.
+        // Target does not configure target_session_attrs beyond Any.
+        let (client, driver) = config.connect_raw(stream, tls).await.map_err(|error| {
+            QueryFault::postgres(FaultPhase::Connect, error).with_context(context.snapshot())
+        })?;
+        observation.established();
+        return Ok(Connected {
+            client,
+            driver: Box::pin(driver),
+            cancel_route: CancelRoute::Tcp(route),
+        });
     }
     Err(last_error.unwrap_or_else(|| QueryFault::no_addresses().with_context(context.snapshot())))
 }

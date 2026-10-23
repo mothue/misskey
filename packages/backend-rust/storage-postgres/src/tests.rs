@@ -57,6 +57,19 @@ fn resolved_target(port: u16) -> Target {
     target
 }
 
+fn refused_tcp_address() -> (socket2::Socket, std::net::SocketAddr) {
+    let socket = socket2::Socket::new(
+        socket2::Domain::IPV4,
+        socket2::Type::STREAM,
+        Some(socket2::Protocol::TCP),
+    )
+    .unwrap();
+    let address = std::net::SocketAddr::from(([127, 0, 0, 1], 0));
+    socket.bind(&address.into()).unwrap();
+    let address = socket.local_addr().unwrap().as_socket().unwrap();
+    (socket, address)
+}
+
 async fn startup_ready(socket: &mut tokio::net::TcpStream) {
     use tokio::io::AsyncWriteExt;
     read_startup(socket).await;
@@ -1055,7 +1068,7 @@ async fn numeric_host_never_calls_the_injected_resolver() {
 }
 
 #[tokio::test]
-async fn ordered_duplicate_addresses_are_attempted_once_each_and_stop_at_first_success() {
+async fn duplicate_addresses_do_not_retry_startup_failure_and_a_later_operation_recovers() {
     use tokio::io::AsyncReadExt;
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
@@ -1068,19 +1081,30 @@ async fn ordered_duplicate_addresses_are_attempted_once_each_and_stop_at_first_s
         let (mut recovered, _) = listener.accept().await.unwrap();
         startup_ready(&mut recovered).await;
         empty_query(&mut recovered).await;
-        assert!(
-            tokio::time::timeout(Duration::from_millis(25), listener.accept())
-                .await
-                .is_err()
-        );
         let mut bytes = Vec::new();
         tokio::time::timeout(Duration::from_secs(1), recovered.read_to_end(&mut bytes))
             .await
             .unwrap()
             .unwrap();
+        assert!(
+            tokio::time::timeout(Duration::from_millis(25), listener.accept())
+                .await
+                .is_err()
+        );
     });
     let database =
         Database::new_with_resolver(None, Some(resolved_target(addr.port())), resolver.clone());
+    let error = database
+        .query_typed(false, "SELECT 1", &[])
+        .await
+        .unwrap_err();
+    let fault = retained_fault(&error);
+    assert_eq!(fault.server_code(), Some("28000"));
+    assert_eq!(fault.attempt_index(), Some(0));
+    assert_eq!(fault.attempted_addr(), Some(addr));
+    assert_eq!(fault.resolver_address_count(), Some(3));
+    assert_eq!(resolver.calls().len(), 1);
+    assert!(database.primary.slots[0].connection.lock().await.is_none());
     assert!(
         database
             .query_typed(false, "SELECT 1", &[])
@@ -1089,22 +1113,25 @@ async fn ordered_duplicate_addresses_are_attempted_once_each_and_stop_at_first_s
             .is_empty()
     );
     {
-        let connection = database.primary.slots[0].connection.lock().await;
-        let context = connection.as_ref().unwrap().transport_context().unwrap();
+        let stored = database.primary.slots[0].connection.lock().await;
+        let context = stored.as_ref().unwrap().transport_context().unwrap();
         assert_eq!(context.attempted_addr(), Some(addr));
-        assert_eq!(context.attempt_index(), Some(1));
-        assert_eq!(context.resolver_address_count(), Some(3));
+        assert_eq!(context.attempt_index(), Some(0));
         assert_eq!(context.connect_stage(), ConnectStage::Established);
         assert_eq!(context.tls_verify_code(), None);
     }
-    assert_eq!(resolver.calls().len(), 1);
+    assert_eq!(
+        resolver.calls().len(),
+        2,
+        "a later requested operation owns a new lookup"
+    );
     database.shutdown().await;
     peer.await.unwrap();
 }
 
 #[tokio::test]
-async fn ordered_distinct_addresses_preserve_the_final_actual_startup_error() {
-    use tokio::io::AsyncWriteExt;
+async fn first_tcp_startup_fatal_never_tries_a_healthy_second_ip_and_later_operation_recovers() {
+    use tokio::io::AsyncReadExt;
     let first = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let first_addr = first.local_addr().unwrap();
     let second =
@@ -1113,29 +1140,37 @@ async fn ordered_distinct_addresses_preserve_the_final_actual_startup_error() {
             .unwrap();
     let second_addr = second.local_addr().unwrap();
     let resolver = FixtureResolver::addresses(vec![first_addr, second_addr]);
-    let (order_send, mut order_recv) = tokio::sync::mpsc::unbounded_channel();
-    let first_order = order_send.clone();
-    let first_peer = tokio::spawn(async move {
+    let second_accepts = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let accepted = Arc::clone(&second_accepts);
+    let (stop_second, stopped) = tokio::sync::oneshot::channel::<()>();
+    let second_peer = tokio::spawn(async move {
+        tokio::select! {
+            _ = stopped => {}
+            result = second.accept() => {
+                let (mut socket, _) = result.unwrap();
+                accepted.fetch_add(1, Ordering::AcqRel);
+                startup_ready(&mut socket).await;
+                empty_query(&mut socket).await;
+                let mut bytes = Vec::new();
+                let _ = tokio::time::timeout(Duration::from_secs(1), socket.read_to_end(&mut bytes)).await;
+            }
+        }
+    });
+    let peer = tokio::spawn(async move {
         let (mut socket, _) = first.accept().await.unwrap();
-        first_order.send(0).unwrap();
         read_startup(&mut socket).await;
         write_error(&mut socket).await;
+        drop(socket);
+        let (mut recovered, _) = first.accept().await.unwrap();
+        startup_ready(&mut recovered).await;
+        empty_query(&mut recovered).await;
+        let mut bytes = Vec::new();
+        tokio::time::timeout(Duration::from_secs(1), recovered.read_to_end(&mut bytes))
+            .await
+            .unwrap()
+            .unwrap();
         assert!(
             tokio::time::timeout(Duration::from_millis(25), first.accept())
-                .await
-                .is_err()
-        );
-    });
-    let second_peer = tokio::spawn(async move {
-        let (mut socket, _) = second.accept().await.unwrap();
-        order_send.send(1).unwrap();
-        read_startup(&mut socket).await;
-        let payload = b"SFATAL\0C3D000\0Mfinal address rejection\0\0";
-        socket.write_u8(b'E').await.unwrap();
-        socket.write_u32((payload.len() + 4) as u32).await.unwrap();
-        socket.write_all(payload).await.unwrap();
-        assert!(
-            tokio::time::timeout(Duration::from_millis(25), second.accept())
                 .await
                 .is_err()
         );
@@ -1150,19 +1185,44 @@ async fn ordered_distinct_addresses_preserve_the_final_actual_startup_error() {
         .await
         .unwrap_err();
     let fault = retained_fault(&error);
-    assert_eq!(fault.server_code(), Some("3D000"));
-    assert_eq!(fault.server_message(), Some("final address rejection"));
-    assert_eq!(fault.attempted_addr(), Some(second_addr));
-    assert_eq!(fault.attempt_index(), Some(1));
+    assert_eq!(fault.phase(), FaultPhase::Connect);
+    assert_eq!(fault.server_code(), Some("28000"));
+    assert_eq!(fault.server_message(), Some("fixture startup rejection"));
+    assert_eq!(fault.attempted_addr(), Some(first_addr));
+    assert_eq!(fault.attempt_index(), Some(0));
     assert_eq!(fault.resolver_address_count(), Some(2));
     assert_eq!(fault.tls_verify_code(), None);
     assert_eq!(error.legacy_message(), None);
     assert_eq!(resolver.calls().len(), 1);
-    assert_eq!(order_recv.recv().await, Some(0));
-    assert_eq!(order_recv.recv().await, Some(1));
-    first_peer.await.unwrap();
-    second_peer.await.unwrap();
+    assert!(database.primary.slots[0].connection.lock().await.is_none());
+    assert_eq!(
+        second_accepts.load(Ordering::Acquire),
+        0,
+        "TCP success commits the original operation to the first route"
+    );
+    assert!(
+        database
+            .query_typed(false, "SELECT 1", &[])
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert_eq!(resolver.calls().len(), 2);
+    {
+        let stored = database.primary.slots[0].connection.lock().await;
+        let context = stored.as_ref().unwrap().transport_context().unwrap();
+        assert_eq!(context.attempted_addr(), Some(first_addr));
+        assert_eq!(context.attempt_index(), Some(0));
+    }
+    assert_eq!(
+        second_accepts.load(Ordering::Acquire),
+        0,
+        "recovery is an independent request to the first route"
+    );
     database.shutdown().await;
+    stop_second.send(()).unwrap();
+    second_peer.await.unwrap();
+    peer.await.unwrap();
 }
 
 #[tokio::test]
@@ -1221,26 +1281,13 @@ async fn resolver_deadline_and_shutdown_drop_the_original_pending_lookup() {
 #[tokio::test]
 async fn native_cancellation_uses_the_successful_ip_without_dns_retry_and_later_query_recovers() {
     use tokio::io::AsyncReadExt;
-    let first = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-    let first_addr = first.local_addr().unwrap();
+    let (_refused, first_addr) = refused_tcp_address();
     let selected =
         tokio::net::TcpListener::bind((std::net::Ipv4Addr::new(127, 0, 0, 2), first_addr.port()))
             .await
             .unwrap();
     let selected_addr = selected.local_addr().unwrap();
     let resolver = FixtureResolver::addresses(vec![first_addr, selected_addr]);
-    let first_peer = tokio::spawn(async move {
-        for _ in 0..2 {
-            let (mut socket, _) = first.accept().await.unwrap();
-            read_startup(&mut socket).await;
-            write_error(&mut socket).await;
-        }
-        assert!(
-            tokio::time::timeout(Duration::from_millis(25), first.accept())
-                .await
-                .is_err()
-        );
-    });
     let selected_peer = tokio::spawn(async move {
         let (mut query, _) = selected.accept().await.unwrap();
         startup_ready(&mut query).await;
@@ -1317,7 +1364,6 @@ async fn native_cancellation_uses_the_successful_ip_without_dns_retry_and_later_
         assert_eq!(context.attempt_index(), Some(1));
     }
     database.shutdown().await;
-    first_peer.await.unwrap();
     selected_peer.await.unwrap();
     assert!(database.primary.cancellations.lock().unwrap().is_empty());
 }
@@ -1848,7 +1894,7 @@ async fn read_only_session_setup_stays_outside_connect_and_query_deadlines() {
 }
 
 #[tokio::test]
-async fn verification_from_a_failed_startup_does_not_leak_into_the_next_address_attempt() {
+async fn verification_from_a_failed_startup_does_not_leak_into_a_later_independent_operation() {
     use std::io::{Read, Write};
     let fixture = MemoryTlsFixture::new();
     let acceptor = memory_tls_acceptor(&fixture, Negotiation::Postgres);
@@ -1883,8 +1929,22 @@ async fn verification_from_a_failed_startup_does_not_leak_into_the_next_address_
         .query_typed(false, "SELECT 1", &[])
         .await
         .unwrap_err();
-    let fault = retained_fault(&error);
-    assert_eq!(fault.attempt_index(), Some(1));
+    let first_fault = retained_fault(&error);
+    assert_eq!(first_fault.server_code(), Some("28000"));
+    assert_eq!(first_fault.attempt_index(), Some(0));
+    assert_eq!(first_fault.attempted_addr(), Some(addr));
+    assert_eq!(first_fault.tls_verify_code(), Some(0));
+    assert_eq!(
+        first_fault.tls_connect_state(),
+        Some(TlsConnectState::Succeeded)
+    );
+    assert_eq!(resolver.calls().len(), 1);
+    let later_error = database
+        .query_typed(false, "SELECT 1", &[])
+        .await
+        .unwrap_err();
+    let fault = retained_fault(&later_error);
+    assert_eq!(fault.attempt_index(), Some(0));
     assert_eq!(fault.attempted_addr(), Some(addr));
     assert_eq!(fault.connect_stage(), Some(ConnectStage::SslRequest));
     assert_eq!(fault.ssl_reply(), Some(SslReply::Declined));
@@ -1894,8 +1954,13 @@ async fn verification_from_a_failed_startup_does_not_leak_into_the_next_address_
     assert_eq!(fault.tls_verify_depth(), None);
     assert_eq!(fault.tls_preverify_ok(), None);
     assert_eq!(fault.server_code(), None);
-    assert_eq!(error.legacy_message(), None);
-    assert_eq!(resolver.calls().len(), 1);
+    assert_eq!(later_error.legacy_message(), None);
+    assert_eq!(resolver.calls().len(), 2);
+    assert_eq!(
+        first_fault.tls_verify_code(),
+        Some(0),
+        "a retained prior fault stays immutable"
+    );
     peer.await.unwrap();
     database.shutdown().await;
 }
@@ -2970,4 +3035,229 @@ async fn original_business_and_cancellation_sockets_keep_the_native_socket_optio
             peer.await.unwrap();
         }
     }
+}
+
+#[tokio::test]
+async fn a_refused_tcp_candidate_falls_back_to_the_actual_healthy_second_ip() {
+    use tokio::io::AsyncReadExt;
+    let (_refused, first_addr) = refused_tcp_address();
+    let second =
+        tokio::net::TcpListener::bind((std::net::Ipv4Addr::new(127, 0, 0, 2), first_addr.port()))
+            .await
+            .unwrap();
+    let second_addr = second.local_addr().unwrap();
+    let resolver = FixtureResolver::addresses(vec![first_addr, second_addr]);
+    let peer = tokio::spawn(async move {
+        let (mut socket, _) = second.accept().await.unwrap();
+        startup_ready(&mut socket).await;
+        empty_query(&mut socket).await;
+        let mut bytes = Vec::new();
+        tokio::time::timeout(Duration::from_secs(1), socket.read_to_end(&mut bytes))
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(
+            tokio::time::timeout(Duration::from_millis(25), second.accept())
+                .await
+                .is_err()
+        );
+    });
+    let database = Database::new_with_resolver(
+        None,
+        Some(resolved_target(first_addr.port())),
+        resolver.clone(),
+    );
+    assert!(
+        database
+            .query_typed(false, "SELECT 1", &[])
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    {
+        let stored = database.primary.slots[0].connection.lock().await;
+        let context = stored.as_ref().unwrap().transport_context().unwrap();
+        assert_eq!(context.attempted_addr(), Some(second_addr));
+        assert_eq!(context.attempt_index(), Some(1));
+        assert_eq!(context.resolver_address_count(), Some(2));
+    }
+    assert_eq!(resolver.calls().len(), 1);
+    database.shutdown().await;
+    peer.await.unwrap();
+}
+
+fn ready_and_empty_query_sync<S: std::io::Read + std::io::Write>(socket: &mut S) {
+    let mut length = [0; 4];
+    socket.read_exact(&mut length).unwrap();
+    let mut startup = vec![0; u32::from_be_bytes(length) as usize - 4];
+    socket.read_exact(&mut startup).unwrap();
+    socket
+        .write_all(b"R\0\0\0\x08\0\0\0\0K\0\0\0\x0c\0\0\0\x11\0\0\0\x17Z\0\0\0\x05I")
+        .unwrap();
+    for response in [
+        b"1\0\0\0\x04t\0\0\0\x06\0\0n\0\0\0\x04Z\0\0\0\x05I".as_slice(),
+        b"2\0\0\0\x04C\0\0\0\x0dSELECT 0\0Z\0\0\0\x05I".as_slice(),
+    ] {
+        loop {
+            let mut kind = [0];
+            socket.read_exact(&mut kind).unwrap();
+            socket.read_exact(&mut length).unwrap();
+            let mut payload = vec![0; u32::from_be_bytes(length) as usize - 4];
+            socket.read_exact(&mut payload).unwrap();
+            if kind[0] == b'S' {
+                break;
+            }
+        }
+        socket.write_all(response).unwrap();
+    }
+}
+
+#[tokio::test]
+async fn first_tcp_ssl_decline_never_tries_a_healthy_second_ip_and_later_operation_recovers() {
+    use std::io::{Read, Write};
+    let fixture = MemoryTlsFixture::new();
+    let acceptor = memory_tls_acceptor(&fixture, Negotiation::Postgres);
+    let first = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let first_addr = first.local_addr().unwrap();
+    let second =
+        std::net::TcpListener::bind((std::net::Ipv4Addr::new(127, 0, 0, 2), first_addr.port()))
+            .unwrap();
+    let second_addr = second.local_addr().unwrap();
+    first.set_nonblocking(true).unwrap();
+    second.set_nonblocking(true).unwrap();
+    let accepted = Arc::new([
+        std::sync::atomic::AtomicUsize::new(0),
+        std::sync::atomic::AtomicUsize::new(0),
+    ]);
+    let worker_accepted = Arc::clone(&accepted);
+    let stop = Arc::new(AtomicBool::new(false));
+    let worker_stop = Arc::clone(&stop);
+    let peer = tokio::task::spawn_blocking(move || {
+        let deadline = std::time::Instant::now() + Duration::from_secs(3);
+        while !worker_stop.load(Ordering::Acquire) {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "two-route TLS fixture is bounded"
+            );
+            for (route, listener) in [&first, &second].into_iter().enumerate() {
+                match listener.accept() {
+                    Ok((mut socket, _)) => {
+                        socket.set_nonblocking(false).unwrap();
+                        socket
+                            .set_read_timeout(Some(Duration::from_secs(2)))
+                            .unwrap();
+                        socket
+                            .set_write_timeout(Some(Duration::from_secs(2)))
+                            .unwrap();
+                        let previous = worker_accepted[route].fetch_add(1, Ordering::AcqRel);
+                        if route == 0 && previous == 0 {
+                            let mut request = [0; 8];
+                            socket.read_exact(&mut request).unwrap();
+                            assert_eq!(request, [0, 0, 0, 8, 4, 210, 22, 47]);
+                            socket.write_all(b"N").unwrap();
+                        } else {
+                            let mut socket =
+                                fixture_tls_accept(&acceptor, socket, Negotiation::Postgres)
+                                    .unwrap();
+                            ready_and_empty_query_sync(&mut socket);
+                            let mut trailing = Vec::new();
+                            let _ = socket.read_to_end(&mut trailing);
+                        }
+                    }
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {}
+                    Err(_) => panic!("two-route TLS fixture accept failed"),
+                }
+            }
+            std::thread::sleep(Duration::from_millis(1));
+        }
+    });
+    let resolver = FixtureResolver::addresses(vec![first_addr, second_addr]);
+    let mut target = fixture.target(first_addr.port());
+    target.host = "private-resolver.transport.test".into();
+    let database = Database::new_with_resolver(None, Some(target), resolver.clone());
+    let error = database
+        .query_typed(false, "SELECT 1", &[])
+        .await
+        .unwrap_err();
+    let fault = retained_fault(&error);
+    assert_eq!(fault.phase(), FaultPhase::Connect);
+    assert_eq!(fault.attempted_addr(), Some(first_addr));
+    assert_eq!(fault.attempt_index(), Some(0));
+    assert_eq!(fault.resolver_address_count(), Some(2));
+    assert_eq!(fault.ssl_reply(), Some(SslReply::Declined));
+    assert_eq!(fault.tls_connect_state(), None);
+    assert_eq!(fault.tls_verify_code(), None);
+    assert_eq!(error.legacy_message(), None);
+    assert_eq!(resolver.calls().len(), 1);
+    assert_eq!(accepted[0].load(Ordering::Acquire), 1);
+    assert_eq!(accepted[1].load(Ordering::Acquire), 0);
+    assert!(database.primary.slots[0].connection.lock().await.is_none());
+    assert!(
+        database
+            .query_typed(false, "SELECT 1", &[])
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert_eq!(resolver.calls().len(), 2);
+    {
+        let stored = database.primary.slots[0].connection.lock().await;
+        let context = stored.as_ref().unwrap().transport_context().unwrap();
+        assert_eq!(context.attempted_addr(), Some(first_addr));
+        assert_eq!(context.attempt_index(), Some(0));
+        assert_eq!(context.ssl_reply(), Some(SslReply::Accepted));
+        assert_eq!(
+            context.tls_connect_state(),
+            Some(TlsConnectState::Succeeded)
+        );
+        assert_eq!(context.tls_verify_code(), Some(0));
+    }
+    assert_eq!(
+        fault.ssl_reply(),
+        Some(SslReply::Declined),
+        "the original failure remains immutable"
+    );
+    assert_eq!(accepted[0].load(Ordering::Acquire), 2);
+    assert_eq!(accepted[1].load(Ordering::Acquire), 0);
+    database.shutdown().await;
+    stop.store(true, Ordering::Release);
+    peer.await.unwrap();
+}
+
+#[tokio::test]
+async fn all_refused_tcp_candidates_retain_the_final_actual_address_and_original_io_error() {
+    let (_first, first_addr) = refused_tcp_address();
+    let second = socket2::Socket::new(
+        socket2::Domain::IPV4,
+        socket2::Type::STREAM,
+        Some(socket2::Protocol::TCP),
+    )
+    .unwrap();
+    let second_addr = std::net::SocketAddr::from(([127, 0, 0, 2], first_addr.port()));
+    second.bind(&second_addr.into()).unwrap();
+    let resolver = FixtureResolver::addresses(vec![first_addr, second_addr]);
+    let database = Database::new_with_resolver(
+        None,
+        Some(resolved_target(first_addr.port())),
+        resolver.clone(),
+    );
+    let error = database
+        .query_typed(false, "SELECT 1", &[])
+        .await
+        .unwrap_err();
+    let fault = retained_fault(&error);
+    assert_eq!(fault.phase(), FaultPhase::Connect);
+    assert_eq!(fault.connect_stage(), Some(ConnectStage::SocketConnect));
+    assert_eq!(fault.kind(), FaultKind::Io);
+    assert_eq!(fault.io_kind(), Some(std::io::ErrorKind::ConnectionRefused));
+    assert!(fault.raw_os_error().is_some());
+    assert_eq!(fault.attempted_addr(), Some(second_addr));
+    assert_eq!(fault.attempt_index(), Some(1));
+    assert_eq!(fault.resolver_address_count(), Some(2));
+    assert_eq!(fault.ssl_reply(), None);
+    assert_eq!(fault.tls_connect_state(), None);
+    assert_eq!(fault.tls_verify_code(), None);
+    assert_eq!(error.legacy_message(), None);
+    assert_eq!(resolver.calls().len(), 1);
+    database.shutdown().await;
 }
