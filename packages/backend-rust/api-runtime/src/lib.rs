@@ -18,6 +18,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+mod business;
 pub mod redis;
 pub mod request;
 mod response;
@@ -154,6 +155,7 @@ pub struct Runtime {
     database: Arc<Database>,
     redis: redis::RedisState,
     online_users: Arc<OnlineUsers>,
+    business_config: business::Config,
     max_file_size: u64,
     upload_directory: String,
     enable_ip_rate_limit: bool,
@@ -209,6 +211,8 @@ impl Runtime {
                 schema: Schema::compile(definition.params).map_err(|_| ())?,
             });
         }
+        let business_config =
+            business::Config::new(&config.auth.id_method, &config.auth.default_policies);
         let database = Arc::new(Database::new(reads, config.postgres_primary));
         let store = Arc::new(
             PostgresAuthStore::new(database.clone(), config.auth.entity_layouts.clone())
@@ -232,6 +236,7 @@ impl Runtime {
             database,
             redis,
             online_users,
+            business_config,
             max_file_size: config.max_file_size,
             upload_directory: config.upload_directory,
             enable_ip_rate_limit: config.enable_ip_rate_limit,
@@ -463,18 +468,27 @@ impl Runtime {
                 Err(_) => response::unavailable(),
             },
             _ => {
-                self.callback(Invocation {
-                    v: 1,
-                    request_id: &context.request_id,
-                    kind: "endpoint",
-                    endpoint: &endpoint.name,
-                    params: &input.params,
-                    user: &auth.user,
-                    token: &auth.token,
-                    file: input.upload.as_ref(),
-                    route_params: None,
-                })
-                .await
+                if let Some(result) =
+                    business::execute(self, &endpoint.name, &input.params, &auth).await
+                {
+                    match result {
+                        Ok(value) => response::value(&value),
+                        Err(error) => error.response(),
+                    }
+                } else {
+                    self.callback(Invocation {
+                        v: 1,
+                        request_id: &context.request_id,
+                        kind: "endpoint",
+                        endpoint: &endpoint.name,
+                        params: &input.params,
+                        user: &auth.user,
+                        token: &auth.token,
+                        file: input.upload.as_ref(),
+                        route_params: None,
+                    })
+                    .await
+                }
             }
         };
         if reply.status().is_success()
