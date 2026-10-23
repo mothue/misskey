@@ -67,4 +67,6 @@ Dedicated services were stopped after validation. Logs/review/baseline/candidate
 
 CodeRabbit was SKIPPED because its installer was denied by the environment's network policy. Browser UI and a local complete frontend build were SKIPPED: this unit changes backend operation ownership and verifies the existing public HTTP contract; prior whole-workspace dependency acquisition was blocked on frontend GitHub source packages. Final-head hosted CI is checked separately, without manually launching external jobs.
 
-The user's latest instruction prohibits editing the PR title/body. They remain unchanged; normal push advances the existing draft PR's code head. No merge/close is authorized.
+The user's latest instruction prohibits editing the PR title/body. This agent does not edit either field; normal push advances the existing draft PR's code head. No merge/close is authorized.
+
+The first pushed commit's Backend Rust CI failed only at the real-DB test fixture read (ENOENT): Cargo starts that test in its crate directory, while the workflow passed a workspace-relative path. The follow-up uses an absolute `github.workspace` fixture path and an explicit PostgreSQL health-check role/database. CI fmt, clippy and all ordinary Rust tests had already passed. See `ci-rust-fixture-failure.log`; verify the final pushed commit separately rather than treating the earlier failure as a pass.
