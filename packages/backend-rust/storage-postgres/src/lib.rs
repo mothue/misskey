@@ -33,7 +33,9 @@ use tokio_postgres::{
 const OPERATION_LIMIT: Duration = Duration::from_secs(4);
 
 mod fault;
-pub use fault::{FaultKind, FaultPhase, QueryFault};
+mod transport;
+pub use fault::{ConnectStage, FaultKind, FaultPhase, QueryFault};
+use transport::{AttemptObservation, ConnectContext, Resolver, SystemResolver, TransportContext};
 
 /// Deliberately hides connection strings, SQL errors and TLS details.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -176,6 +178,7 @@ struct Connection {
     client: Client,
     driver: JoinHandle<()>,
     driver_fault: DriverFault,
+    transport_context: Option<TransportContext>,
     in_flight: AtomicBool,
     cancel_tls: Option<NamedConnector>,
     cancellations: Cancellations,
@@ -186,9 +189,15 @@ impl Connection {
             && let Ok(fault) = self.driver_fault.lock()
             && let Some(error) = fault.as_ref()
         {
-            return QueryFault::shared_postgres(phase, Arc::clone(error));
+            return QueryFault::shared_postgres(phase, Arc::clone(error))
+                .with_context(self.transport_context.clone());
         }
-        QueryFault::postgres(phase, error)
+        QueryFault::postgres(phase, error).with_context(self.transport_context.clone())
+    }
+
+    #[cfg(test)]
+    fn transport_context(&self) -> Option<TransportContext> {
+        self.transport_context.clone()
     }
 }
 
@@ -268,6 +277,7 @@ pub struct OnlineUsers {
     stop_signal: watch::Sender<bool>,
     cancellations: Cancellations,
     read_only: bool,
+    resolver: Arc<dyn Resolver>,
 }
 impl OnlineUsers {
     pub fn new(config: Option<PostgresConfig>) -> Self {
@@ -275,6 +285,22 @@ impl OnlineUsers {
     }
 
     fn with_access(config: Option<PostgresConfig>, read_only: bool) -> Self {
+        Self::with_access_and_resolver(config, read_only, Arc::new(SystemResolver))
+    }
+
+    #[cfg(test)]
+    pub(crate) fn new_with_resolver(
+        config: Option<PostgresConfig>,
+        resolver: Arc<dyn Resolver>,
+    ) -> Self {
+        Self::with_access_and_resolver(config, true, resolver)
+    }
+
+    fn with_access_and_resolver(
+        config: Option<PostgresConfig>,
+        read_only: bool,
+        resolver: Arc<dyn Resolver>,
+    ) -> Self {
         Self {
             slots: config.map_or_else(Vec::new, |c| {
                 c.targets
@@ -290,6 +316,7 @@ impl OnlineUsers {
             stop_signal: watch::channel(false).0,
             cancellations: Arc::new(SyncMutex::new(Vec::new())),
             read_only,
+            resolver,
         }
     }
 
@@ -331,7 +358,8 @@ impl OnlineUsers {
             }
             if connection.as_ref().is_none_or(|c| c.client.is_closed()) {
                 connection = None;
-                connection = Some(connect(&slot.target, &self.cancellations).await?);
+                connection =
+                    Some(connect(&slot.target, &self.cancellations, self.resolver.as_ref()).await?);
                 *slot.driver.lock().map_err(|_| Failure)? =
                     connection.as_ref().map(|c| c.driver.abort_handle());
             }
@@ -428,6 +456,24 @@ impl Database {
         }
     }
 
+    #[cfg(test)]
+    pub(crate) fn new_with_resolver(
+        reads: Option<PostgresConfig>,
+        primary: Option<Target>,
+        resolver: Arc<dyn Resolver>,
+    ) -> Self {
+        Self {
+            reads: OnlineUsers::with_access_and_resolver(reads, true, Arc::clone(&resolver)),
+            primary: OnlineUsers::with_access_and_resolver(
+                primary.map(|target| PostgresConfig {
+                    targets: vec![target],
+                }),
+                false,
+                resolver,
+            ),
+        }
+    }
+
     pub async fn query(
         &self,
         read: bool,
@@ -463,7 +509,13 @@ impl Database {
             let mut connection = stored.take();
             if connection.as_ref().is_none_or(|c| c.client.is_closed()) {
                 connection = Some(
-                    connect_with_access(&slot.target, &pool.cancellations, pool.read_only).await?,
+                    connect_with_access(
+                        &slot.target,
+                        &pool.cancellations,
+                        pool.read_only,
+                        pool.resolver.as_ref(),
+                    )
+                    .await?,
                 );
                 *slot.driver.lock().map_err(|_| QueryError::Unavailable)? =
                     connection.as_ref().map(|c| c.driver.abort_handle());
@@ -588,8 +640,12 @@ fn config(target: &Target) -> Result<Config, Failure> {
     }
     Ok(config)
 }
-async fn connect(target: &Target, cancellations: &Cancellations) -> Result<Connection, Failure> {
-    connect_with_access(target, cancellations, true)
+async fn connect(
+    target: &Target,
+    cancellations: &Cancellations,
+    resolver: &dyn Resolver,
+) -> Result<Connection, Failure> {
+    connect_with_access(target, cancellations, true, resolver)
         .await
         .map_err(|_| Failure)
 }
@@ -597,34 +653,36 @@ async fn connect_with_access(
     target: &Target,
     cancellations: &Cancellations,
     read_only: bool,
+    resolver: &dyn Resolver,
 ) -> Result<Connection, QueryFault> {
     let config = config(target).map_err(QueryFault::configuration)?;
+    let context = ConnectContext::default();
     let establish = async {
         if let Some(tls) = &target.tls {
             let connector = tls_connector(tls, target.ssl_negotiation)?;
-            let (client, driver) = config
-                .connect(connector.clone())
-                .await
-                .map_err(|error| QueryFault::postgres(FaultPhase::Connect, error))?;
+            let (client, driver) = transport::connect(&config, resolver, &context, |observation| {
+                connector.with_observation(observation)
+            })
+            .await?;
             let (driver, driver_fault) = spawn_driver(driver);
             Ok(Connection {
                 client,
                 driver,
                 driver_fault,
+                transport_context: context.snapshot(),
                 in_flight: AtomicBool::new(false),
                 cancel_tls: Some(connector),
                 cancellations: Arc::clone(cancellations),
             })
         } else {
-            let (client, driver) = config
-                .connect(NoTls)
-                .await
-                .map_err(|error| QueryFault::postgres(FaultPhase::Connect, error))?;
+            let (client, driver) =
+                transport::connect(&config, resolver, &context, |_| NoTls).await?;
             let (driver, driver_fault) = spawn_driver(driver);
             Ok(Connection {
                 client,
                 driver,
                 driver_fault,
+                transport_context: context.snapshot(),
                 in_flight: AtomicBool::new(false),
                 cancel_tls: None,
                 cancellations: Arc::clone(cancellations),
@@ -634,7 +692,7 @@ async fn connect_with_access(
     let connection = match positive_duration(target.connect_timeout_ms) {
         Some(limit) => tokio::time::timeout(limit, establish)
             .await
-            .map_err(|_| QueryFault::connect_timeout())??,
+            .map_err(|_| QueryFault::connect_timeout().with_context(context.snapshot()))??,
         None => establish.await?,
     };
     // Session-scoped and applied before the first business query. This does
@@ -653,6 +711,18 @@ async fn connect_with_access(
 struct NamedConnector {
     inner: MakeTlsConnector,
     servername: String,
+    verify: bool,
+    sni: bool,
+    observe_verify: bool,
+    observation: Option<AttemptObservation>,
+}
+impl NamedConnector {
+    fn with_observation(&self, observation: Option<AttemptObservation>) -> Self {
+        Self {
+            observation,
+            ..self.clone()
+        }
+    }
 }
 impl<S> MakeTlsConnect<S> for NamedConnector
 where
@@ -662,7 +732,28 @@ where
     type TlsConnect = <MakeTlsConnector as MakeTlsConnect<S>>::TlsConnect;
     type Error = <MakeTlsConnector as MakeTlsConnect<S>>::Error;
     fn make_tls_connect(&mut self, _: &str) -> Result<Self::TlsConnect, Self::Error> {
-        self.inner.make_tls_connect(&self.servername)
+        // Each establishment attempt supplies its own observer. Cancellation
+        // uses the original connector and gets fresh, unrelated state.
+        let observation = self
+            .observation
+            .clone()
+            .unwrap_or_else(AttemptObservation::new);
+        observation.tls_factory(&self.servername);
+        let mut inner = self.inner.clone();
+        let (verify, sni, observe_verify) = (self.verify, self.sni, self.observe_verify);
+        inner.set_callback(move |config, _| {
+            config.set_verify_hostname(verify);
+            config.set_use_server_name_indication(sni);
+            if verify && observe_verify {
+                let observation = observation.clone();
+                config.set_verify_callback(SslVerifyMode::PEER, move |preverify_ok, context| {
+                    observation.verify(preverify_ok, context);
+                    preverify_ok
+                });
+            }
+            Ok(())
+        });
+        inner.make_tls_connect(&self.servername)
     }
 }
 fn tls_connector(tls: &Tls, negotiation: Negotiation) -> Result<NamedConnector, QueryFault> {
@@ -752,17 +843,24 @@ fn tls_connector(tls: &Tls, negotiation: Negotiation) -> Result<NamedConnector, 
             .check_private_key()
             .map_err(QueryFault::tls_configuration)?;
     }
-    let mut connector = MakeTlsConnector::new(builder.build());
-    let (verify, sni) = (tls.reject_unauthorized, tls.sni);
-    connector.set_callback(move |config, _| {
-        config.set_verify_hostname(verify);
-        config.set_use_server_name_indication(sni);
-        Ok(())
-    });
     Ok(NamedConnector {
-        inner: connector,
+        inner: MakeTlsConnector::new(builder.build()),
         servername: tls.servername.clone(),
+        verify: tls.reject_unauthorized,
+        sni: tls.sni,
+        observe_verify: true,
+        observation: None,
     })
+}
+
+#[cfg(test)]
+fn tls_connector_without_observation(
+    tls: &Tls,
+    negotiation: Negotiation,
+) -> Result<NamedConnector, QueryFault> {
+    let mut connector = tls_connector(tls, negotiation)?;
+    connector.observe_verify = false;
+    Ok(connector)
 }
 
 #[cfg(test)]
