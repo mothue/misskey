@@ -12,6 +12,7 @@ use postgres_openssl::MakeTlsConnector;
 use serde::Deserialize;
 use std::{
     fmt,
+    future::Future,
     sync::{
         Arc, Mutex as SyncMutex,
         atomic::{AtomicBool, Ordering},
@@ -31,6 +32,9 @@ use tokio_postgres::{
 
 const OPERATION_LIMIT: Duration = Duration::from_secs(4);
 
+mod fault;
+pub use fault::{FaultKind, FaultPhase, QueryFault};
+
 /// Deliberately hides connection strings, SQL errors and TLS details.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Failure;
@@ -41,12 +45,13 @@ impl fmt::Display for Failure {
 }
 impl std::error::Error for Failure {}
 
-/// Native business queries need the same PostgreSQL message TypeORM exposes in
-/// QueryFailedError. Keep SQL, parameters, server detail/hint and connection
-/// diagnostics out of this type, including its Debug/Display representations.
+/// Native business queries retain protocol messages and concrete fault sources
+/// before the existing opaque API discards them. Only verified legacy messages
+/// are exposed as such; Debug/Display never expose source diagnostics.
 pub enum QueryError {
     Server { message: String },
     QueryTimeout,
+    Fault(QueryFault),
     Unavailable,
 }
 impl QueryError {
@@ -55,7 +60,7 @@ impl QueryError {
             Some(error) => Self::Server {
                 message: error.message().to_owned(),
             },
-            None => Self::Unavailable,
+            None => Self::Fault(QueryFault::postgres(FaultPhase::Query, error)),
         }
     }
 
@@ -65,7 +70,7 @@ impl QueryError {
             // node-postgres emits this exact Error.message for query_timeout;
             // TypeORM wraps the query's rejection as QueryFailedError.
             Self::QueryTimeout => Some("Query read timeout"),
-            Self::Unavailable => None,
+            Self::Fault(_) | Self::Unavailable => None,
         }
     }
 }
@@ -74,6 +79,7 @@ impl fmt::Debug for QueryError {
         f.write_str(match self {
             Self::Server { .. } => "QueryError::Server",
             Self::QueryTimeout => "QueryError::QueryTimeout",
+            Self::Fault(_) => "QueryError::Fault",
             Self::Unavailable => "QueryError::Unavailable",
         })
     }
@@ -87,6 +93,11 @@ impl std::error::Error for QueryError {}
 impl From<Failure> for QueryError {
     fn from(_: Failure) -> Self {
         Self::Unavailable
+    }
+}
+impl From<QueryFault> for QueryError {
+    fn from(fault: QueryFault) -> Self {
+        Self::Fault(fault)
     }
 }
 
@@ -160,12 +171,57 @@ impl TlsVersion {
 }
 
 type Cancellations = Arc<SyncMutex<Vec<JoinHandle<()>>>>;
+type DriverFault = Arc<SyncMutex<Option<Arc<tokio_postgres::Error>>>>;
 struct Connection {
     client: Client,
     driver: JoinHandle<()>,
+    driver_fault: DriverFault,
     in_flight: AtomicBool,
     cancel_tls: Option<NamedConnector>,
     cancellations: Cancellations,
+}
+impl Connection {
+    fn fault(&self, phase: FaultPhase, error: tokio_postgres::Error) -> QueryFault {
+        if error.is_closed()
+            && let Ok(fault) = self.driver_fault.lock()
+            && let Some(error) = fault.as_ref()
+        {
+            return QueryFault::shared_postgres(phase, Arc::clone(error));
+        }
+        QueryFault::postgres(phase, error)
+    }
+}
+
+fn spawn_driver<F>(driver: F) -> (JoinHandle<()>, DriverFault)
+where
+    F: Future<Output = Result<(), tokio_postgres::Error>> + Send + 'static,
+{
+    let fault = Arc::new(SyncMutex::new(None));
+    let capture = Arc::clone(&fault);
+    let task = tokio::spawn(async move {
+        // Keep the driver alive until the result is retained. Dropping it
+        // releases pending response channels, which report only Closed.
+        let mut driver = std::pin::pin!(driver);
+        std::future::poll_fn(|cx| {
+            // The driver's terminal poll also closes its request receiver.
+            // Hold the source lock for that synchronous poll, so another
+            // runtime thread observing Closed cannot outrun source capture.
+            let mut capture = capture.lock().ok();
+            match driver.as_mut().poll(cx) {
+                std::task::Poll::Pending => std::task::Poll::Pending,
+                std::task::Poll::Ready(result) => {
+                    if let Err(error) = result
+                        && let Some(capture) = capture.as_mut()
+                    {
+                        **capture = Some(Arc::new(error));
+                    }
+                    std::task::Poll::Ready(())
+                }
+            }
+        })
+        .await;
+    });
+    (task, fault)
 }
 impl Drop for Connection {
     fn drop(&mut self) {
@@ -432,7 +488,13 @@ impl Database {
             {
                 current.in_flight.store(false, Ordering::Release);
             }
-            let rows = result.map_err(QueryError::from_postgres)?;
+            let rows = result.map_err(|error| {
+                if error.as_db_error().is_some() {
+                    QueryError::from_postgres(error)
+                } else {
+                    current.fault(FaultPhase::Query, error).into()
+                }
+            })?;
             if !pool.stopped.load(Ordering::Acquire) {
                 *stored = connection;
             }
@@ -527,37 +589,42 @@ fn config(target: &Target) -> Result<Config, Failure> {
     Ok(config)
 }
 async fn connect(target: &Target, cancellations: &Cancellations) -> Result<Connection, Failure> {
-    connect_with_access(target, cancellations, true).await
+    connect_with_access(target, cancellations, true)
+        .await
+        .map_err(|_| Failure)
 }
 async fn connect_with_access(
     target: &Target,
     cancellations: &Cancellations,
     read_only: bool,
-) -> Result<Connection, Failure> {
-    let config = config(target)?;
+) -> Result<Connection, QueryFault> {
+    let config = config(target).map_err(QueryFault::configuration)?;
     let establish = async {
         if let Some(tls) = &target.tls {
             let connector = tls_connector(tls, target.ssl_negotiation)?;
             let (client, driver) = config
                 .connect(connector.clone())
                 .await
-                .map_err(|_| Failure)?;
+                .map_err(|error| QueryFault::postgres(FaultPhase::Connect, error))?;
+            let (driver, driver_fault) = spawn_driver(driver);
             Ok(Connection {
                 client,
-                driver: tokio::spawn(async move {
-                    let _ = driver.await;
-                }),
+                driver,
+                driver_fault,
                 in_flight: AtomicBool::new(false),
                 cancel_tls: Some(connector),
                 cancellations: Arc::clone(cancellations),
             })
         } else {
-            let (client, driver) = config.connect(NoTls).await.map_err(|_| Failure)?;
+            let (client, driver) = config
+                .connect(NoTls)
+                .await
+                .map_err(|error| QueryFault::postgres(FaultPhase::Connect, error))?;
+            let (driver, driver_fault) = spawn_driver(driver);
             Ok(Connection {
                 client,
-                driver: tokio::spawn(async move {
-                    let _ = driver.await;
-                }),
+                driver,
+                driver_fault,
                 in_flight: AtomicBool::new(false),
                 cancel_tls: None,
                 cancellations: Arc::clone(cancellations),
@@ -567,7 +634,7 @@ async fn connect_with_access(
     let connection = match positive_duration(target.connect_timeout_ms) {
         Some(limit) => tokio::time::timeout(limit, establish)
             .await
-            .map_err(|_| Failure)??,
+            .map_err(|_| QueryFault::connect_timeout())??,
         None => establish.await?,
     };
     // Session-scoped and applied before the first business query. This does
@@ -577,7 +644,7 @@ async fn connect_with_access(
             .client
             .batch_execute("SET default_transaction_read_only = on")
             .await
-            .map_err(|_| Failure)?;
+            .map_err(|error| connection.fault(FaultPhase::SessionSetup, error))?;
     }
     Ok(connection)
 }
@@ -598,14 +665,17 @@ where
         self.inner.make_tls_connect(&self.servername)
     }
 }
-fn tls_connector(tls: &Tls, negotiation: Negotiation) -> Result<NamedConnector, Failure> {
-    let mut builder = SslConnector::builder(SslMethod::tls()).map_err(|_| Failure)?;
+fn tls_connector(tls: &Tls, negotiation: Negotiation) -> Result<NamedConnector, QueryFault> {
+    let mut builder =
+        SslConnector::builder(SslMethod::tls()).map_err(QueryFault::tls_configuration)?;
     // Replace, rather than extend, OpenSSL roots: explicit pg `ca` replaces
     // Node's defaults, while the TS normalizer supplies actual defaults otherwise.
-    let mut store = X509StoreBuilder::new().map_err(|_| Failure)?;
+    let mut store = X509StoreBuilder::new().map_err(QueryFault::tls_configuration)?;
     for pem in &tls.ca {
-        for cert in X509::stack_from_pem(pem.as_bytes()).map_err(|_| Failure)? {
-            store.add_cert(cert).map_err(|_| Failure)?;
+        for cert in X509::stack_from_pem(pem.as_bytes()).map_err(QueryFault::tls_configuration)? {
+            store
+                .add_cert(cert)
+                .map_err(QueryFault::tls_configuration)?;
         }
     }
     builder.set_cert_store(store.build());
@@ -616,10 +686,10 @@ fn tls_connector(tls: &Tls, negotiation: Negotiation) -> Result<NamedConnector, 
     });
     builder
         .set_min_proto_version(Some(tls.min_version.openssl()))
-        .map_err(|_| Failure)?;
+        .map_err(QueryFault::tls_configuration)?;
     builder
         .set_max_proto_version(Some(tls.max_version.openssl()))
-        .map_err(|_| Failure)?;
+        .map_err(QueryFault::tls_configuration)?;
     let (modern, legacy): (Vec<_>, Vec<_>) = tls
         .ciphers
         .split(':')
@@ -629,32 +699,38 @@ fn tls_connector(tls: &Tls, negotiation: Negotiation) -> Result<NamedConnector, 
     if !modern.is_empty() {
         builder
             .set_ciphersuites(&modern.join(":"))
-            .map_err(|_| Failure)?;
+            .map_err(QueryFault::tls_configuration)?;
     }
     if matches!(negotiation, Negotiation::Direct) {
         builder
             .set_alpn_protos(b"\x0apostgresql")
-            .map_err(|_| Failure)?;
+            .map_err(QueryFault::tls_configuration)?;
     }
     // An empty legacy list is valid for TLS1.3-only configurations. OpenSSL
     // returns an error for it, so disable older protocol versions explicitly.
     if legacy.is_empty() {
         builder
             .set_min_proto_version(Some(SslVersion::TLS1_3))
-            .map_err(|_| Failure)?;
+            .map_err(QueryFault::tls_configuration)?;
     } else {
         builder
             .set_cipher_list(&legacy.join(":"))
-            .map_err(|_| Failure)?;
+            .map_err(QueryFault::tls_configuration)?;
     }
     if let Some(pem) = &tls.cert {
         let mut certificates = X509::stack_from_pem(pem.as_bytes())
-            .map_err(|_| Failure)?
+            .map_err(QueryFault::tls_configuration)?
             .into_iter();
-        let certificate = certificates.next().ok_or(Failure)?;
-        builder.set_certificate(&certificate).map_err(|_| Failure)?;
+        let certificate = certificates
+            .next()
+            .ok_or_else(|| QueryFault::configuration(Failure))?;
+        builder
+            .set_certificate(&certificate)
+            .map_err(QueryFault::tls_configuration)?;
         for cert in certificates {
-            builder.add_extra_chain_cert(cert).map_err(|_| Failure)?;
+            builder
+                .add_extra_chain_cert(cert)
+                .map_err(QueryFault::tls_configuration)?;
         }
     }
     if let Some(pem) = &tls.key {
@@ -663,14 +739,18 @@ fn tls_connector(tls: &Tls, negotiation: Negotiation) -> Result<NamedConnector, 
         } else {
             PKey::private_key_from_pem(pem.as_bytes())
         }
-        .map_err(|_| Failure)?;
-        builder.set_private_key(&key).map_err(|_| Failure)?;
+        .map_err(QueryFault::tls_configuration)?;
+        builder
+            .set_private_key(&key)
+            .map_err(QueryFault::tls_configuration)?;
     }
     if tls.cert.is_some() != tls.key.is_some() {
-        return Err(Failure);
+        return Err(QueryFault::configuration(Failure));
     }
     if tls.cert.is_some() {
-        builder.check_private_key().map_err(|_| Failure)?;
+        builder
+            .check_private_key()
+            .map_err(QueryFault::tls_configuration)?;
     }
     let mut connector = MakeTlsConnector::new(builder.build());
     let (verify, sni) = (tls.reject_unauthorized, tls.sni);

@@ -52,6 +52,399 @@ fn typed_query_errors_expose_only_explicit_legacy_messages_and_redact_formatting
     assert_eq!(QueryError::Unavailable.legacy_message(), None);
 }
 
+fn target_on_port(port: u16) -> Target {
+    let mut target = fixture().targets.remove(0);
+    target.host = "127.0.0.1".into();
+    target.port = port;
+    target
+}
+
+fn retained_fault(error: &QueryError) -> &QueryFault {
+    match error {
+        QueryError::Fault(fault) => fault,
+        other => panic!("expected retained fault, got {other:?}"),
+    }
+}
+
+async fn read_startup(socket: &mut tokio::net::TcpStream) {
+    use tokio::io::AsyncReadExt;
+    let length = socket.read_u32().await.unwrap() as usize;
+    let mut startup = vec![0; length - 4];
+    socket.read_exact(&mut startup).await.unwrap();
+}
+
+async fn read_frontend(socket: &mut tokio::net::TcpStream) -> (u8, Vec<u8>) {
+    use tokio::io::AsyncReadExt;
+    let kind = socket.read_u8().await.unwrap();
+    let length = socket.read_u32().await.unwrap() as usize;
+    let mut payload = vec![0; length - 4];
+    socket.read_exact(&mut payload).await.unwrap();
+    (kind, payload)
+}
+
+async fn write_error(socket: &mut tokio::net::TcpStream) {
+    use tokio::io::AsyncWriteExt;
+    let payload = b"SFATAL\0C28000\0Mfixture startup rejection\0Dprivate detail\0\0";
+    socket.write_u8(b'E').await.unwrap();
+    socket.write_u32((payload.len() + 4) as u32).await.unwrap();
+    socket.write_all(payload).await.unwrap();
+}
+
+#[tokio::test]
+async fn typed_connect_refusal_retains_actual_io_context_and_opaque_callers() {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+    drop(listener);
+    let database = Database::new(None, Some(target_on_port(port)));
+    let error = database
+        .query_typed(false, "private SQL", &[])
+        .await
+        .unwrap_err();
+    let fault = retained_fault(&error);
+    assert_eq!(fault.phase(), FaultPhase::Connect);
+    assert_eq!(fault.kind(), FaultKind::Io);
+    assert_eq!(fault.io_kind(), Some(std::io::ErrorKind::ConnectionRefused));
+    assert!(fault.raw_os_error().is_some());
+    assert_eq!(error.legacy_message(), None);
+    assert_eq!(format!("{error:?}"), "QueryError::Fault");
+    assert_eq!(format!("{fault:?}"), "QueryFault");
+    assert_eq!(error.to_string(), "Rust backend unavailable");
+    assert!(std::error::Error::source(&error).is_none());
+    assert!(std::error::Error::source(fault).is_none());
+    assert!(matches!(
+        database.query(false, "private SQL", &[]).await,
+        Err(Failure)
+    ));
+    database.shutdown().await;
+}
+
+#[tokio::test]
+async fn typed_connect_deadline_retains_its_phase_and_closes_the_socket() {
+    use tokio::io::AsyncReadExt;
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let mut target = target_on_port(listener.local_addr().unwrap().port());
+    target.connect_timeout_ms = Some(50);
+    let peer = tokio::spawn(async move {
+        let (mut socket, _) = listener.accept().await.unwrap();
+        let mut bytes = Vec::new();
+        tokio::time::timeout(Duration::from_secs(1), socket.read_to_end(&mut bytes))
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(!bytes.is_empty());
+    });
+    let database = Database::new(None, Some(target));
+    let error = database
+        .query_typed(false, "SELECT 1", &[])
+        .await
+        .unwrap_err();
+    let fault = retained_fault(&error);
+    assert_eq!(fault.phase(), FaultPhase::Connect);
+    assert_eq!(fault.kind(), FaultKind::ConnectTimeout);
+    assert_eq!(fault.io_kind(), None);
+    assert_eq!(error.legacy_message(), None);
+    peer.await.unwrap();
+    database.shutdown().await;
+}
+
+#[tokio::test]
+async fn startup_server_error_is_retained_before_query_wrapping() {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let target = target_on_port(listener.local_addr().unwrap().port());
+    let peer = tokio::spawn(async move {
+        let (mut socket, _) = listener.accept().await.unwrap();
+        read_startup(&mut socket).await;
+        write_error(&mut socket).await;
+    });
+    let database = Database::new(None, Some(target));
+    let error = database
+        .query_typed(false, "private SQL", &[])
+        .await
+        .unwrap_err();
+    let fault = retained_fault(&error);
+    assert_eq!(fault.phase(), FaultPhase::Connect);
+    assert_eq!(fault.kind(), FaultKind::Server);
+    assert_eq!(fault.server_code(), Some("28000"));
+    assert_eq!(fault.server_message(), Some("fixture startup rejection"));
+    assert_eq!(error.legacy_message(), None);
+    assert_eq!(format!("{fault:?}"), "QueryFault");
+    peer.await.unwrap();
+    database.shutdown().await;
+}
+
+#[tokio::test]
+async fn startup_disconnect_retains_closed_source_without_a_query_message() {
+    use tokio::io::AsyncWriteExt;
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let target = target_on_port(listener.local_addr().unwrap().port());
+    let peer = tokio::spawn(async move {
+        let (mut socket, _) = listener.accept().await.unwrap();
+        read_startup(&mut socket).await;
+        socket.shutdown().await.unwrap();
+    });
+    let database = Database::new(None, Some(target));
+    let error = database
+        .query_typed(false, "SELECT 1", &[])
+        .await
+        .unwrap_err();
+    let fault = retained_fault(&error);
+    assert_eq!(fault.phase(), FaultPhase::Connect);
+    assert_eq!(fault.kind(), FaultKind::Closed);
+    assert_eq!(error.legacy_message(), None);
+    peer.await.unwrap();
+    database.shutdown().await;
+}
+
+#[tokio::test]
+async fn session_setup_error_retains_its_distinct_phase() {
+    use tokio::io::AsyncWriteExt;
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let target = target_on_port(listener.local_addr().unwrap().port());
+    let peer = tokio::spawn(async move {
+        let (mut socket, _) = listener.accept().await.unwrap();
+        read_startup(&mut socket).await;
+        socket
+            .write_all(b"R\0\0\0\x08\0\0\0\0Z\0\0\0\x05I")
+            .await
+            .unwrap();
+        let (kind, payload) = read_frontend(&mut socket).await;
+        assert_eq!(kind, b'Q');
+        assert_eq!(payload, b"SET default_transaction_read_only = on\0");
+        write_error(&mut socket).await;
+    });
+    let database = Database::new(
+        Some(PostgresConfig {
+            targets: vec![target],
+        }),
+        None,
+    );
+    let error = database
+        .query_typed(true, "private SQL", &[])
+        .await
+        .unwrap_err();
+    let fault = retained_fault(&error);
+    assert_eq!(fault.phase(), FaultPhase::SessionSetup);
+    assert_eq!(fault.kind(), FaultKind::Server);
+    assert_eq!(fault.server_code(), Some("28000"));
+    peer.await.unwrap();
+    database.shutdown().await;
+}
+
+#[tokio::test]
+async fn mid_query_disconnect_retains_the_driver_error_and_discards_connection() {
+    use tokio::io::AsyncWriteExt;
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let target = target_on_port(listener.local_addr().unwrap().port());
+    let peer = tokio::spawn(async move {
+        let (mut socket, _) = listener.accept().await.unwrap();
+        read_startup(&mut socket).await;
+        socket
+            .write_all(b"R\0\0\0\x08\0\0\0\0Z\0\0\0\x05I")
+            .await
+            .unwrap();
+        let (kind, _) = read_frontend(&mut socket).await;
+        assert_eq!(kind, b'P');
+        // A truncated frame forces a concrete driver IO error. The query's
+        // response channel otherwise reports only that the connection closed.
+        socket.write_all(b"E\0\0").await.unwrap();
+        socket.shutdown().await.unwrap();
+    });
+    let database = Database::new(None, Some(target));
+    let error = database
+        .query_typed(false, "SELECT 1", &[])
+        .await
+        .unwrap_err();
+    let fault = retained_fault(&error);
+    assert_eq!(fault.phase(), FaultPhase::Query);
+    assert_eq!(fault.kind(), FaultKind::Io);
+    assert!(
+        fault.io_kind().is_some(),
+        "concrete driver IO source survives Closed"
+    );
+    assert!(database.primary.slots[0].connection.lock().await.is_none());
+    peer.await.unwrap();
+    database.shutdown().await;
+}
+
+#[tokio::test]
+async fn typed_query_deadline_keeps_legacy_error_and_cancels_the_same_connection() {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let mut target = target_on_port(listener.local_addr().unwrap().port());
+    target.query_timeout_ms = Some(50);
+    let peer = tokio::spawn(async move {
+        let (mut socket, _) = listener.accept().await.unwrap();
+        read_startup(&mut socket).await;
+        // AuthenticationOk, BackendKeyData for this connection, ReadyForQuery.
+        socket
+            .write_all(b"R\0\0\0\x08\0\0\0\0K\0\0\0\x0c\0\0\0\x11\0\0\0\x17Z\0\0\0\x05I")
+            .await
+            .unwrap();
+        assert_eq!(read_frontend(&mut socket).await.0, b'P');
+        let mut pending_query = Vec::new();
+        tokio::time::timeout(
+            Duration::from_secs(1),
+            socket.read_to_end(&mut pending_query),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        let (mut cancellation, _) = tokio::time::timeout(Duration::from_secs(1), listener.accept())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(cancellation.read_u32().await.unwrap(), 16);
+        assert_eq!(cancellation.read_u32().await.unwrap(), 80877102);
+        assert_eq!(cancellation.read_u32().await.unwrap(), 17);
+        assert_eq!(cancellation.read_u32().await.unwrap(), 23);
+        let mut remaining = Vec::new();
+        cancellation.read_to_end(&mut remaining).await.unwrap();
+        assert!(remaining.is_empty());
+    });
+    let database = Database::new(None, Some(target));
+    let error = database
+        .query_typed(false, "SELECT 1", &[])
+        .await
+        .unwrap_err();
+    assert!(matches!(error, QueryError::QueryTimeout));
+    assert_eq!(error.legacy_message(), Some("Query read timeout"));
+    assert!(database.primary.slots[0].connection.lock().await.is_none());
+    database.shutdown().await;
+    peer.await.unwrap();
+    assert!(database.primary.cancellations.lock().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn selected_read_failure_never_opens_the_primary_connection() {
+    let refused = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let read = target_on_port(refused.local_addr().unwrap().port());
+    drop(refused);
+    let primary = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let database = Database::new(
+        Some(PostgresConfig {
+            targets: vec![read],
+        }),
+        Some(target_on_port(primary.local_addr().unwrap().port())),
+    );
+    let error = database
+        .query_typed(true, "SELECT 1", &[])
+        .await
+        .unwrap_err();
+    assert_eq!(
+        retained_fault(&error).io_kind(),
+        Some(std::io::ErrorKind::ConnectionRefused)
+    );
+    assert!(
+        tokio::time::timeout(Duration::from_millis(25), primary.accept())
+            .await
+            .is_err()
+    );
+    database.shutdown().await;
+}
+
+#[tokio::test]
+async fn typed_shutdown_interrupts_startup_and_remains_unavailable() {
+    use tokio::io::AsyncReadExt;
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let mut target = target_on_port(listener.local_addr().unwrap().port());
+    target.connect_timeout_ms = None;
+    let database = Arc::new(Database::new(None, Some(target)));
+    let pending = {
+        let database = Arc::clone(&database);
+        tokio::spawn(async move { database.query_typed(false, "SELECT 1", &[]).await })
+    };
+    let (mut socket, _) = listener.accept().await.unwrap();
+    read_startup(&mut socket).await;
+    database.shutdown().await;
+    assert!(matches!(
+        pending.await.unwrap(),
+        Err(QueryError::Unavailable)
+    ));
+    let mut bytes = Vec::new();
+    tokio::time::timeout(Duration::from_secs(1), socket.read_to_end(&mut bytes))
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(matches!(
+        database.query_typed(false, "SELECT 1", &[]).await,
+        Err(QueryError::Unavailable)
+    ));
+}
+
+#[tokio::test]
+async fn a_later_query_connects_again_after_a_failed_startup() {
+    use tokio::io::AsyncWriteExt;
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let target = target_on_port(listener.local_addr().unwrap().port());
+    let peer = tokio::spawn(async move {
+        let (mut failed, _) = listener.accept().await.unwrap();
+        read_startup(&mut failed).await;
+        write_error(&mut failed).await;
+        drop(failed);
+        let (mut socket, _) = listener.accept().await.unwrap();
+        read_startup(&mut socket).await;
+        socket
+            .write_all(b"R\0\0\0\x08\0\0\0\0Z\0\0\0\x05I")
+            .await
+            .unwrap();
+        loop {
+            if read_frontend(&mut socket).await.0 == b'S' {
+                break;
+            }
+        }
+        // ParseComplete, empty ParameterDescription, NoData, ReadyForQuery.
+        socket
+            .write_all(b"1\0\0\0\x04t\0\0\0\x06\0\0n\0\0\0\x04Z\0\0\0\x05I")
+            .await
+            .unwrap();
+        loop {
+            if read_frontend(&mut socket).await.0 == b'S' {
+                break;
+            }
+        }
+        // BindComplete, CommandComplete, ReadyForQuery: an empty result set.
+        socket
+            .write_all(b"2\0\0\0\x04C\0\0\0\x0dSELECT 0\0Z\0\0\0\x05I")
+            .await
+            .unwrap();
+        // Keep the recovered driver alive until normal shutdown closes it.
+        use tokio::io::AsyncReadExt;
+        let mut bytes = Vec::new();
+        tokio::time::timeout(Duration::from_secs(1), socket.read_to_end(&mut bytes))
+            .await
+            .unwrap()
+            .unwrap();
+    });
+    let database = Database::new(None, Some(target));
+    let error = database
+        .query_typed(false, "SELECT 1", &[])
+        .await
+        .unwrap_err();
+    assert_eq!(retained_fault(&error).phase(), FaultPhase::Connect);
+    assert!(
+        database
+            .query_typed(false, "SELECT 1", &[])
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(database.primary.slots[0].connection.lock().await.is_some());
+    database.shutdown().await;
+    peer.await.unwrap();
+}
+
+#[test]
+fn tls_configuration_faults_retain_classification_but_redact_source_text() {
+    let error = X509::from_pem(b"private invalid PEM").unwrap_err();
+    let fault = QueryFault::tls_configuration(error);
+    assert_eq!(fault.phase(), FaultPhase::Connect);
+    assert_eq!(fault.kind(), FaultKind::Tls);
+    assert_eq!(fault.server_message(), None);
+    assert_eq!(format!("{fault:?}"), "QueryFault");
+    assert_eq!(fault.to_string(), "Rust backend unavailable");
+    assert!(std::error::Error::source(&fault).is_none());
+}
+
 #[tokio::test]
 async fn typed_query_error_extracts_only_the_postgres_protocol_message() {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
