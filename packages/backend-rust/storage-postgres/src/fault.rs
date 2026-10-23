@@ -13,15 +13,50 @@ pub enum FaultPhase {
     Query,
 }
 
-/// Last event observed during this connection attempt. This is not an inferred
-/// final-failure subphase: SSLRequest reply bytes remain hidden by the driver.
+/// Last event observed during this connection attempt, without inferring a
+/// Node failure class or formatting a diagnostic string.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ConnectStage {
     Resolve,
     AddressAttempt,
+    SocketConnect,
+    SocketOptions,
+    SocketReady,
     TlsFactory,
+    SslRequest,
+    TlsConnectFuture,
     TlsVerification,
+    TlsConnectComplete,
     Established,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SslReply {
+    Accepted,
+    Declined,
+    ServerError,
+    Other(u8),
+}
+/// Lifecycle of the delegated TLS connector future, including fallible local
+/// SSL setup before SSL_connect. Started/Failed do not prove handshake entry.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TlsConnectState {
+    Started,
+    Succeeded,
+    Failed,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum IoDirection {
+    Read,
+    Write,
+    Flush,
+    Shutdown,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum IoOutcome {
+    Eof,
+    ZeroWrite,
+    Error,
 }
 
 /// Classification uses concrete source types, never diagnostic-string parsing.
@@ -39,6 +74,9 @@ pub enum FaultKind {
 enum Source {
     Postgres(Arc<tokio_postgres::Error>),
     Resolver(io::Error),
+    Socket(io::Error),
+    SocketTimeout,
+    TlsFactory(Box<dyn Error + Send + Sync>),
     NoAddresses,
     TlsConfiguration(openssl::error::ErrorStack),
     ConnectTimeout,
@@ -107,6 +145,28 @@ impl QueryFault {
         }
     }
 
+    pub(crate) fn socket(error: io::Error) -> Self {
+        Self {
+            phase: FaultPhase::Connect,
+            source: Source::Socket(error),
+            context: None,
+        }
+    }
+    pub(crate) fn socket_timeout() -> Self {
+        Self {
+            phase: FaultPhase::Connect,
+            source: Source::SocketTimeout,
+            context: None,
+        }
+    }
+    pub(crate) fn tls_factory(error: Box<dyn Error + Send + Sync>) -> Self {
+        Self {
+            phase: FaultPhase::Connect,
+            source: Source::TlsFactory(error),
+            context: None,
+        }
+    }
+
     pub(crate) fn with_context(mut self, context: Option<TransportContext>) -> Self {
         self.context = context.map(Box::new);
         self
@@ -120,8 +180,11 @@ impl QueryFault {
         match &self.source {
             Source::ConnectTimeout => FaultKind::ConnectTimeout,
             Source::Configuration => FaultKind::Configuration,
-            Source::TlsConfiguration(_) => FaultKind::Tls,
-            Source::Resolver(_) | Source::NoAddresses => FaultKind::Io,
+            Source::TlsConfiguration(_) | Source::TlsFactory(_) => FaultKind::Tls,
+            Source::Resolver(_)
+            | Source::Socket(_)
+            | Source::SocketTimeout
+            | Source::NoAddresses => FaultKind::Io,
             Source::Postgres(error) => {
                 if error.as_db_error().is_some() {
                     FaultKind::Server
@@ -141,6 +204,9 @@ impl QueryFault {
     }
 
     pub fn io_kind(&self) -> Option<io::ErrorKind> {
+        if matches!(self.source, Source::SocketTimeout) {
+            return Some(io::ErrorKind::TimedOut);
+        }
         if matches!(self.source, Source::NoAddresses) {
             // This is the driver's existing classification for an empty
             // resolution result, not a claimed platform EAI/OS error code.
@@ -210,12 +276,58 @@ impl QueryFault {
             .and_then(TransportContext::tls_preverify_ok)
     }
 
+    pub fn ssl_reply(&self) -> Option<SslReply> {
+        self.context
+            .as_deref()
+            .and_then(TransportContext::ssl_reply)
+    }
+    pub fn tls_connect_state(&self) -> Option<TlsConnectState> {
+        self.context
+            .as_deref()
+            .and_then(TransportContext::tls_connect_state)
+    }
+    pub fn last_io_direction(&self) -> Option<IoDirection> {
+        self.context
+            .as_deref()
+            .and_then(TransportContext::last_io_direction)
+    }
+    pub fn last_io_outcome(&self) -> Option<IoOutcome> {
+        self.context
+            .as_deref()
+            .and_then(TransportContext::last_io_outcome)
+    }
+    pub fn last_io_kind(&self) -> Option<io::ErrorKind> {
+        self.context
+            .as_deref()
+            .and_then(TransportContext::last_io_kind)
+    }
+    pub fn last_io_errno(&self) -> Option<i32> {
+        self.context
+            .as_deref()
+            .and_then(TransportContext::last_io_errno)
+    }
+    pub fn socket_bytes_read(&self) -> Option<u64> {
+        self.context
+            .as_deref()
+            .map(TransportContext::socket_bytes_read)
+    }
+    pub fn socket_bytes_written(&self) -> Option<u64> {
+        self.context
+            .as_deref()
+            .map(TransportContext::socket_bytes_written)
+    }
+
     fn find_source<T: Error + 'static>(&self) -> Option<&T> {
         let mut error: &(dyn Error + 'static) = match &self.source {
             Source::Postgres(error) => error.as_ref(),
             Source::TlsConfiguration(error) => error,
             Source::Resolver(error) => error,
-            Source::ConnectTimeout | Source::Configuration | Source::NoAddresses => return None,
+            Source::Socket(error) => error,
+            Source::TlsFactory(error) => error.as_ref(),
+            Source::ConnectTimeout
+            | Source::Configuration
+            | Source::NoAddresses
+            | Source::SocketTimeout => return None,
         };
         // Known driver chains are short; avoid unbounded traversal if an
         // upstream/custom serialization source ever contains a cycle.

@@ -34,8 +34,14 @@ const OPERATION_LIMIT: Duration = Duration::from_secs(4);
 
 mod fault;
 mod transport;
-pub use fault::{ConnectStage, FaultKind, FaultPhase, QueryFault};
-use transport::{AttemptObservation, ConnectContext, Resolver, SystemResolver, TransportContext};
+mod wire;
+pub use fault::{
+    ConnectStage, FaultKind, FaultPhase, IoDirection, IoOutcome, QueryFault, SslReply,
+    TlsConnectState,
+};
+#[cfg(test)]
+use transport::TransportContext;
+use transport::{AttemptObservation, CancelRoute, ConnectContext, Resolver, SystemResolver};
 
 /// Deliberately hides connection strings, SQL errors and TLS details.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -178,7 +184,8 @@ struct Connection {
     client: Client,
     driver: JoinHandle<()>,
     driver_fault: DriverFault,
-    transport_context: Option<TransportContext>,
+    transport_context: ConnectContext,
+    cancel_route: CancelRoute,
     in_flight: AtomicBool,
     cancel_tls: Option<NamedConnector>,
     cancellations: Cancellations,
@@ -190,14 +197,14 @@ impl Connection {
             && let Some(error) = fault.as_ref()
         {
             return QueryFault::shared_postgres(phase, Arc::clone(error))
-                .with_context(self.transport_context.clone());
+                .with_context(self.transport_context.snapshot());
         }
-        QueryFault::postgres(phase, error).with_context(self.transport_context.clone())
+        QueryFault::postgres(phase, error).with_context(self.transport_context.snapshot())
     }
 
     #[cfg(test)]
     fn transport_context(&self) -> Option<TransportContext> {
-        self.transport_context.clone()
+        self.transport_context.snapshot()
     }
 }
 
@@ -242,15 +249,18 @@ impl Drop for Connection {
         // protocol cancellation capability, never a replacement SQL request.
         let token = self.client.cancel_token();
         let tls = self.cancel_tls.clone();
+        let route = self.cancel_route.clone();
         if let Ok(runtime) = tokio::runtime::Handle::try_current() {
             let task = runtime.spawn(async move {
                 let _ = tokio::time::timeout(Duration::from_millis(500), async {
                     match tls {
                         Some(tls) => {
-                            let _ = token.cancel_query(tls).await;
+                            let _ = route
+                                .cancel(&token, |observation| tls.with_observation(observation))
+                                .await;
                         }
                         None => {
-                            let _ = token.cancel_query(NoTls).await;
+                            let _ = route.cancel(&token, |_| NoTls).await;
                         }
                     }
                 })
@@ -660,7 +670,11 @@ async fn connect_with_access(
     let establish = async {
         if let Some(tls) = &target.tls {
             let connector = tls_connector(tls, target.ssl_negotiation)?;
-            let (client, driver) = transport::connect(&config, resolver, &context, |observation| {
+            let transport::Connected {
+                client,
+                driver,
+                cancel_route,
+            } = transport::connect(&config, resolver, &context, |observation| {
                 connector.with_observation(observation)
             })
             .await?;
@@ -669,20 +683,25 @@ async fn connect_with_access(
                 client,
                 driver,
                 driver_fault,
-                transport_context: context.snapshot(),
+                transport_context: context.clone(),
+                cancel_route,
                 in_flight: AtomicBool::new(false),
                 cancel_tls: Some(connector),
                 cancellations: Arc::clone(cancellations),
             })
         } else {
-            let (client, driver) =
-                transport::connect(&config, resolver, &context, |_| NoTls).await?;
+            let transport::Connected {
+                client,
+                driver,
+                cancel_route,
+            } = transport::connect(&config, resolver, &context, |_| NoTls).await?;
             let (driver, driver_fault) = spawn_driver(driver);
             Ok(Connection {
                 client,
                 driver,
                 driver_fault,
-                transport_context: context.snapshot(),
+                transport_context: context.clone(),
+                cancel_route,
                 in_flight: AtomicBool::new(false),
                 cancel_tls: None,
                 cancellations: Arc::clone(cancellations),
@@ -729,7 +748,7 @@ where
     MakeTlsConnector: MakeTlsConnect<S>,
 {
     type Stream = <MakeTlsConnector as MakeTlsConnect<S>>::Stream;
-    type TlsConnect = <MakeTlsConnector as MakeTlsConnect<S>>::TlsConnect;
+    type TlsConnect = wire::ObservedTls<<MakeTlsConnector as MakeTlsConnect<S>>::TlsConnect>;
     type Error = <MakeTlsConnector as MakeTlsConnect<S>>::Error;
     fn make_tls_connect(&mut self, _: &str) -> Result<Self::TlsConnect, Self::Error> {
         // Each establishment attempt supplies its own observer. Cancellation
@@ -741,11 +760,12 @@ where
         observation.tls_factory(&self.servername);
         let mut inner = self.inner.clone();
         let (verify, sni, observe_verify) = (self.verify, self.sni, self.observe_verify);
+        let verify_observation = observation.clone();
         inner.set_callback(move |config, _| {
             config.set_verify_hostname(verify);
             config.set_use_server_name_indication(sni);
             if verify && observe_verify {
-                let observation = observation.clone();
+                let observation = verify_observation.clone();
                 config.set_verify_callback(SslVerifyMode::PEER, move |preverify_ok, context| {
                     observation.verify(preverify_ok, context);
                     preverify_ok
@@ -753,7 +773,11 @@ where
             }
             Ok(())
         });
-        inner.make_tls_connect(&self.servername)
+        let tls = <MakeTlsConnector as MakeTlsConnect<S>>::make_tls_connect(
+            &mut inner,
+            &self.servername,
+        )?;
+        Ok(wire::ObservedTls::new(tls, observation))
     }
 }
 fn tls_connector(tls: &Tls, negotiation: Negotiation) -> Result<NamedConnector, QueryFault> {

@@ -1,9 +1,12 @@
-//! Observations from the original resolution and native connection attempts.
-//! Native PostgreSQL sockets, TLS negotiation and cancellation remain owned by
-//! tokio-postgres. No lookup or connection is made to reconstruct a failure.
+//! Original resolution, TCP sockets and observations. PostgreSQL TLS negotiation,
+//! startup, authentication and cancellation packets remain in tokio-postgres.
 
-use crate::{ConnectStage, FaultPhase, QueryFault};
+use crate::{
+    ConnectStage, FaultPhase, IoDirection, IoOutcome, QueryFault, SslReply, TlsConnectState,
+    wire::ObservedStream,
+};
 use openssl::x509::{X509, X509StoreContextRef};
+use socket2::{SockRef, TcpKeepalive};
 use std::{
     fmt,
     future::Future,
@@ -11,8 +14,10 @@ use std::{
     net::{IpAddr, SocketAddr},
     pin::Pin,
     sync::{Arc, Mutex},
+    time::Duration,
 };
-use tokio_postgres::{Client, Config, Socket, config::Host, tls::MakeTlsConnect};
+use tokio::net::TcpStream;
+use tokio_postgres::{CancelToken, Client, Config, Socket, config::Host, tls::MakeTlsConnect};
 
 pub(crate) type ResolveFuture<'a> =
     Pin<Box<dyn Future<Output = io::Result<Vec<SocketAddr>>> + Send + 'a>>;
@@ -42,6 +47,19 @@ struct AttemptState {
     stage: ConnectStage,
     servername: Option<String>,
     verification: Option<Verification>,
+    ssl_reply: Option<SslReply>,
+    tls_connect: Option<TlsConnectState>,
+    last_io: Option<IoObservation>,
+    bytes_read: u64,
+    bytes_written: u64,
+}
+
+#[derive(Clone, Copy)]
+struct IoObservation {
+    direction: IoDirection,
+    outcome: IoOutcome,
+    kind: Option<io::ErrorKind>,
+    errno: Option<i32>,
 }
 
 #[derive(Clone)]
@@ -52,6 +70,11 @@ impl AttemptObservation {
             stage: ConnectStage::AddressAttempt,
             servername: None,
             verification: None,
+            ssl_reply: None,
+            tls_connect: None,
+            last_io: None,
+            bytes_read: 0,
+            bytes_written: 0,
         })))
     }
 
@@ -70,6 +93,74 @@ impl AttemptObservation {
                 depth: context.error_depth(),
                 preverify_ok,
                 _certificate: context.current_cert().map(ToOwned::to_owned),
+            });
+        }
+    }
+
+    fn stage(&self, stage: ConnectStage) {
+        if let Ok(mut state) = self.0.lock() {
+            state.stage = stage;
+        }
+    }
+    pub(crate) fn ssl_request_written(&self) {
+        self.stage(ConnectStage::SslRequest);
+    }
+    pub(crate) fn ssl_reply(&self, reply: SslReply) {
+        if let Ok(mut state) = self.0.lock() {
+            state.ssl_reply = Some(reply);
+        }
+    }
+    pub(crate) fn tls_connect_started(&self) {
+        if let Ok(mut state) = self.0.lock() {
+            state.stage = ConnectStage::TlsConnectFuture;
+            state.tls_connect = Some(TlsConnectState::Started);
+        }
+    }
+    pub(crate) fn tls_connect_finished(&self, succeeded: bool) {
+        if let Ok(mut state) = self.0.lock() {
+            state.tls_connect = Some(if succeeded {
+                TlsConnectState::Succeeded
+            } else {
+                TlsConnectState::Failed
+            });
+            if succeeded {
+                state.stage = ConnectStage::TlsConnectComplete;
+            }
+        }
+    }
+    pub(crate) fn read(&self, count: usize, requested: bool) {
+        if let Ok(mut state) = self.0.lock() {
+            state.bytes_read = state.bytes_read.saturating_add(count as u64);
+            if count == 0 && requested {
+                state.last_io = Some(IoObservation {
+                    direction: IoDirection::Read,
+                    outcome: IoOutcome::Eof,
+                    kind: None,
+                    errno: None,
+                });
+            }
+        }
+    }
+    pub(crate) fn written(&self, count: usize, requested: bool) {
+        if let Ok(mut state) = self.0.lock() {
+            state.bytes_written = state.bytes_written.saturating_add(count as u64);
+            if count == 0 && requested {
+                state.last_io = Some(IoObservation {
+                    direction: IoDirection::Write,
+                    outcome: IoOutcome::ZeroWrite,
+                    kind: None,
+                    errno: None,
+                });
+            }
+        }
+    }
+    pub(crate) fn io_error(&self, direction: IoDirection, error: &io::Error) {
+        if let Ok(mut state) = self.0.lock() {
+            state.last_io = Some(IoObservation {
+                direction,
+                outcome: IoOutcome::Error,
+                kind: Some(error.kind()),
+                errno: error.raw_os_error(),
             });
         }
     }
@@ -95,6 +186,14 @@ struct ContextState {
 #[derive(Clone, Default)]
 pub(crate) struct ConnectContext(Arc<Mutex<Option<ContextState>>>);
 impl ConnectContext {
+    #[cfg(test)]
+    pub(crate) fn test_attempt(addr: SocketAddr) -> (Self, AttemptObservation) {
+        let context = Self::default();
+        context.resolved(1);
+        let observation = context.attempt(0, addr);
+        (context, observation)
+    }
+
     fn resolving(&self, host: &str) {
         if let Ok(mut state) = self.0.lock() {
             *state = Some(ContextState {
@@ -141,6 +240,11 @@ impl ConnectContext {
             attempted_addr: None,
             servername: None,
             verification: None,
+            ssl_reply: None,
+            tls_connect: None,
+            last_io: None,
+            bytes_read: 0,
+            bytes_written: 0,
         };
         if let Some(attempt) = &state.attempt {
             snapshot.attempt_index = Some(attempt.index);
@@ -149,6 +253,11 @@ impl ConnectContext {
                 snapshot.stage = attempt.stage;
                 snapshot.servername = attempt.servername.clone();
                 snapshot.verification = attempt.verification.clone();
+                snapshot.ssl_reply = attempt.ssl_reply;
+                snapshot.tls_connect = attempt.tls_connect;
+                snapshot.last_io = attempt.last_io;
+                snapshot.bytes_read = attempt.bytes_read;
+                snapshot.bytes_written = attempt.bytes_written;
             }
         }
         Some(snapshot)
@@ -166,6 +275,11 @@ pub(crate) struct TransportContext {
     attempted_addr: Option<SocketAddr>,
     servername: Option<String>,
     verification: Option<Verification>,
+    ssl_reply: Option<SslReply>,
+    tls_connect: Option<TlsConnectState>,
+    last_io: Option<IoObservation>,
+    bytes_read: u64,
+    bytes_written: u64,
 }
 impl TransportContext {
     pub(crate) fn connect_stage(&self) -> ConnectStage {
@@ -195,10 +309,187 @@ impl TransportContext {
     pub(crate) fn tls_preverify_ok(&self) -> Option<bool> {
         self.verification.as_ref().map(|verify| verify.preverify_ok)
     }
+    pub(crate) fn ssl_reply(&self) -> Option<SslReply> {
+        self.ssl_reply
+    }
+    pub(crate) fn tls_connect_state(&self) -> Option<TlsConnectState> {
+        self.tls_connect
+    }
+    pub(crate) fn last_io_direction(&self) -> Option<IoDirection> {
+        self.last_io.map(|event| event.direction)
+    }
+    pub(crate) fn last_io_outcome(&self) -> Option<IoOutcome> {
+        self.last_io.map(|event| event.outcome)
+    }
+    pub(crate) fn last_io_kind(&self) -> Option<io::ErrorKind> {
+        self.last_io.and_then(|event| event.kind)
+    }
+    pub(crate) fn last_io_errno(&self) -> Option<i32> {
+        self.last_io.and_then(|event| event.errno)
+    }
+    pub(crate) fn socket_bytes_read(&self) -> u64 {
+        self.bytes_read
+    }
+    pub(crate) fn socket_bytes_written(&self) -> u64 {
+        self.bytes_written
+    }
 }
 impl fmt::Debug for TransportContext {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("TransportContext")
+    }
+}
+
+pub(crate) type Driver = Pin<Box<dyn Future<Output = Result<(), tokio_postgres::Error>> + Send>>;
+
+pub(crate) struct Connected {
+    pub(crate) client: Client,
+    pub(crate) driver: Driver,
+    pub(crate) cancel_route: CancelRoute,
+}
+
+#[derive(Clone)]
+struct KeepaliveSettings {
+    idle: Duration,
+    interval: Option<Duration>,
+    retries: Option<u32>,
+}
+#[derive(Clone)]
+struct SocketSettings {
+    connect_timeout: Option<Duration>,
+    #[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+    tcp_user_timeout: Option<Duration>,
+    keepalive: Option<KeepaliveSettings>,
+}
+impl SocketSettings {
+    fn from_config(config: &Config) -> Self {
+        Self {
+            connect_timeout: config.get_connect_timeout().copied(),
+            tcp_user_timeout: config.get_tcp_user_timeout().copied(),
+            keepalive: config.get_keepalives().then(|| KeepaliveSettings {
+                idle: config.get_keepalives_idle(),
+                interval: config.get_keepalives_interval(),
+                retries: config.get_keepalives_retries(),
+            }),
+        }
+    }
+
+    async fn open(
+        &self,
+        address: SocketAddr,
+        observation: &AttemptObservation,
+    ) -> Result<TcpStream, QueryFault> {
+        observation.stage(ConnectStage::SocketConnect);
+        let connect = TcpStream::connect(address);
+        let stream = match self.connect_timeout {
+            Some(limit) => tokio::time::timeout(limit, connect)
+                .await
+                .map_err(|_| QueryFault::socket_timeout())?
+                .map_err(QueryFault::socket)?,
+            None => connect.await.map_err(QueryFault::socket)?,
+        };
+        // Match tokio-postgres connect_socket's ordering and platform guards.
+        // Disabled keepalive leaves the newly created socket's default intact.
+        observation.stage(ConnectStage::SocketOptions);
+        stream.set_nodelay(true).map_err(QueryFault::socket)?;
+        let socket = SockRef::from(&stream);
+        #[cfg(target_os = "linux")]
+        if let Some(timeout) = self.tcp_user_timeout {
+            socket
+                .set_tcp_user_timeout(Some(timeout))
+                .map_err(QueryFault::socket)?;
+        }
+        if let Some(keepalive) = &self.keepalive {
+            let mut settings = TcpKeepalive::new().with_time(keepalive.idle);
+            #[cfg(not(any(
+                target_os = "aix",
+                target_os = "redox",
+                target_os = "solaris",
+                target_os = "openbsd"
+            )))]
+            if let Some(interval) = keepalive.interval {
+                settings = settings.with_interval(interval);
+            }
+            #[cfg(not(any(
+                target_os = "aix",
+                target_os = "redox",
+                target_os = "solaris",
+                target_os = "windows",
+                target_os = "openbsd"
+            )))]
+            if let Some(retries) = keepalive.retries {
+                settings = settings.with_retries(retries);
+            }
+            socket
+                .set_tcp_keepalive(&settings)
+                .map_err(QueryFault::socket)?;
+        }
+        observation.stage(ConnectStage::SocketReady);
+        Ok(stream)
+    }
+}
+
+#[derive(Clone)]
+pub(crate) struct TcpRoute {
+    address: SocketAddr,
+    hostname: String,
+    settings: SocketSettings,
+    mode: tokio_postgres::config::SslMode,
+    negotiation: tokio_postgres::config::SslNegotiation,
+}
+impl TcpRoute {
+    async fn open(
+        &self,
+        observation: AttemptObservation,
+    ) -> Result<ObservedStream<TcpStream>, QueryFault> {
+        let stream = self.settings.open(self.address, &observation).await?;
+        Ok(ObservedStream::new(
+            stream,
+            observation,
+            self.mode,
+            self.negotiation,
+        ))
+    }
+}
+
+#[derive(Clone)]
+pub(crate) enum CancelRoute {
+    Native,
+    Tcp(TcpRoute),
+}
+impl CancelRoute {
+    pub(crate) async fn cancel<T, F>(
+        &self,
+        token: &CancelToken,
+        make_tls: F,
+    ) -> Result<(), QueryFault>
+    where
+        T: MakeTlsConnect<Socket> + MakeTlsConnect<ObservedStream<TcpStream>>,
+        F: Fn(Option<AttemptObservation>) -> T,
+    {
+        match self {
+            Self::Native => token
+                .cancel_query(make_tls(None))
+                .await
+                .map_err(|error| QueryFault::postgres(FaultPhase::Connect, error)),
+            Self::Tcp(route) => {
+                // Original native cancellation creates the TLS factory before
+                // its socket. This independent observer never touches a live
+                // or retained business fault. No DNS, retry or SQL is used.
+                let observation = AttemptObservation::new();
+                let mut factory = make_tls(Some(observation.clone()));
+                let tls = <T as MakeTlsConnect<ObservedStream<TcpStream>>>::make_tls_connect(
+                    &mut factory,
+                    &route.hostname,
+                )
+                .map_err(|error| QueryFault::tls_factory(error.into()))?;
+                let stream = route.open(observation).await?;
+                token
+                    .cancel_query_raw(stream, tls)
+                    .await
+                    .map_err(|error| QueryFault::postgres(FaultPhase::Connect, error))
+            }
+        }
     }
 }
 
@@ -207,18 +498,25 @@ pub(crate) async fn connect<T, F>(
     resolver: &dyn Resolver,
     context: &ConnectContext,
     make_tls: F,
-) -> Result<(Client, tokio_postgres::Connection<Socket, T::Stream>), QueryFault>
+) -> Result<Connected, QueryFault>
 where
-    T: MakeTlsConnect<Socket>,
+    T: MakeTlsConnect<Socket> + MakeTlsConnect<ObservedStream<TcpStream>>,
+    <T as MakeTlsConnect<Socket>>::Stream: Send + 'static,
+    <T as MakeTlsConnect<ObservedStream<TcpStream>>>::Stream: Send + 'static,
     F: Fn(Option<AttemptObservation>) -> T,
 {
     let Some(Host::Tcp(host)) = config.get_hosts().first() else {
-        // Unix socket handling, including its hostname/TLS restrictions and
-        // native cancellation SocketConfig, stays in the original driver.
-        return config
+        // Native Unix connect/cancel preserves private SocketConfig and the
+        // driver's has_hostname=false restrictions. Raw APIs hardcode true.
+        let (client, driver) = config
             .connect(make_tls(None))
             .await
-            .map_err(|error| QueryFault::postgres(FaultPhase::Connect, error));
+            .map_err(|error| QueryFault::postgres(FaultPhase::Connect, error))?;
+        return Ok(Connected {
+            client,
+            driver: Box::pin(driver),
+            cancel_route: CancelRoute::Native,
+        });
     };
     let port = config.get_ports().first().copied().unwrap_or(5432);
     let addresses = match host.parse::<IpAddr>() {
@@ -232,27 +530,47 @@ where
         }
     };
     context.resolved(addresses.len());
+    let settings = SocketSettings::from_config(config);
     let mut last_error = None;
     for (index, address) in addresses.into_iter().enumerate() {
-        // The native driver uses addr.ip() plus the configured port, dropping
-        // resolver scope/flow metadata. Preserve that exact attempted route.
+        // Preserve the original native addr.ip()+configured-port route,
+        // including its removal of resolver IPv6 scope/flow metadata.
         let address = SocketAddr::new(address.ip(), port);
         let observation = context.attempt(index, address);
-        let mut attempt = config.clone();
-        attempt.hostaddr(address.ip());
-        // Numeric hostaddr is parsed locally by Tokio, without another system
-        // name lookup. Native sockets, options, TLS and startup stay unchanged.
-        match attempt.connect(make_tls(Some(observation.clone()))).await {
-            Ok(connection) => {
+        let route = TcpRoute {
+            address,
+            hostname: host.clone(),
+            settings: settings.clone(),
+            mode: config.get_ssl_mode(),
+            negotiation: config.get_ssl_negotiation(),
+        };
+        let attempt = async {
+            let stream = route.open(observation.clone()).await?;
+            let mut factory = make_tls(Some(observation.clone()));
+            let tls = <T as MakeTlsConnect<ObservedStream<TcpStream>>>::make_tls_connect(
+                &mut factory,
+                host,
+            )
+            .map_err(|error| QueryFault::tls_factory(error.into()))?;
+            // connect_raw retains the original SSLRequest/direct negotiation,
+            // authentication, startup options and BackendKeyData handling.
+            // Target does not configure target_session_attrs beyond Any.
+            config
+                .connect_raw(stream, tls)
+                .await
+                .map_err(|error| QueryFault::postgres(FaultPhase::Connect, error))
+        }
+        .await;
+        match attempt {
+            Ok((client, driver)) => {
                 observation.established();
-                return Ok(connection);
+                return Ok(Connected {
+                    client,
+                    driver: Box::pin(driver),
+                    cancel_route: CancelRoute::Tcp(route),
+                });
             }
-            Err(error) => {
-                last_error = Some(
-                    QueryFault::postgres(FaultPhase::Connect, error)
-                        .with_context(context.snapshot()),
-                );
-            }
+            Err(error) => last_error = Some(error.with_context(context.snapshot())),
         }
     }
     Err(last_error.unwrap_or_else(|| QueryFault::no_addresses().with_context(context.snapshot())))

@@ -183,6 +183,7 @@ async fn typed_connect_refusal_retains_actual_io_context_and_opaque_callers() {
     assert_eq!(fault.phase(), FaultPhase::Connect);
     assert_eq!(fault.kind(), FaultKind::Io);
     assert_eq!(fault.io_kind(), Some(std::io::ErrorKind::ConnectionRefused));
+    assert_eq!(fault.connect_stage(), Some(ConnectStage::SocketConnect));
     assert!(fault.raw_os_error().is_some());
     assert_eq!(error.legacy_message(), None);
     assert_eq!(format!("{error:?}"), "QueryError::Fault");
@@ -1591,6 +1592,18 @@ async fn tls_verification_observation_preserves_native_controls_and_sni_and_alpn
                             let context = connection.transport_context().unwrap();
                             assert_eq!(context.connect_stage(), ConnectStage::Established);
                             assert_eq!(
+                                context.tls_connect_state(),
+                                Some(TlsConnectState::Succeeded)
+                            );
+                            assert_eq!(
+                                context.ssl_reply(),
+                                if matches!(negotiation, Negotiation::Postgres) {
+                                    Some(SslReply::Accepted)
+                                } else {
+                                    None
+                                }
+                            );
+                            assert_eq!(
                                 context.attempted_addr(),
                                 Some(([127, 0, 0, 1], port).into())
                             );
@@ -1616,6 +1629,15 @@ async fn tls_verification_observation_preserves_native_controls_and_sni_and_alpn
                             assert!(!expected_success, "observed {case}");
                             assert_eq!(fault.kind(), FaultKind::Tls);
                             assert_eq!(fault.connect_stage(), Some(ConnectStage::TlsVerification));
+                            assert_eq!(fault.tls_connect_state(), Some(TlsConnectState::Failed));
+                            assert_eq!(
+                                fault.ssl_reply(),
+                                if matches!(negotiation, Negotiation::Postgres) {
+                                    Some(SslReply::Accepted)
+                                } else {
+                                    None
+                                }
+                            );
                             assert!(fault.tls_verify_code().is_some_and(|code| code != 0));
                             assert_eq!(fault.tls_preverify_ok(), Some(false));
                             assert_eq!(fault.tls_verify_depth(), Some(0));
@@ -1672,10 +1694,10 @@ async fn tls_verification_observation_preserves_native_controls_and_sni_and_alpn
 }
 
 #[tokio::test]
-async fn tls_factory_reached_without_verification_does_not_invent_a_verify_failure() {
+async fn original_ssl_reply_and_tls_future_are_retained_without_invented_verification() {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     let fixture = MemoryTlsFixture::new();
-    for reply in [Some(b'N'), Some(b'E'), None] {
+    for reply in [Some(b'N'), Some(b'E'), Some(b'?'), Some(b'S'), None] {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let mut target = fixture.target(listener.local_addr().unwrap().port());
         target.connect_timeout_ms = Some(250);
@@ -1694,7 +1716,31 @@ async fn tls_factory_reached_without_verification_does_not_invent_a_verify_failu
             .await
             .unwrap_err();
         let fault = retained_fault(&error);
-        assert_eq!(fault.connect_stage(), Some(ConnectStage::TlsFactory));
+        assert_eq!(
+            fault.connect_stage(),
+            Some(if reply == Some(b'S') {
+                ConnectStage::TlsConnectFuture
+            } else {
+                ConnectStage::SslRequest
+            })
+        );
+        assert_eq!(
+            fault.ssl_reply(),
+            reply.map(|byte| match byte {
+                b'S' => SslReply::Accepted,
+                b'N' => SslReply::Declined,
+                b'E' => SslReply::ServerError,
+                other => SslReply::Other(other),
+            })
+        );
+        assert_eq!(
+            fault.tls_connect_state(),
+            if reply == Some(b'S') {
+                Some(TlsConnectState::Failed)
+            } else {
+                None
+            }
+        );
         assert_eq!(fault.tls_servername(), Some("transport.test"));
         assert_eq!(fault.tls_verify_code(), None);
         assert_eq!(fault.tls_verify_depth(), None);
@@ -1840,7 +1886,9 @@ async fn verification_from_a_failed_startup_does_not_leak_into_the_next_address_
     let fault = retained_fault(&error);
     assert_eq!(fault.attempt_index(), Some(1));
     assert_eq!(fault.attempted_addr(), Some(addr));
-    assert_eq!(fault.connect_stage(), Some(ConnectStage::TlsFactory));
+    assert_eq!(fault.connect_stage(), Some(ConnectStage::SslRequest));
+    assert_eq!(fault.ssl_reply(), Some(SslReply::Declined));
+    assert_eq!(fault.tls_connect_state(), None);
     assert_eq!(fault.tls_servername(), Some("transport.test"));
     assert_eq!(fault.tls_verify_code(), None);
     assert_eq!(fault.tls_verify_depth(), None);
@@ -1967,6 +2015,958 @@ async fn native_drop_cancellation_keeps_verified_tls_and_its_original_deadline_a
             assert_eq!(context.tls_verify_code(), Some(0));
             assert_eq!(context.tls_preverify_ok(), Some(true));
             assert!(cancellations.lock().unwrap().is_empty());
+            peer.await.unwrap();
+        }
+    }
+}
+
+#[derive(Default)]
+struct WireAudit {
+    reads: usize,
+    writes: usize,
+    vectored: usize,
+    flushes: usize,
+    shutdowns: usize,
+    written: Vec<u8>,
+}
+
+enum WireRead {
+    Pending,
+    Bytes(Vec<u8>),
+    Eof,
+    Error(std::io::Error),
+}
+enum WireWrite {
+    Pending,
+    Count(usize),
+    Error(std::io::Error),
+}
+enum WireFinish {
+    Pending,
+    Ok,
+    Error(std::io::Error),
+}
+
+struct ScriptedWire {
+    reads: std::collections::VecDeque<WireRead>,
+    writes: std::collections::VecDeque<WireWrite>,
+    flushes: std::collections::VecDeque<WireFinish>,
+    shutdowns: std::collections::VecDeque<WireFinish>,
+    audit: Arc<SyncMutex<WireAudit>>,
+}
+impl ScriptedWire {
+    fn new(reads: Vec<WireRead>, writes: Vec<WireWrite>) -> Self {
+        Self {
+            reads: reads.into(),
+            writes: writes.into(),
+            flushes: Vec::new().into(),
+            shutdowns: Vec::new().into(),
+            audit: Arc::new(SyncMutex::new(WireAudit::default())),
+        }
+    }
+}
+impl tokio::io::AsyncRead for ScriptedWire {
+    fn poll_read(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        buf: &mut tokio::io::ReadBuf<'_>,
+    ) -> std::task::Poll<std::io::Result<()>> {
+        self.audit.lock().unwrap().reads += 1;
+        if buf.remaining() == 0 {
+            return std::task::Poll::Ready(Ok(()));
+        }
+        match self.reads.pop_front().expect("unexpected underlying read") {
+            WireRead::Pending => {
+                cx.waker().wake_by_ref();
+                std::task::Poll::Pending
+            }
+            WireRead::Bytes(bytes) => {
+                let count = bytes.len().min(buf.remaining());
+                buf.put_slice(&bytes[..count]);
+                if count < bytes.len() {
+                    self.reads
+                        .push_front(WireRead::Bytes(bytes[count..].to_vec()));
+                }
+                std::task::Poll::Ready(Ok(()))
+            }
+            WireRead::Eof => std::task::Poll::Ready(Ok(())),
+            WireRead::Error(error) => std::task::Poll::Ready(Err(error)),
+        }
+    }
+}
+impl tokio::io::AsyncWrite for ScriptedWire {
+    fn poll_write(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        bytes: &[u8],
+    ) -> std::task::Poll<std::io::Result<usize>> {
+        self.audit.lock().unwrap().writes += 1;
+        match self
+            .writes
+            .pop_front()
+            .expect("unexpected underlying write")
+        {
+            WireWrite::Pending => {
+                cx.waker().wake_by_ref();
+                std::task::Poll::Pending
+            }
+            WireWrite::Count(count) => {
+                assert!(count <= bytes.len());
+                self.audit
+                    .lock()
+                    .unwrap()
+                    .written
+                    .extend_from_slice(&bytes[..count]);
+                std::task::Poll::Ready(Ok(count))
+            }
+            WireWrite::Error(error) => std::task::Poll::Ready(Err(error)),
+        }
+    }
+    fn poll_write_vectored(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        bytes: &[std::io::IoSlice<'_>],
+    ) -> std::task::Poll<std::io::Result<usize>> {
+        self.audit.lock().unwrap().vectored += 1;
+        match self
+            .writes
+            .pop_front()
+            .expect("unexpected underlying vectored write")
+        {
+            WireWrite::Pending => {
+                cx.waker().wake_by_ref();
+                std::task::Poll::Pending
+            }
+            WireWrite::Count(count) => {
+                assert!(count <= bytes.iter().map(|slice| slice.len()).sum::<usize>());
+                self.audit.lock().unwrap().written.extend(
+                    bytes
+                        .iter()
+                        .flat_map(|slice| slice.iter().copied())
+                        .take(count),
+                );
+                std::task::Poll::Ready(Ok(count))
+            }
+            WireWrite::Error(error) => std::task::Poll::Ready(Err(error)),
+        }
+    }
+    fn is_write_vectored(&self) -> bool {
+        true
+    }
+    fn poll_flush(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<std::io::Result<()>> {
+        self.audit.lock().unwrap().flushes += 1;
+        match self
+            .flushes
+            .pop_front()
+            .expect("unexpected underlying flush")
+        {
+            WireFinish::Pending => {
+                cx.waker().wake_by_ref();
+                std::task::Poll::Pending
+            }
+            WireFinish::Ok => std::task::Poll::Ready(Ok(())),
+            WireFinish::Error(error) => std::task::Poll::Ready(Err(error)),
+        }
+    }
+    fn poll_shutdown(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<std::io::Result<()>> {
+        self.audit.lock().unwrap().shutdowns += 1;
+        match self
+            .shutdowns
+            .pop_front()
+            .expect("unexpected underlying shutdown")
+        {
+            WireFinish::Pending => {
+                cx.waker().wake_by_ref();
+                std::task::Poll::Pending
+            }
+            WireFinish::Ok => std::task::Poll::Ready(Ok(())),
+            WireFinish::Error(error) => std::task::Poll::Ready(Err(error)),
+        }
+    }
+}
+
+fn observed_fixture(
+    inner: ScriptedWire,
+    mode: SslMode,
+    negotiation: SslNegotiation,
+) -> (
+    wire::ObservedStream<ScriptedWire>,
+    transport::ConnectContext,
+    Arc<SyncMutex<WireAudit>>,
+) {
+    let (context, observation) =
+        transport::ConnectContext::test_attempt(([127, 0, 0, 1], 5432).into());
+    let audit = Arc::clone(&inner.audit);
+    (
+        wire::ObservedStream::new(inner, observation, mode, negotiation),
+        context,
+        audit,
+    )
+}
+
+#[test]
+fn observed_stream_preserves_partial_vectored_pending_and_prefilled_io_without_extra_reads() {
+    use std::{
+        io::IoSlice,
+        pin::Pin,
+        task::{Context, Poll, Waker},
+    };
+    use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
+    const REQUEST: &[u8] = &[0, 0, 0, 8, 4, 210, 22, 47];
+    let inner = ScriptedWire::new(
+        vec![
+            WireRead::Pending,
+            WireRead::Bytes(b"Nprivate reply bytes".to_vec()),
+            WireRead::Bytes(b"S".to_vec()),
+        ],
+        vec![
+            WireWrite::Pending,
+            WireWrite::Count(3),
+            WireWrite::Count(2),
+            WireWrite::Count(3),
+            WireWrite::Count(5),
+        ],
+    );
+    let (mut stream, context, audit) =
+        observed_fixture(inner, SslMode::Require, SslNegotiation::Postgres);
+    let mut cx = Context::from_waker(Waker::noop());
+    assert!(stream.is_write_vectored());
+    assert!(
+        Pin::new(&mut stream)
+            .poll_write(&mut cx, REQUEST)
+            .is_pending()
+    );
+    assert_eq!(context.snapshot().unwrap().socket_bytes_written(), 0);
+    assert!(matches!(
+        Pin::new(&mut stream).poll_write(&mut cx, &REQUEST[..5]),
+        Poll::Ready(Ok(3))
+    ));
+    let middle = [IoSlice::new(&REQUEST[3..5]), IoSlice::new(&REQUEST[5..])];
+    assert!(matches!(
+        Pin::new(&mut stream).poll_write_vectored(&mut cx, &middle),
+        Poll::Ready(Ok(2))
+    ));
+    let tail = [
+        IoSlice::new(&REQUEST[5..6]),
+        IoSlice::new(&[]),
+        IoSlice::new(&REQUEST[6..]),
+    ];
+    assert!(matches!(
+        Pin::new(&mut stream).poll_write_vectored(&mut cx, &tail),
+        Poll::Ready(Ok(3))
+    ));
+    assert_eq!(
+        audit.lock().unwrap().reads,
+        0,
+        "writes never cause an observer read"
+    );
+    let mut empty = [];
+    assert!(matches!(
+        Pin::new(&mut stream).poll_read(&mut cx, &mut ReadBuf::new(&mut empty)),
+        Poll::Ready(Ok(()))
+    ));
+    assert_eq!(context.snapshot().unwrap().last_io_outcome(), None);
+    let mut bytes = [0; 64];
+    let mut buf = ReadBuf::new(&mut bytes);
+    buf.put_slice(b"pre-filled");
+    assert!(
+        Pin::new(&mut stream)
+            .poll_read(&mut cx, &mut buf)
+            .is_pending()
+    );
+    assert_eq!(buf.filled(), b"pre-filled");
+    assert_eq!(context.snapshot().unwrap().socket_bytes_read(), 0);
+    assert!(matches!(
+        Pin::new(&mut stream).poll_read(&mut cx, &mut buf),
+        Poll::Ready(Ok(()))
+    ));
+    assert_eq!(buf.filled(), b"pre-filledNprivate reply bytes");
+    let snapshot = context.snapshot().unwrap();
+    assert_eq!(snapshot.ssl_reply(), Some(SslReply::Declined));
+    assert_eq!(
+        snapshot.socket_bytes_read(),
+        b"Nprivate reply bytes".len() as u64
+    );
+    assert_eq!(snapshot.socket_bytes_written(), 8);
+    assert_eq!(snapshot.connect_stage(), ConnectStage::SslRequest);
+    assert!(matches!(
+        Pin::new(&mut stream).poll_write(&mut cx, b"private SQL"),
+        Poll::Ready(Ok(5))
+    ));
+    assert!(matches!(
+        Pin::new(&mut stream).poll_read(&mut cx, &mut buf),
+        Poll::Ready(Ok(()))
+    ));
+    assert_eq!(
+        context.snapshot().unwrap().ssl_reply(),
+        Some(SslReply::Declined),
+        "later bytes cannot overwrite the original reply"
+    );
+    let audit = audit.lock().unwrap();
+    assert_eq!(audit.reads, 4);
+    assert_eq!(audit.writes, 3);
+    assert_eq!(audit.vectored, 2);
+    assert_eq!(audit.written, [REQUEST, b"priva"].concat());
+    assert_eq!(format!("{stream:?}"), "ObservedStream");
+    assert_eq!(format!("{snapshot:?}"), "TransportContext");
+}
+
+#[test]
+fn observed_stream_records_only_an_original_complete_postgres_ssl_request_reply() {
+    use std::{
+        pin::Pin,
+        task::{Context, Poll, Waker},
+    };
+    use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
+    const REQUEST: &[u8] = &[0, 0, 0, 8, 4, 210, 22, 47];
+    for (byte, expected) in [
+        (b'S', SslReply::Accepted),
+        (b'N', SslReply::Declined),
+        (b'E', SslReply::ServerError),
+        (b'?', SslReply::Other(b'?')),
+    ] {
+        let inner = ScriptedWire::new(vec![WireRead::Bytes(vec![byte])], vec![WireWrite::Count(8)]);
+        let (mut stream, context, audit) =
+            observed_fixture(inner, SslMode::Require, SslNegotiation::Postgres);
+        let mut cx = Context::from_waker(Waker::noop());
+        assert!(matches!(
+            Pin::new(&mut stream).poll_write(&mut cx, REQUEST),
+            Poll::Ready(Ok(8))
+        ));
+        let mut bytes = [0; 1];
+        assert!(matches!(
+            Pin::new(&mut stream).poll_read(&mut cx, &mut ReadBuf::new(&mut bytes)),
+            Poll::Ready(Ok(()))
+        ));
+        assert_eq!(bytes, [byte]);
+        assert_eq!(context.snapshot().unwrap().ssl_reply(), Some(expected));
+        assert_eq!(audit.lock().unwrap().reads, 1);
+    }
+    for case in [
+        "wrong-prefix",
+        "read-before-write",
+        "partial-then-read",
+        "write-before-reply",
+        "direct",
+        "disabled",
+    ] {
+        let (mode, negotiation) = match case {
+            "direct" => (SslMode::Require, SslNegotiation::Direct),
+            "disabled" => (SslMode::Disable, SslNegotiation::Postgres),
+            _ => (SslMode::Require, SslNegotiation::Postgres),
+        };
+        let writes = match case {
+            "partial-then-read" => vec![WireWrite::Count(3)],
+            "write-before-reply" => vec![WireWrite::Count(8), WireWrite::Count(1)],
+            _ => vec![WireWrite::Count(8)],
+        };
+        let inner = ScriptedWire::new(vec![WireRead::Bytes(vec![b'S'])], writes);
+        let (mut stream, context, audit) = observed_fixture(inner, mode, negotiation);
+        let mut cx = Context::from_waker(Waker::noop());
+        let mut bytes = [0; 1];
+        if case == "read-before-write" {
+            assert!(matches!(
+                Pin::new(&mut stream).poll_read(&mut cx, &mut ReadBuf::new(&mut bytes)),
+                Poll::Ready(Ok(()))
+            ));
+        }
+        let request = if case == "wrong-prefix" {
+            b"private!".as_slice()
+        } else {
+            REQUEST
+        };
+        let count = if case == "partial-then-read" { 3 } else { 8 };
+        assert!(
+            matches!(Pin::new(&mut stream).poll_write(&mut cx, &request[..count]), Poll::Ready(Ok(n)) if n == count)
+        );
+        if case == "write-before-reply" {
+            assert!(matches!(
+                Pin::new(&mut stream).poll_write(&mut cx, b"x"),
+                Poll::Ready(Ok(1))
+            ));
+        }
+        if case != "read-before-write" {
+            assert!(matches!(
+                Pin::new(&mut stream).poll_read(&mut cx, &mut ReadBuf::new(&mut bytes)),
+                Poll::Ready(Ok(()))
+            ));
+        }
+        assert_eq!(bytes, [b'S']);
+        assert_eq!(context.snapshot().unwrap().ssl_reply(), None, "{case}");
+        assert_eq!(audit.lock().unwrap().reads, 1);
+    }
+}
+
+#[test]
+fn observed_stream_forwards_exact_errors_and_terminal_io_without_fabricating_byte_events() {
+    use std::{
+        pin::Pin,
+        task::{Context, Poll, Waker},
+    };
+    use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
+    #[derive(Debug)]
+    struct ErrorMarker(Arc<()>);
+    impl std::fmt::Display for ErrorMarker {
+        fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            formatter.write_str("private transport marker")
+        }
+    }
+    impl std::error::Error for ErrorMarker {}
+    let marker = Arc::new(());
+    let original = std::io::Error::new(
+        std::io::ErrorKind::ConnectionReset,
+        ErrorMarker(Arc::clone(&marker)),
+    );
+    let mut inner = ScriptedWire::new(
+        vec![WireRead::Eof, WireRead::Error(original)],
+        vec![
+            WireWrite::Count(0),
+            WireWrite::Count(0),
+            WireWrite::Error(std::io::Error::from_raw_os_error(5)),
+        ],
+    );
+    inner.flushes = vec![
+        WireFinish::Pending,
+        WireFinish::Ok,
+        WireFinish::Error(std::io::Error::from_raw_os_error(13)),
+    ]
+    .into();
+    inner.shutdowns = vec![
+        WireFinish::Pending,
+        WireFinish::Ok,
+        WireFinish::Error(std::io::Error::from_raw_os_error(22)),
+    ]
+    .into();
+    let (mut stream, context, audit) =
+        observed_fixture(inner, SslMode::Require, SslNegotiation::Postgres);
+    let mut cx = Context::from_waker(Waker::noop());
+    assert!(matches!(
+        Pin::new(&mut stream).poll_write(&mut cx, &[]),
+        Poll::Ready(Ok(0))
+    ));
+    assert_eq!(context.snapshot().unwrap().last_io_outcome(), None);
+    assert!(matches!(
+        Pin::new(&mut stream).poll_write(&mut cx, b"x"),
+        Poll::Ready(Ok(0))
+    ));
+    let zero = context.snapshot().unwrap();
+    assert_eq!(zero.last_io_direction(), Some(IoDirection::Write));
+    assert_eq!(zero.last_io_outcome(), Some(IoOutcome::ZeroWrite));
+    let mut bytes = [0; 1];
+    assert!(matches!(
+        Pin::new(&mut stream).poll_read(&mut cx, &mut ReadBuf::new(&mut bytes)),
+        Poll::Ready(Ok(()))
+    ));
+    assert_eq!(
+        context.snapshot().unwrap().last_io_direction(),
+        Some(IoDirection::Read)
+    );
+    assert_eq!(
+        context.snapshot().unwrap().last_io_outcome(),
+        Some(IoOutcome::Eof)
+    );
+    let Poll::Ready(Err(error)) =
+        Pin::new(&mut stream).poll_read(&mut cx, &mut ReadBuf::new(&mut bytes))
+    else {
+        panic!("read source must pass through")
+    };
+    assert!(Arc::ptr_eq(
+        &error
+            .get_ref()
+            .unwrap()
+            .downcast_ref::<ErrorMarker>()
+            .unwrap()
+            .0,
+        &marker
+    ));
+    assert_eq!(
+        context.snapshot().unwrap().last_io_kind(),
+        Some(std::io::ErrorKind::ConnectionReset)
+    );
+    assert_eq!(context.snapshot().unwrap().last_io_errno(), None);
+    let Poll::Ready(Err(error)) = Pin::new(&mut stream).poll_write(&mut cx, b"x") else {
+        panic!("write source must pass through")
+    };
+    assert_eq!(error.raw_os_error(), Some(5));
+    assert_eq!(
+        context.snapshot().unwrap().last_io_direction(),
+        Some(IoDirection::Write)
+    );
+    assert_eq!(context.snapshot().unwrap().last_io_errno(), Some(5));
+    assert!(Pin::new(&mut stream).poll_flush(&mut cx).is_pending());
+    assert!(matches!(
+        Pin::new(&mut stream).poll_flush(&mut cx),
+        Poll::Ready(Ok(()))
+    ));
+    let Poll::Ready(Err(error)) = Pin::new(&mut stream).poll_flush(&mut cx) else {
+        panic!("flush source must pass through")
+    };
+    assert_eq!(error.raw_os_error(), Some(13));
+    assert_eq!(
+        context.snapshot().unwrap().last_io_direction(),
+        Some(IoDirection::Flush)
+    );
+    assert!(Pin::new(&mut stream).poll_shutdown(&mut cx).is_pending());
+    assert!(matches!(
+        Pin::new(&mut stream).poll_shutdown(&mut cx),
+        Poll::Ready(Ok(()))
+    ));
+    let Poll::Ready(Err(error)) = Pin::new(&mut stream).poll_shutdown(&mut cx) else {
+        panic!("shutdown source must pass through")
+    };
+    assert_eq!(error.raw_os_error(), Some(22));
+    let final_snapshot = context.snapshot().unwrap();
+    assert_eq!(
+        final_snapshot.last_io_direction(),
+        Some(IoDirection::Shutdown)
+    );
+    assert_eq!(final_snapshot.last_io_outcome(), Some(IoOutcome::Error));
+    assert_eq!(
+        final_snapshot.last_io_kind(),
+        Some(std::io::Error::from_raw_os_error(22).kind())
+    );
+    assert_eq!(final_snapshot.last_io_errno(), Some(22));
+    assert_eq!(final_snapshot.socket_bytes_read(), 0);
+    assert_eq!(final_snapshot.socket_bytes_written(), 0);
+    assert_eq!(final_snapshot.ssl_reply(), None);
+    assert_eq!(
+        zero.last_io_outcome(),
+        Some(IoOutcome::ZeroWrite),
+        "earlier snapshots do not mutate"
+    );
+    let fault = QueryFault::socket(std::io::Error::from_raw_os_error(22))
+        .with_context(Some(final_snapshot));
+    assert_eq!(format!("{fault:?}"), "QueryFault");
+    assert!(std::error::Error::source(&fault).is_none());
+    assert_eq!(format!("{stream:?}"), "ObservedStream");
+    let audit = audit.lock().unwrap();
+    assert_eq!(
+        (audit.reads, audit.writes, audit.flushes, audit.shutdowns),
+        (2, 3, 3, 3)
+    );
+}
+
+impl tokio_postgres::tls::TlsStream for ScriptedWire {
+    fn channel_binding(&self) -> tokio_postgres::tls::ChannelBinding {
+        tokio_postgres::tls::ChannelBinding::tls_server_end_point(vec![1, 2, 3])
+    }
+}
+
+struct ScriptedTls {
+    polls: Arc<std::sync::atomic::AtomicUsize>,
+    error: Option<std::io::Error>,
+}
+impl tokio_postgres::tls::TlsConnect<ScriptedWire> for ScriptedTls {
+    type Stream = ScriptedWire;
+    type Error = std::io::Error;
+    type Future = std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<ScriptedWire, std::io::Error>> + Send>,
+    >;
+    fn connect(self, stream: ScriptedWire) -> Self::Future {
+        let mut stream = Some(stream);
+        let mut error = self.error;
+        Box::pin(std::future::poll_fn(move |cx| {
+            if self.polls.fetch_add(1, Ordering::AcqRel) == 0 {
+                cx.waker().wake_by_ref();
+                return std::task::Poll::Pending;
+            }
+            std::task::Poll::Ready(match error.take() {
+                Some(error) => Err(error),
+                None => Ok(stream.take().unwrap()),
+            })
+        }))
+    }
+}
+
+#[test]
+fn observed_tls_tracks_only_original_connector_future_polls_and_passes_its_result_unchanged() {
+    use std::{
+        future::Future,
+        task::{Context, Poll, Waker},
+    };
+    use tokio_postgres::tls::TlsConnect;
+    for succeeds in [false, true] {
+        let (context, observation) =
+            transport::ConnectContext::test_attempt(([127, 0, 0, 1], 5432).into());
+        let polls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let connector = ScriptedTls {
+            polls: Arc::clone(&polls),
+            error: (!succeeds).then(|| std::io::Error::from_raw_os_error(13)),
+        };
+        let stream = ScriptedWire::new(Vec::new(), Vec::new());
+        let audit = Arc::clone(&stream.audit);
+        let mut future = Box::pin(wire::ObservedTls::new(connector, observation).connect(stream));
+        assert_eq!(
+            context.snapshot().unwrap().tls_connect_state(),
+            None,
+            "creating the future is not polling it"
+        );
+        let mut cx = Context::from_waker(Waker::noop());
+        assert!(future.as_mut().poll(&mut cx).is_pending());
+        let started = context.snapshot().unwrap();
+        assert_eq!(started.tls_connect_state(), Some(TlsConnectState::Started));
+        assert_eq!(started.connect_stage(), ConnectStage::TlsConnectFuture);
+        match future.as_mut().poll(&mut cx) {
+            Poll::Ready(Ok(stream)) => {
+                assert!(succeeds);
+                assert!(
+                    Arc::ptr_eq(&stream.audit, &audit),
+                    "the original TLS stream is returned"
+                );
+                assert_eq!(
+                    context.snapshot().unwrap().tls_connect_state(),
+                    Some(TlsConnectState::Succeeded)
+                );
+                assert_eq!(
+                    context.snapshot().unwrap().connect_stage(),
+                    ConnectStage::TlsConnectComplete
+                );
+            }
+            Poll::Ready(Err(error)) => {
+                assert!(!succeeds);
+                assert_eq!(error.raw_os_error(), Some(13));
+                assert_eq!(
+                    context.snapshot().unwrap().tls_connect_state(),
+                    Some(TlsConnectState::Failed)
+                );
+                assert_eq!(
+                    context.snapshot().unwrap().connect_stage(),
+                    ConnectStage::TlsConnectFuture
+                );
+            }
+            Poll::Pending => panic!("original connector completed on its second poll"),
+        }
+        assert_eq!(polls.load(Ordering::Acquire), 2);
+        assert_eq!(
+            started.tls_connect_state(),
+            Some(TlsConnectState::Started),
+            "retained facts are immutable snapshots"
+        );
+        assert_eq!(context.snapshot().unwrap().ssl_reply(), None);
+        assert_eq!(context.snapshot().unwrap().last_io_outcome(), None);
+        assert_eq!(audit.lock().unwrap().reads, 0);
+    }
+}
+
+#[tokio::test]
+async fn a_query_fault_snapshots_later_socket_io_and_stays_immutable_during_native_cancellation() {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let resolver = FixtureResolver::addresses(vec![addr]);
+    let peer = tokio::spawn(async move {
+        let (mut socket, _) = listener.accept().await.unwrap();
+        startup_ready(&mut socket).await;
+        assert_eq!(read_frontend(&mut socket).await.0, b'P');
+        socket.write_all(b"E\0\0").await.unwrap();
+        socket.shutdown().await.unwrap();
+        let (mut cancellation, _) = listener.accept().await.unwrap();
+        let mut capability = [0; 16];
+        cancellation.read_exact(&mut capability).await.unwrap();
+        assert_eq!(
+            capability,
+            [0, 0, 0, 16, 4, 210, 22, 46, 0, 0, 0, 17, 0, 0, 0, 23]
+        );
+        let mut trailing = Vec::new();
+        cancellation.read_to_end(&mut trailing).await.unwrap();
+        assert!(trailing.is_empty());
+    });
+    let target = resolved_target(addr.port());
+    let cancellations = Arc::new(SyncMutex::new(Vec::new()));
+    let connection = connect_with_access(&target, &cancellations, false, resolver.as_ref())
+        .await
+        .unwrap();
+    let established = connection.transport_context().unwrap();
+    assert_eq!(established.last_io_outcome(), None);
+    assert_eq!(established.ssl_reply(), None);
+    assert_eq!(established.tls_connect_state(), None);
+    let query_error = connection
+        .client
+        .query("private SQL", &[])
+        .await
+        .unwrap_err();
+    let fault = connection.fault(FaultPhase::Query, query_error);
+    assert_eq!(fault.phase(), FaultPhase::Query);
+    assert_eq!(fault.attempted_addr(), Some(addr));
+    assert_eq!(fault.last_io_direction(), Some(IoDirection::Read));
+    assert_eq!(fault.last_io_outcome(), Some(IoOutcome::Eof));
+    assert!(fault.socket_bytes_read().unwrap() > established.socket_bytes_read());
+    assert!(fault.socket_bytes_written().unwrap() > established.socket_bytes_written());
+    let before = (
+        fault.socket_bytes_read(),
+        fault.socket_bytes_written(),
+        fault.last_io_outcome(),
+    );
+    let token = connection.client.cancel_token();
+    tokio::time::timeout(
+        Duration::from_secs(1),
+        connection.cancel_route.cancel(&token, |_| NoTls),
+    )
+    .await
+    .unwrap()
+    .unwrap();
+    let after = connection.transport_context().unwrap();
+    assert_eq!(
+        after.socket_bytes_read(),
+        fault.socket_bytes_read().unwrap()
+    );
+    assert_eq!(
+        after.socket_bytes_written(),
+        fault.socket_bytes_written().unwrap()
+    );
+    assert_eq!(
+        before,
+        (
+            fault.socket_bytes_read(),
+            fault.socket_bytes_written(),
+            fault.last_io_outcome()
+        )
+    );
+    assert_eq!(resolver.calls().len(), 1);
+    assert_eq!(
+        established.last_io_outcome(),
+        None,
+        "pre-query snapshot remains unchanged"
+    );
+    assert_eq!(format!("{fault:?}"), "QueryFault");
+    assert!(std::error::Error::source(&fault).is_none());
+    drop(connection);
+    peer.await.unwrap();
+}
+
+#[tokio::test]
+async fn a_trusted_tls_startup_failure_retains_the_completed_original_connector_future() {
+    use std::io::{Read, Write};
+    let fixture = MemoryTlsFixture::new();
+    let acceptor = memory_tls_acceptor(&fixture, Negotiation::Postgres);
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    listener.set_nonblocking(true).unwrap();
+    let peer = tokio::task::spawn_blocking(move || {
+        let socket = accept_fixture_socket(&listener);
+        let mut socket = fixture_tls_accept(&acceptor, socket, Negotiation::Postgres).unwrap();
+        let mut length = [0; 4];
+        socket.read_exact(&mut length).unwrap();
+        let mut startup = vec![0; u32::from_be_bytes(length) as usize - 4];
+        socket.read_exact(&mut startup).unwrap();
+        let payload = b"SFATAL\0C28000\0Mverified startup rejection\0\0";
+        socket.write_all(b"E").unwrap();
+        socket
+            .write_all(&((payload.len() + 4) as u32).to_be_bytes())
+            .unwrap();
+        socket.write_all(payload).unwrap();
+    });
+    let database = Database::new(None, Some(fixture.target(port)));
+    let error = database
+        .query_typed(false, "private SQL", &[])
+        .await
+        .unwrap_err();
+    let fault = retained_fault(&error);
+    assert_eq!(fault.kind(), FaultKind::Server);
+    assert_eq!(fault.server_code(), Some("28000"));
+    assert_eq!(
+        fault.connect_stage(),
+        Some(ConnectStage::TlsConnectComplete)
+    );
+    assert_eq!(fault.ssl_reply(), Some(SslReply::Accepted));
+    assert_eq!(fault.tls_connect_state(), Some(TlsConnectState::Succeeded));
+    assert_eq!(fault.tls_verify_code(), Some(0));
+    assert_eq!(error.legacy_message(), None);
+    peer.await.unwrap();
+    database.shutdown().await;
+}
+
+#[derive(Clone, Debug)]
+struct InspectedSocket {
+    nodelay: bool,
+    keepalive: bool,
+    #[cfg(target_os = "linux")]
+    idle: Duration,
+    #[cfg(target_os = "linux")]
+    interval: Duration,
+    #[cfg(target_os = "linux")]
+    retries: u32,
+    #[cfg(target_os = "linux")]
+    user_timeout: Option<Duration>,
+}
+trait InspectWireSocket {
+    fn inspect_socket(&self) -> Option<InspectedSocket>;
+}
+impl InspectWireSocket for wire::ObservedStream<tokio::net::TcpStream> {
+    fn inspect_socket(&self) -> Option<InspectedSocket> {
+        let stream = self.get_ref_for_test();
+        let socket = socket2::SockRef::from(stream);
+        Some(InspectedSocket {
+            nodelay: stream.nodelay().unwrap(),
+            keepalive: socket.keepalive().unwrap(),
+            #[cfg(target_os = "linux")]
+            idle: socket.tcp_keepalive_time().unwrap(),
+            #[cfg(target_os = "linux")]
+            interval: socket.tcp_keepalive_interval().unwrap(),
+            #[cfg(target_os = "linux")]
+            retries: socket.tcp_keepalive_retries().unwrap(),
+            #[cfg(target_os = "linux")]
+            user_timeout: socket.tcp_user_timeout().unwrap(),
+        })
+    }
+}
+impl InspectWireSocket for tokio_postgres::Socket {
+    fn inspect_socket(&self) -> Option<InspectedSocket> {
+        None
+    }
+}
+
+struct InspectTlsFactory {
+    inner: NamedConnector,
+    sockets: Arc<SyncMutex<Vec<InspectedSocket>>>,
+}
+struct InspectTlsConnect<T> {
+    inner: T,
+    sockets: Arc<SyncMutex<Vec<InspectedSocket>>>,
+}
+impl<S> MakeTlsConnect<S> for InspectTlsFactory
+where
+    NamedConnector: MakeTlsConnect<S>,
+    S: InspectWireSocket,
+{
+    type Stream = <NamedConnector as MakeTlsConnect<S>>::Stream;
+    type TlsConnect = InspectTlsConnect<<NamedConnector as MakeTlsConnect<S>>::TlsConnect>;
+    type Error = <NamedConnector as MakeTlsConnect<S>>::Error;
+    fn make_tls_connect(&mut self, domain: &str) -> Result<Self::TlsConnect, Self::Error> {
+        Ok(InspectTlsConnect {
+            inner: <NamedConnector as MakeTlsConnect<S>>::make_tls_connect(
+                &mut self.inner,
+                domain,
+            )?,
+            sockets: Arc::clone(&self.sockets),
+        })
+    }
+}
+impl<S, T> tokio_postgres::tls::TlsConnect<S> for InspectTlsConnect<T>
+where
+    S: InspectWireSocket,
+    T: tokio_postgres::tls::TlsConnect<S>,
+{
+    type Stream = T::Stream;
+    type Error = T::Error;
+    type Future = T::Future;
+    fn connect(self, stream: S) -> Self::Future {
+        if let Some(socket) = stream.inspect_socket() {
+            self.sockets.lock().unwrap().push(socket);
+        }
+        self.inner.connect(stream)
+    }
+}
+
+#[tokio::test]
+async fn original_business_and_cancellation_sockets_keep_the_native_socket_options() {
+    use std::io::{Read, Write};
+    let fixture = MemoryTlsFixture::new();
+    for negotiation in [Negotiation::Postgres, Negotiation::Direct] {
+        for keepalive in [false, true] {
+            let acceptor = memory_tls_acceptor(&fixture, negotiation);
+            let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+            let addr = listener.local_addr().unwrap();
+            listener.set_nonblocking(true).unwrap();
+            let peer = tokio::task::spawn_blocking(move || {
+                let business_socket = accept_fixture_socket(&listener);
+                let mut business =
+                    fixture_tls_accept(&acceptor, business_socket, negotiation).unwrap();
+                let mut length = [0; 4];
+                business.read_exact(&mut length).unwrap();
+                let mut startup = vec![0; u32::from_be_bytes(length) as usize - 4];
+                business.read_exact(&mut startup).unwrap();
+                business
+                    .write_all(b"R\0\0\0\x08\0\0\0\0K\0\0\0\x0c\0\0\0\x11\0\0\0\x17Z\0\0\0\x05I")
+                    .unwrap();
+                let cancel_socket = accept_fixture_socket(&listener);
+                let mut cancel = fixture_tls_accept(&acceptor, cancel_socket, negotiation).unwrap();
+                let mut capability = [0; 16];
+                cancel.read_exact(&mut capability).unwrap();
+                assert_eq!(
+                    capability,
+                    [0, 0, 0, 16, 4, 210, 22, 46, 0, 0, 0, 17, 0, 0, 0, 23]
+                );
+                let mut trailing = Vec::new();
+                let _ = cancel.read_to_end(&mut trailing);
+                assert!(trailing.is_empty());
+                let _ = business.read_to_end(&mut trailing);
+                assert_eq!(
+                    listener.accept().unwrap_err().kind(),
+                    std::io::ErrorKind::WouldBlock
+                );
+            });
+            let mut target = fixture.target(addr.port());
+            target.host = "private-resolver.transport.test".into();
+            target.ssl_negotiation = negotiation;
+            let mut settings = config(&target).unwrap();
+            settings
+                .keepalives(keepalive)
+                .keepalives_idle(Duration::from_secs(7));
+            #[cfg(target_os = "linux")]
+            settings
+                .keepalives_interval(Duration::from_secs(3))
+                .keepalives_retries(4)
+                .tcp_user_timeout(Duration::from_secs(6));
+            let resolver = FixtureResolver::addresses(vec![addr]);
+            let context = transport::ConnectContext::default();
+            let sockets = Arc::new(SyncMutex::new(Vec::new()));
+            let base = tls_connector(target.tls.as_ref().unwrap(), negotiation).unwrap();
+            let make_tls = |observation| InspectTlsFactory {
+                inner: base.with_observation(observation),
+                sockets: Arc::clone(&sockets),
+            };
+            let connected = transport::connect(&settings, resolver.as_ref(), &context, make_tls)
+                .await
+                .unwrap();
+            let driver = tokio::spawn(async move {
+                let _ = connected.driver.await;
+            });
+            let before = context.snapshot().unwrap();
+            let token = connected.client.cancel_token();
+            tokio::time::timeout(
+                Duration::from_secs(1),
+                connected.cancel_route.cancel(&token, make_tls),
+            )
+            .await
+            .unwrap()
+            .unwrap();
+            let after = context.snapshot().unwrap();
+            assert_eq!(after.ssl_reply(), before.ssl_reply());
+            assert_eq!(after.tls_connect_state(), before.tls_connect_state());
+            assert_eq!(after.tls_verify_code(), before.tls_verify_code());
+            assert_eq!(after.last_io_outcome(), before.last_io_outcome());
+            assert_eq!(after.socket_bytes_written(), before.socket_bytes_written());
+            assert_eq!(resolver.calls().len(), 1);
+            {
+                let sockets = sockets.lock().unwrap();
+                assert_eq!(
+                    sockets.len(),
+                    2,
+                    "inspect the actual original business and cancellation sockets"
+                );
+                for socket in sockets.iter() {
+                    assert!(socket.nodelay);
+                    assert_eq!(socket.keepalive, keepalive);
+                    #[cfg(target_os = "linux")]
+                    {
+                        assert_eq!(socket.user_timeout, Some(Duration::from_secs(6)));
+                        if keepalive {
+                            assert_eq!(socket.idle, Duration::from_secs(7));
+                            assert_eq!(socket.interval, Duration::from_secs(3));
+                            assert_eq!(socket.retries, 4);
+                        }
+                    }
+                }
+            }
+            drop(connected.client);
+            driver.abort();
             peer.await.unwrap();
         }
     }
