@@ -12,6 +12,7 @@
 	},
 	"workspaces": [
 		"packages/backend",
+		"packages/backend-rust",
 		"packages/frontend-shared",
 		"packages/frontend",
 		"packages/frontend-builder",
@@ -87,7 +88,7 @@
 		"test:backend:coverage": "cd packages/backend && bun run test-and-coverage",
 		"test": "bun run build:metadata && bun run --filter i18n --filter misskey-reversi --filter misskey-js build && bun run --workspaces --if-present test",
 		"test:coverage": "bun run --workspaces --if-present test-and-coverage",
-		"test:scripts": "bun test scripts/checks/declarations.test.mjs scripts/checks/vue-typecheck.test.mjs scripts/benchmarks/backend/runner.test.ts scripts/benchmarks/storage/run.test.mjs scripts/dev/docker.test.mjs scripts/dev/docker.integration.test.mjs --timeout 60000",
+		"test:scripts": "bun test scripts/checks/declarations.test.mjs scripts/checks/vue-typecheck.test.mjs scripts/benchmarks/backend/runner.test.ts scripts/benchmarks/storage/run.test.mjs scripts/dev/docker.test.mjs scripts/dev/docker.integration.test.mjs --timeout 60000 scripts/build/backend-rust.test.mjs",
 		"clean": "bun scripts/build/clean.mjs",
 		"clean:all": "bun scripts/build/clean-all.mjs"
 	},

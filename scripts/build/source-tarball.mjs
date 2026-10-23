@@ -17,6 +17,8 @@ import meta from "../../package.json" with { type: "json" };
 const cwd = fileURLToPath(new URL("../..", import.meta.url));
 
 const ignore = [
+	"packages/backend-rust/built",
+	"packages/backend-rust/built/**",
 	".git",
 	".git/**",
 	"**/.git",

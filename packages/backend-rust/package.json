@@ -1,0 +1,8 @@
+{
+	"name": "backend-rust",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"build:native": "bun ../../scripts/build/backend-rust.mjs"
+	}
+}

@@ -30,3 +30,5 @@ fluent-emojis/
 .idea/
 packages/*/.vscode/
 packages/backend/test/compose.yml
+
+packages/backend-rust/built/

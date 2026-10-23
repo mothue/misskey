@@ -1,0 +1,21 @@
+name: Backend Rust
+on:
+  push:
+    paths: ['packages/backend-rust/**', 'scripts/build/backend-rust*', '.github/workflows/backend-rust.yml']
+  pull_request:
+    paths: ['packages/backend-rust/**', 'scripts/build/backend-rust*', '.github/workflows/backend-rust.yml']
+  workflow_dispatch:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      CARGO_TARGET_DIR: built/target
+    defaults:
+      run:
+        working-directory: packages/backend-rust
+    steps:
+      - uses: actions/checkout@v7.0.0
+      - run: rustup toolchain install 1.99.0 --component rustfmt --component clippy --profile minimal
+      - run: cargo fmt --all --check
+      - run: cargo clippy --locked --workspace --all-targets -- -D warnings
+      - run: cargo test --locked --workspace

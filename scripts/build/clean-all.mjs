@@ -8,6 +8,7 @@ import * as fs from 'node:fs';
 const rootDir = import.meta.dirname + '/../..';
 
 (async () => {
+	fs.rmSync(rootDir + '/packages/backend-rust/built', { recursive: true, force: true });
 	fs.rmSync(rootDir + '/packages/backend/built', { recursive: true, force: true });
 	fs.rmSync(rootDir + '/packages/backend/src-js', { recursive: true, force: true });
 	fs.rmSync(rootDir + '/packages/backend/node_modules', { recursive: true, force: true });

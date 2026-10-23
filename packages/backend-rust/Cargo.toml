@@ -1,0 +1,8 @@
+[workspace]
+members = ["core", "bridge"]
+resolver = "2"
+
+[workspace.package]
+edition = "2024"
+license = "AGPL-3.0-only"
+rust-version = "1.99"
