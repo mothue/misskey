@@ -81,8 +81,9 @@ export class ServerService implements OnApplicationShutdown, BeforeApplicationSh
 
 	@bindThis
 	public async launch(): Promise<void> {
-		await this.rustBackendService.start();
 		try {
+			await this.apiServerService.prepareRustApi();
+			await this.rustBackendService.start();
 			await this.launchHttp();
 		} catch (error) {
 			await this.dispose();
@@ -321,7 +322,11 @@ export class ServerService implements OnApplicationShutdown, BeforeApplicationSh
 			await this.httpShutdown?.close(() => this.streamingApiServerService.detach())
 				.catch(err => this.logger.error('HTTP shutdown failed', err as Error));
 		} finally {
-			await this.rustBackendService.stop();
+			try {
+				await this.rustBackendService.stop();
+			} finally {
+				await this.apiServerService.stop();
+			}
 		}
 	}
 

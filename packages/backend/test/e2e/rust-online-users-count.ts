@@ -47,7 +47,7 @@ describe('Rust online users count', () => {
 		} finally { await connection.destroy(); }
 	});
 
-	test('TS rejects malformed JSON and non-object parameters', async () => {
+	test('Rust kernel rejects malformed JSON and non-object parameters', async () => {
 		for (const body of ['{', '[]', 'null', '42']) {
 			const response = await fetch(`http://127.0.0.1:${loadConfig().port}/api/get-online-users-count`, {
 				method: 'POST', headers: { 'content-type': 'application/json' }, body,

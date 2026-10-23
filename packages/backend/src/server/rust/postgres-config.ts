@@ -178,3 +178,9 @@ export async function resolveRustPostgresConfig(config?: DatabaseConfig): Promis
 		return Buffer.byteLength(JSON.stringify(result)) <= 8 * 1024 * 1024 ? result : null;
 	} catch { return null; }
 }
+
+/** Authentication writes use the primary even when reads use replicas. */
+export async function resolveRustPrimaryTarget(config?: DatabaseConfig): Promise<RustPostgresTarget | null> {
+	if (!config) return null;
+	try { return await normalizeTarget(config, config.db); } catch { return null; }
+}

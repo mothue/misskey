@@ -76,3 +76,7 @@ Run Cargo commands inside `packages/backend-rust`: `cargo test --locked --worksp
 ## Online-user count cloud unit (2026-10-23)
 
 See [online-users-count-validation.md](online-users-count-validation.md) for the new PostgreSQL-backed operation, current commands, real DB/TLS/HTTP evidence and failed attempts. Prior sections remain historical.
+
+## Common API infrastructure migration (2026-10-23)
+
+See [api-kernel-validation.md](api-kernel-validation.md) for the current working-tree scope, cloud reruns and unresolved compatibility acceptance. Earlier green records do not imply this unit is accepted or pushed.

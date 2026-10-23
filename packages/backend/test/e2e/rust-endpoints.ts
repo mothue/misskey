@@ -31,7 +31,7 @@ describe('Rust endpoint catalog', () => {
 		assert.deepEqual(await response.json(), original.body);
 	});
 
-	test('TS rejects malformed JSON and non-object input before dispatch', async () => {
+	test('Rust kernel rejects malformed JSON and non-object input before dispatch', async () => {
 		for (const body of ['{', '[]', 'null', '42']) {
 			const response = await fetch(`http://127.0.0.1:${loadConfig().port}/api/endpoints`, {
 				method: 'POST',

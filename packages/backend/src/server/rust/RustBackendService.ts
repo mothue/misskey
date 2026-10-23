@@ -29,12 +29,12 @@ export class RustBackendTransport {
 	private readonly pending = new Set<AbortController>();
 	constructor(private readonly executable: string, private readonly args: string[] = []) {}
 	isReady(): boolean { return this.ready; }
-	start(endpoints: unknown, postgres: RustPostgresConfig | null = null): Promise<void> {
+	start(endpoints: unknown, postgres: RustPostgresConfig | null = null, api?: unknown): Promise<void> {
 		if (this.stopped) return Promise.reject(unavailable());
-		return this.startPromise ??= this.launch(endpoints, postgres).catch(async () => { await this.stop(); throw unavailable(); });
+		return this.startPromise ??= this.launch(endpoints, postgres, api).catch(async () => { await this.stop(); throw unavailable(); });
 	}
-	private async launch(endpoints: unknown, postgres: RustPostgresConfig | null): Promise<void> {
-		const bootstrap = Buffer.from(`${JSON.stringify({ v: 1, token: this.token, endpoints, postgres })}\n`);
+	private async launch(endpoints: unknown, postgres: RustPostgresConfig | null, api?: unknown): Promise<void> {
+		const bootstrap = Buffer.from(`${JSON.stringify({ v: 1, token: this.token, endpoints, postgres, ...(api === undefined ? {} : { api }) })}\n`);
 		if (bootstrap.length > MAX_BYTES) throw unavailable();
 		const child = spawn(this.executable, this.args, { stdio: ['pipe', 'pipe', 'pipe'] });
 		this.child = child;
@@ -88,6 +88,35 @@ export class RustBackendTransport {
 			return JSON.parse(Buffer.concat(chunks).toString('utf8'));
 		} catch { throw unavailable(); } finally { clearTimeout(timer); this.pending.delete(controller); }
 	}
+	async api(context: Record<string, unknown>, body: ReadableStream<Uint8Array> | null, signal?: AbortSignal): Promise<Response> {
+		if (!this.ready) throw unavailable();
+		const controller = new AbortController();
+		this.pending.add(controller);
+		const cleanup = () => this.pending.delete(controller);
+		try {
+			const response = await fetch(`http://127.0.0.1:${this.port}/api-request`, {
+				method: 'POST',
+				headers: { authorization: `Bearer ${this.token}`, 'x-misskey-api-context': Buffer.from(JSON.stringify(context)).toString('base64') },
+				body,
+				signal: signal ? AbortSignal.any([signal, controller.signal]) : controller.signal,
+				redirect: 'error',
+				// Node and Bun require this for streamed HTTP request bodies.
+				duplex: 'half',
+			} as RequestInit);
+			if (!response.body) { cleanup(); return response; }
+			const reader = response.body.getReader();
+			const stream = new ReadableStream<Uint8Array>({
+				async pull(target) {
+					try {
+						const { done, value } = await reader.read();
+						if (done) { cleanup(); target.close(); } else target.enqueue(value);
+					} catch (error) { cleanup(); target.error(error); }
+				},
+				async cancel(reason) { controller.abort(); cleanup(); await reader.cancel(reason); },
+			});
+			return new Response(stream, { status: response.status, headers: response.headers });
+		} catch { cleanup(); throw unavailable(); }
+	}
 	stop(): Promise<void> {
 		this.stopped = true;
 		this.ready = false;
@@ -111,16 +140,24 @@ export class RustBackendTransport {
 export class RustBackendService implements OnApplicationShutdown {
 	private readonly transport = new RustBackendTransport(join(findCodeRoot(), 'packages/backend-rust/built/bin', `misskey-backend-rust${process.platform === 'win32' ? '.exe' : ''}`));
 	constructor(@Optional() @Inject(DI.config) private readonly config?: Pick<Config, 'db' | 'dbReplications' | 'dbSlaves'>) {}
+	private apiConfig?: unknown;
+	configureApi(config: unknown): void { this.apiConfig = config; }
 	async start(): Promise<void> {
 		try {
 			const { default: endpoints } = await import('../api/endpoints.js');
 			const postgres = await resolveRustPostgresConfig(this.config);
-			await this.transport.start(endpoints.map(endpoint => ({ nameUtf16: encodeUtf16(endpoint.name), properties: Object.entries(endpoint.params.properties ?? {}).map(([name, schema]) => ({ nameUtf16: encodeUtf16(name), type: schema.type ?? null })) })), postgres);
+			await this.transport.start(endpoints.map(endpoint => ({ nameUtf16: encodeUtf16(endpoint.name), properties: Object.entries(endpoint.params.properties ?? {}).map(([name, schema]) => ({ nameUtf16: encodeUtf16(name), type: schema.type ?? null })) })), postgres, this.apiConfig);
 		} catch { throw unavailable(); }
 	}
 	stop(): Promise<void> { return this.transport.stop(); }
 	onApplicationShutdown(): Promise<void> { return this.stop(); }
 	isReady(): boolean { return this.transport.isReady(); }
+	async api(context: { v: 1; requestId: string; path: string; method: string; ip: string; headers: Record<string, string | string[] | undefined> }, body: ReadableStream<Uint8Array> | null, signal?: AbortSignal): Promise<Response> {
+		try { return await this.transport.api(context, body, signal); } catch {
+			const error = unavailable();
+			return new Response(JSON.stringify({ error: { message: error.message, code: error.code, id: error.id, kind: error.kind } }), { status: 503, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'private, max-age=0, must-revalidate', 'access-control-allow-origin': '*' } });
+		}
+	}
 	async ping(): Promise<{ pong: number }> {
 		try { return decodePing(await this.transport.rpc({ v: 1, op: 'ping' })); } catch { throw unavailable(); }
 	}
