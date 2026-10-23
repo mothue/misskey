@@ -1,0 +1,37 @@
+status,runtime,mode,interface,outcome,phase,exception_name,message,runtime_code,instanceof_error
+BASELINE,bun-1.4.4,stall,TypeORM QueryRunner,error,connect,Error,Connection terminated due to connection timeout,,True
+BASELINE,bun-1.4.4,startup_fatal,TypeORM QueryRunner,error,connect,error,fixture startup rejected,57P03,True
+BASELINE,bun-1.4.4,startup_disconnect,TypeORM QueryRunner,error,connect,Error,Connection terminated unexpectedly,,True
+BASELINE,bun-1.4.4,ssl_refusal,TypeORM QueryRunner,error,connect,Error,The server does not support SSL connections,,True
+BASELINE,bun-1.4.4,ssl_bad_response,TypeORM QueryRunner,error,connect,Error,There was an error establishing an SSL connection,,True
+BASELINE,bun-1.4.4,ssl_disconnect,TypeORM QueryRunner,error,connect,Error,Connection terminated unexpectedly,,True
+BASELINE,bun-1.4.4,tls_untrusted,TypeORM QueryRunner,error,connect,Error,unable to verify the first certificate,UNABLE_TO_VERIFY_LEAF_SIGNATURE,True
+BASELINE,bun-1.4.4,tls_wrong_hostname,TypeORM QueryRunner,error,connect,Error,Hostname/IP does not match certificate's altnames: Host: localhost. is not in the cert's altnames: DNS:wrong.example.invalid,ERR_TLS_CERT_ALTNAME_INVALID,True
+BASELINE,bun-1.4.4,tls_healthy,TypeORM QueryRunner,success,query,,,,
+BASELINE,bun-1.4.4,tls_handshake_disconnect,TypeORM QueryRunner,error,connect,Error,Socket is closed,ERR_SOCKET_CLOSED,True
+BASELINE,bun-1.4.4,midquery_disconnect,TypeORM QueryRunner,error,query,QueryFailedError,Connection terminated unexpectedly,,True
+BASELINE,bun-1.4.4,midquery_reset,TypeORM QueryRunner,error,query,QueryFailedError,read ECONNRESET,ECONNRESET,True
+BASELINE,bun-1.4.4,query_error,TypeORM QueryRunner,error,query,QueryFailedError,fixture query rejected,22003,True
+BASELINE,bun-1.4.4,query_stall,TypeORM QueryRunner,error,query,QueryFailedError,Query read timeout,,True
+BASELINE,bun-1.4.4,healthy,TypeORM QueryRunner,success,query,,,,
+BASELINE,bun-1.4.4,refused_ipv4,TypeORM QueryRunner,error,connect,Error,connect ECONNREFUSED 127.0.0.1:41075,ECONNREFUSED,True
+BASELINE,bun-1.4.4,refused_ipv6,TypeORM QueryRunner,error,connect,Error,connect ECONNREFUSED ::1:44617,ECONNREFUSED,True
+BASELINE,bun-1.4.4,dns_invalid,TypeORM QueryRunner,error,connect,DNSException,getaddrinfo EAI_AGAIN pg-fault-baseline.invalid,EAI_AGAIN,True
+BASELINE,node-24.19.0,stall,TypeORM QueryRunner,error,connect,Error,Connection terminated due to connection timeout,,True
+BASELINE,node-24.19.0,startup_fatal,TypeORM QueryRunner,error,connect,error,fixture startup rejected,57P03,True
+BASELINE,node-24.19.0,startup_disconnect,TypeORM QueryRunner,error,connect,Error,Connection terminated unexpectedly,,True
+BASELINE,node-24.19.0,ssl_refusal,TypeORM QueryRunner,error,connect,Error,The server does not support SSL connections,,True
+BASELINE,node-24.19.0,ssl_bad_response,TypeORM QueryRunner,error,connect,Error,There was an error establishing an SSL connection,,True
+BASELINE,node-24.19.0,ssl_disconnect,TypeORM QueryRunner,error,connect,Error,Connection terminated unexpectedly,,True
+BASELINE,node-24.19.0,tls_untrusted,TypeORM QueryRunner,error,connect,Error,"unable to verify the first certificate; if the root CA is installed locally, try running Node.js with --use-system-ca",UNABLE_TO_VERIFY_LEAF_SIGNATURE,True
+BASELINE,node-24.19.0,tls_wrong_hostname,TypeORM QueryRunner,error,connect,Error,Hostname/IP does not match certificate's altnames: Host: localhost. is not in the cert's altnames: DNS:wrong.example.invalid,ERR_TLS_CERT_ALTNAME_INVALID,True
+BASELINE,node-24.19.0,tls_healthy,TypeORM QueryRunner,success,query,,,,
+BASELINE,node-24.19.0,tls_handshake_disconnect,TypeORM QueryRunner,error,connect,Error,Client network socket disconnected before secure TLS connection was established,ECONNRESET,True
+BASELINE,node-24.19.0,midquery_disconnect,TypeORM QueryRunner,error,query,QueryFailedError,Connection terminated unexpectedly,,True
+BASELINE,node-24.19.0,midquery_reset,TypeORM QueryRunner,error,query,QueryFailedError,read ECONNRESET,ECONNRESET,True
+BASELINE,node-24.19.0,query_error,TypeORM QueryRunner,error,query,QueryFailedError,fixture query rejected,22003,True
+BASELINE,node-24.19.0,query_stall,TypeORM QueryRunner,error,query,QueryFailedError,Query read timeout,,True
+BASELINE,node-24.19.0,healthy,TypeORM QueryRunner,success,query,,,,
+BASELINE,node-24.19.0,refused_ipv4,TypeORM QueryRunner,error,connect,Error,connect ECONNREFUSED 127.0.0.1:41075,ECONNREFUSED,True
+BASELINE,node-24.19.0,refused_ipv6,TypeORM QueryRunner,error,connect,Error,connect ECONNREFUSED ::1:44617,ECONNREFUSED,True
+BASELINE,node-24.19.0,dns_invalid,TypeORM QueryRunner,error,connect,Error,getaddrinfo EAI_AGAIN pg-fault-baseline.invalid,EAI_AGAIN,True

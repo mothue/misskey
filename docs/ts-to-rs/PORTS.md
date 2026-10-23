@@ -16,6 +16,8 @@ Do not change frontend product code, slacc source, database schemas or locales. 
 
 Current database-read candidate, fault hold, benchmark and final-state evidence is in [db-read-validation.md](db-read-validation.md). The migrated foundation and its three explicitly approved compatibility corrections are in [api-kernel-validation.md](api-kernel-validation.md); Issues49/50/51 are user-owned. Earlier [endpoints](endpoints-validation.md) and [online-user-count](online-users-count-validation.md) results remain historical.
 
+The subsequent [PostgreSQL fault-source retention unit](postgres-fault-validation.md) preserves concrete connection/driver causes internally while keeping the existing opaque callers unchanged. Its Bun/Node baseline matrix and remaining-business inventory do not establish public connection-fault parity; the24read activations and separate4date-pagination APIs remain held.
+
 ## API application and temporary transport
 
 The workspace adds `api-runtime`, `api-auth`, and `api-validation`; `core` remains standard-library-only. Runtime dispatch and auth depend on domain/store interfaces, not the TS public listener. Auth's PostgreSQL store reuses the adapter's TLS, cancellation and shutdown handling, with separate primary/write and read-only replica slots. Configured query deadlines remain effective; the old count operation retains its four-second deadline. Business callbacks are not capped by the former five-second catalog-RPC deadline.
