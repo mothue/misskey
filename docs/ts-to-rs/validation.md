@@ -72,3 +72,7 @@ node scripts/checks/shipping.mjs --base d875b7e3c737b7f9f75331fffb691f6a2b97f055
 ```
 
 Run Cargo commands inside `packages/backend-rust`: `cargo test --locked --workspace`, `cargo clippy --locked --workspace --all-targets -- -D warnings`, and `cargo fmt --all -- --check`. Backend tests require the dedicated test dependencies and `.config/test.yml`. Do not run two DB-resetting suites against the same test database concurrently. Benchmark servers must exclusively own port 61912, and timed measurements must run without concurrent tests/builds.
+
+## Online-user count cloud unit (2026-10-23)
+
+See [online-users-count-validation.md](online-users-count-validation.md) for the new PostgreSQL-backed operation, current commands, real DB/TLS/HTTP evidence and failed attempts. Prior sections remain historical.

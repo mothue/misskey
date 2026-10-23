@@ -1,4 +1,6 @@
-use misskey_backend_core::{Catalog, Endpoint, Property, echo, ping_at};
+use misskey_backend_core::{
+    Catalog, Endpoint, Property, echo, online_users_count, online_users_cutoff, ping_at,
+};
 use std::time::{Duration, UNIX_EPOCH};
 
 #[test]
@@ -84,4 +86,31 @@ fn catalog_names_preserves_order_duplicates_and_every_utf16_unit() {
 #[test]
 fn empty_catalog_has_no_names() {
     assert!(Catalog::new(vec![]).names().is_empty());
+}
+
+#[test]
+fn online_cutoff_uses_one_millisecond_clock_and_ten_minutes() {
+    assert_eq!(
+        online_users_cutoff(UNIX_EPOCH + Duration::from_micros(1_234_567)),
+        Ok(-598_766)
+    );
+    assert_eq!(online_users_cutoff(UNIX_EPOCH), Ok(-600_000));
+    assert!(
+        online_users_cutoff(UNIX_EPOCH + Duration::from_millis(9_007_199_254_740_992)).is_err()
+    );
+}
+
+#[test]
+fn online_count_keeps_the_existing_js_number_rounding() {
+    for (count, number) in [
+        (0, 0.0),
+        (1, 1.0),
+        (9_007_199_254_740_991, 9_007_199_254_740_991.0),
+        (9_007_199_254_740_992, 9_007_199_254_740_992.0),
+        (9_007_199_254_740_993, 9_007_199_254_740_992.0),
+        (i64::MAX, 9_223_372_036_854_775_808.0),
+    ] {
+        assert_eq!(online_users_count(count), Ok(number));
+    }
+    assert!(online_users_count(-1).is_err());
 }

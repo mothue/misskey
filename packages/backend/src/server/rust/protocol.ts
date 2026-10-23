@@ -16,6 +16,14 @@ export function decodePing(value: unknown): { pong: number } {
 	if (typeof result.pong !== 'number' || !Number.isSafeInteger(result.pong)) throw new Error('Invalid clock');
 	return { pong: result.pong };
 }
+
+export function decodeOnlineUsersCount(value: unknown): { count: number } {
+	const { count } = envelope(value, 'get-online-users-count');
+	// PostgreSQL COUNT is a nonnegative int8. Existing pg/TypeORM converts it to
+	// Number, including rounding outside the safe integer range; preserve that.
+	if (typeof count !== 'number' || !Number.isInteger(count) || count < 0 || count > Number(9223372036854775807n)) throw new Error('Invalid count');
+	return { count };
+}
 export type TestResult = Record<string, unknown> & { required: boolean; nullableDefault: string | null; id?: string; string?: string; default?: string };
 
 function testObject(value: unknown): value is TestResult {

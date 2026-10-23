@@ -4,11 +4,80 @@
  */
 import { fileURLToPath } from 'node:url';
 import { expect, test, vi } from 'vitest';
-import { decodePing, decodeTest, decodeEndpoint, decodeEndpoints, encodeUtf16 } from './protocol.js';
+import { decodePing, decodeTest, decodeEndpoint, decodeEndpoints, decodeOnlineUsersCount, encodeUtf16 } from './protocol.js';
 
 test('ping rejects unsafe numbers and wrong envelopes', () => {
  expect(decodePing({ v: 1, op: 'ping', pong: 42 })).toEqual({ pong: 42 });
  for (const value of [{ v: 2, op: 'ping', pong: 42 }, { v: 1, op: 'test', pong: 42 }, { v: 1, op: 'ping', pong: 1.5 }, { v: 1, op: 'ping', pong: 9007199254740992 }]) expect(() => decodePing(value)).toThrow();
+});
+
+test('online count decoder preserves pg/TypeORM Number rounding including int8 boundaries', () => {
+	for (const input of ['0', '1', '9007199254740991', '9007199254740992', '9007199254740993', '9007199254740995', '9223372036854775807']) {
+		const pgCount = Number(input);
+		const count = pgCount ? parseInt(String(pgCount)) : 0;
+		expect(decodeOnlineUsersCount({ v: 1, op: 'get-online-users-count', count })).toEqual({ count });
+	}
+});
+
+test('online count decoder rejects invalid envelopes, missing, nullable and out-of-range values', () => {
+	for (const value of [null, {}, [], { v: 2, op: 'get-online-users-count', count: 0 }, { v: 1, op: 'ping', count: 0 }]) {
+		expect(() => decodeOnlineUsersCount(value)).toThrow();
+	}
+	for (const count of [undefined, null, '1', 1n, -1, 0.1, NaN, Infinity, -Infinity, 1e19, {}]) {
+		expect(() => decodeOnlineUsersCount({ v: 1, op: 'get-online-users-count', count })).toThrow();
+	}
+});
+
+test('online count maps invalid responses and private failures to fixed503 without retry', async () => {
+	const { RustBackendService, RustBackendTransport } = await import('./RustBackendService.js');
+	const rpc = vi.spyOn(RustBackendTransport.prototype, 'rpc');
+	const service = new RustBackendService();
+	try {
+		for (const value of [{ v: 1, op: 'get-online-users-count', count: -1 }, { v: 1, op: 'get-online-users-count', count: null }, { v: 1, op: 'ping', count: 1 }]) {
+			rpc.mockResolvedValueOnce(value);
+			await expect(service.getOnlineUsersCount()).rejects.toMatchObject({ code: 'RUST_BACKEND_UNAVAILABLE', httpStatusCode: 503, kind: 'server', id: '91600ba8-92ad-48fa-9afd-d6c615f06946' });
+			expect(rpc).toHaveBeenCalledExactlyOnceWith({ v: 1, op: 'get-online-users-count' });
+			rpc.mockClear();
+		}
+		rpc.mockRejectedValueOnce(new Error('private DB credentials'));
+		await expect(service.getOnlineUsersCount()).rejects.toMatchObject({ message: 'Rust backend unavailable.', code: 'RUST_BACKEND_UNAVAILABLE', httpStatusCode: 503 });
+		expect(rpc).toHaveBeenCalledExactlyOnceWith({ v: 1, op: 'get-online-users-count' });
+	} finally { rpc.mockRestore(); await service.stop(); }
+});
+
+test('DB credentials are supplied in the bootstrap and operation responses are decoded', async () => {
+	const { RustBackendTransport } = await import('./RustBackendService.js');
+	const { resolveRustPostgresConfig } = await import('./postgres-config.js');
+	const postgres = await resolveRustPostgresConfig({
+		db: { host: 'fixture-db.test', port: 5432, db: 'fixture', user: 'fixture-user', pass: 'fixture-password', extra: { ssl: false } },
+		dbReplications: false, dbSlaves: undefined,
+	});
+	expect(postgres).not.toBeNull();
+	const source = `let bytes='';process.stdin.on('data',chunk=>{bytes+=chunk;if(!bytes.includes('\\n'))return;const b=JSON.parse(bytes);if(typeof b.postgres?.targets?.[0]?.password!=='string')process.exit(8);const s=require('node:http').createServer((q,r)=>r.end(JSON.stringify({v:1,op:'get-online-users-count',count:7})));s.listen(0,'127.0.0.1',()=>console.log(JSON.stringify({v:1,port:s.address().port})));process.stdin.removeAllListeners('data');process.stdin.on('end',()=>s.close());});`;
+	const transport = new RustBackendTransport(process.execPath, ['-e', source]);
+	try {
+		await transport.start([], postgres);
+		expect(decodeOnlineUsersCount(await transport.rpc({ v: 1, op: 'get-online-users-count' }))).toEqual({ count: 7 });
+	} finally { await transport.stop(); }
+});
+
+test('unsupported DB configuration leaves real catalog operations ready and only count unavailable', async () => {
+	const { RustBackendService } = await import('./RustBackendService.js');
+	vi.doMock('../api/endpoints.js', () => ({ default: [{ name: 'ping', params: { properties: {} } }] }));
+	const service = new RustBackendService({
+		db: { host: 'must-not-connect.test', port: 5432, db: 'fixture', user: 'fixture', pass: 'fixture-password', extra: { unsupported: 'setting' } },
+		dbReplications: false, dbSlaves: undefined,
+	});
+	try {
+		await service.start();
+		expect(service.isReady()).toBe(true);
+		expect(await service.endpoints()).toEqual(['ping']);
+		expect(await service.ping()).toEqual({ pong: expect.any(Number) });
+		await expect(service.getOnlineUsersCount()).rejects.toMatchObject({ message: 'Rust backend unavailable.', code: 'RUST_BACKEND_UNAVAILABLE', httpStatusCode: 503 });
+		expect(service.isReady()).toBe(true);
+		await service.stop();
+		await expect(service.getOnlineUsersCount()).rejects.toMatchObject({ code: 'RUST_BACKEND_UNAVAILABLE', httpStatusCode: 503 });
+	} finally { await service.stop(); vi.doUnmock('../api/endpoints.js'); }
 });
 test('test restores exact opaque JSON including surrogates and extras', () => {
  const json = '{"required":true,"nullableDefault":"hello","extra":{"x":"\\ud800"},"n":1e+30}';

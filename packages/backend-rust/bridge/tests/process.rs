@@ -129,6 +129,22 @@ fn endpoints_returns_an_empty_array_for_an_empty_catalog() {
     );
 }
 #[test]
+fn missing_database_configuration_only_disables_the_database_operation() {
+    let server = start();
+    let (status, body) = request(
+        &server,
+        &format!("Bearer {TOKEN}"),
+        r#"{"v":1,"op":"get-online-users-count"}"#,
+    );
+    assert_eq!(status, 503);
+    assert_eq!(body, "Rust backend unavailable");
+    assert_eq!(rpc(&server, json!({"v":1,"op":"ping"}))["op"], "ping");
+    assert_eq!(
+        rpc(&server, json!({"v":1,"op":"endpoints"}))["endpointsUtf16"],
+        json!([[55296]])
+    );
+}
+#[test]
 fn rejects_unauthorized_malformed_versions_ops_and_oversize() {
     let server = start();
     assert_eq!(
@@ -151,6 +167,8 @@ fn rejects_unauthorized_malformed_versions_ops_and_oversize() {
         r#"{"op":"endpoints"}"#,
         r#"{"v":1,"op":"endpoints","endpointUtf16":[]}"#,
         r#"{"v":1,"op":"endpoints","extra":null}"#,
+        r#"{"v":2,"op":"get-online-users-count"}"#,
+        r#"{"v":1,"op":"get-online-users-count","extra":null}"#,
     ] {
         let (status, body) = request(&server, &format!("Bearer {TOKEN}"), body);
         assert_eq!(status, 400);

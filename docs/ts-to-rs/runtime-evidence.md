@@ -40,3 +40,7 @@ Associated focused tests use real controlled subprocesses for missing executable
 Missing-executable startup is exercised at the transport boundary rather than by removing the shared production binary. Actual missing-binary boot/cluster failure reporting was not probed in this run. Full HTTP differential, browser checks, suite/build/type generation and paired benchmarks are recorded by their owning acceptance tasks.
 
 Final scoped verification: PASS17 tests across2 files, including exact16MiB acceptance and16MiB+1 rejection (`built/ts-to-rs/task3-final-fault-tests.log`); PASS changed-test ESLint (`task3-final-fault-eslint.log`). A final isolated startup timeout rerun additionally checks elapsed time remains within9.5–15s and the silent child's PID has exited.
+
+## PostgreSQL-backed online count
+
+The 2026-10-23 unit adds lazy read-only SQL, bounded CancelRequest, and shutdown during connection establishment. See [current cloud evidence](online-users-count-validation.md); older runtime measurements are not current test runs.

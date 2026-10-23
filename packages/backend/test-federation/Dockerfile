@@ -5,7 +5,7 @@ FROM rust:${RUST_VERSION}-bookworm AS rust
 FROM oven/bun:${BUN_VERSION}
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends build-essential cmake \
+    && apt-get install -y --no-install-recommends build-essential cmake pkg-config libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=rust /usr/local/cargo /usr/local/cargo

@@ -59,3 +59,17 @@ pub fn ping_at(now: SystemTime) -> Result<i64, &'static str> {
 pub fn echo(params_json: &str) -> &str {
     params_json
 }
+
+/// Match Date.now() - USER_ONLINE_THRESHOLD, sampled once per operation.
+pub fn online_users_cutoff(now: SystemTime) -> Result<i64, &'static str> {
+    ping_at(now)?.checked_sub(600_000).ok_or("invalid clock")
+}
+
+/// PostgreSQL COUNT is int8; pg's Number parser and TypeORM getCount expose a
+/// JavaScript number, including its rounding above MAX_SAFE_INTEGER.
+pub fn online_users_count(count: i64) -> Result<f64, &'static str> {
+    if count < 0 {
+        return Err("invalid count");
+    }
+    count.to_string().parse().map_err(|_| "invalid count")
+}

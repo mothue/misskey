@@ -5,11 +5,14 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { join } from 'node:path';
-import { Injectable, type OnApplicationShutdown } from '@nestjs/common';
+import { Inject, Injectable, Optional, type OnApplicationShutdown } from '@nestjs/common';
+import type { Config } from '@/config.js';
+import { DI } from '@/di-symbols.js';
 import { ApiError } from '@/server/api/error.js';
-import { decodeEndpoint, decodeEndpoints, decodePing, decodeTest, encodeUtf16, object } from './protocol.js';
+import { decodeEndpoint, decodeEndpoints, decodeOnlineUsersCount, decodePing, decodeTest, encodeUtf16, object } from './protocol.js';
 import type { TestResult } from './protocol.js';
 import { findCodeRoot } from './source-root.js';
+import { resolveRustPostgresConfig, type RustPostgresConfig } from './postgres-config.js';
 
 const MAX_BYTES = 16 * 1024 * 1024;
 const unavailable = () => new ApiError({ message: 'Rust backend unavailable.', code: 'RUST_BACKEND_UNAVAILABLE', id: '91600ba8-92ad-48fa-9afd-d6c615f06946', kind: 'server', httpStatusCode: 503 });
@@ -26,12 +29,12 @@ export class RustBackendTransport {
 	private readonly pending = new Set<AbortController>();
 	constructor(private readonly executable: string, private readonly args: string[] = []) {}
 	isReady(): boolean { return this.ready; }
-	start(endpoints: unknown): Promise<void> {
+	start(endpoints: unknown, postgres: RustPostgresConfig | null = null): Promise<void> {
 		if (this.stopped) return Promise.reject(unavailable());
-		return this.startPromise ??= this.launch(endpoints).catch(async () => { await this.stop(); throw unavailable(); });
+		return this.startPromise ??= this.launch(endpoints, postgres).catch(async () => { await this.stop(); throw unavailable(); });
 	}
-	private async launch(endpoints: unknown): Promise<void> {
-		const bootstrap = Buffer.from(`${JSON.stringify({ v: 1, token: this.token, endpoints })}\n`);
+	private async launch(endpoints: unknown, postgres: RustPostgresConfig | null): Promise<void> {
+		const bootstrap = Buffer.from(`${JSON.stringify({ v: 1, token: this.token, endpoints, postgres })}\n`);
 		if (bootstrap.length > MAX_BYTES) throw unavailable();
 		const child = spawn(this.executable, this.args, { stdio: ['pipe', 'pipe', 'pipe'] });
 		this.child = child;
@@ -107,10 +110,12 @@ export class RustBackendTransport {
 @Injectable()
 export class RustBackendService implements OnApplicationShutdown {
 	private readonly transport = new RustBackendTransport(join(findCodeRoot(), 'packages/backend-rust/built/bin', `misskey-backend-rust${process.platform === 'win32' ? '.exe' : ''}`));
+	constructor(@Optional() @Inject(DI.config) private readonly config?: Pick<Config, 'db' | 'dbReplications' | 'dbSlaves'>) {}
 	async start(): Promise<void> {
 		try {
 			const { default: endpoints } = await import('../api/endpoints.js');
-			await this.transport.start(endpoints.map(endpoint => ({ nameUtf16: encodeUtf16(endpoint.name), properties: Object.entries(endpoint.params.properties ?? {}).map(([name, schema]) => ({ nameUtf16: encodeUtf16(name), type: schema.type ?? null })) })));
+			const postgres = await resolveRustPostgresConfig(this.config);
+			await this.transport.start(endpoints.map(endpoint => ({ nameUtf16: encodeUtf16(endpoint.name), properties: Object.entries(endpoint.params.properties ?? {}).map(([name, schema]) => ({ nameUtf16: encodeUtf16(name), type: schema.type ?? null })) })), postgres);
 		} catch { throw unavailable(); }
 	}
 	stop(): Promise<void> { return this.transport.stop(); }
@@ -128,5 +133,8 @@ export class RustBackendService implements OnApplicationShutdown {
 	}
 	async endpoints(): Promise<string[]> {
 		try { return decodeEndpoints(await this.transport.rpc({ v: 1, op: 'endpoints' })); } catch { throw unavailable(); }
+	}
+	async getOnlineUsersCount(): Promise<{ count: number }> {
+		try { return decodeOnlineUsersCount(await this.transport.rpc({ v: 1, op: 'get-online-users-count' })); } catch { throw unavailable(); }
 	}
 }

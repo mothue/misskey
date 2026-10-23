@@ -8,6 +8,18 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: online-adapter
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     env:
       CARGO_TARGET_DIR: built/target
     defaults:
@@ -15,7 +27,11 @@ jobs:
         working-directory: packages/backend-rust
     steps:
       - uses: actions/checkout@v7.0.0
+      - run: sudo apt-get update && sudo apt-get install -y pkg-config libssl-dev
       - run: rustup toolchain install 1.99.0 --component rustfmt --component clippy --profile minimal
       - run: cargo fmt --all --check
       - run: cargo clippy --locked --workspace --all-targets -- -D warnings
       - run: cargo test --locked --workspace
+      - run: cargo test --locked -p misskey-backend-postgres -- --ignored
+        env:
+          MISSKEY_POSTGRES_TEST_CONFIG: storage-postgres/tests/fixtures/local.json

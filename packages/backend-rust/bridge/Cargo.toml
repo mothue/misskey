@@ -7,6 +7,7 @@ rust-version.workspace = true
 
 [dependencies]
 misskey-backend-core = { path = "../core" }
+misskey-backend-postgres = { path = "../storage-postgres" }
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "signal", "time", "sync"] }
 axum = "0.8"
 serde = { version = "1", features = ["derive"] }

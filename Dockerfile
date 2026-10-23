@@ -16,7 +16,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 	; echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache \
 	&& apt-get update \
 	&& apt-get install -yqq --no-install-recommends \
-	build-essential cmake
+	build-essential cmake pkg-config libssl-dev
 
 COPY --from=build-rust /usr/local/cargo /usr/local/cargo
 COPY --from=build-rust /usr/local/rustup /usr/local/rustup
@@ -68,7 +68,7 @@ FROM --platform=$TARGETPLATFORM oven/bun:${BUN_VERSION} AS target-builder
 
 RUN apt-get update \
 	&& apt-get install -yqq --no-install-recommends \
-	build-essential cmake
+	build-essential cmake pkg-config libssl-dev
 
 COPY --from=target-rust /usr/local/cargo /usr/local/cargo
 COPY --from=target-rust /usr/local/rustup /usr/local/rustup
@@ -117,7 +117,7 @@ ARG GID="991"
 
 RUN apt-get update \
 	&& apt-get install -y --no-install-recommends \
-	ffmpeg tini curl libjemalloc-dev libjemalloc2 \
+	ffmpeg tini curl libjemalloc-dev libjemalloc2 libssl3 \
 	&& ln -s /usr/lib/$(uname -m)-linux-gnu/libjemalloc.so.2 /usr/local/lib/libjemalloc.so \
 	&& groupadd -g "${GID}" misskey \
 	&& useradd -l -u "${UID}" -g "${GID}" -m -d /misskey misskey \

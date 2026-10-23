@@ -8,6 +8,7 @@ use axum::{
     routing::post,
 };
 use misskey_backend_core::{Catalog, Endpoint, Property, echo, ping_at};
+use misskey_backend_postgres::{OnlineUsers, PostgresConfig};
 use serde::{Deserialize, Serialize};
 use std::{
     future::IntoFuture,
@@ -26,6 +27,8 @@ struct Bootstrap {
     v: u8,
     token: String,
     endpoints: Vec<EndpointDefinition>,
+    #[serde(default)]
+    postgres: Option<PostgresConfig>,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
@@ -56,6 +59,8 @@ enum Rpc {
     Endpoint { v: u8, endpoint_utf16: Vec<u16> },
     #[serde(rename = "endpoints")]
     Endpoints { v: u8 },
+    #[serde(rename = "get-online-users-count")]
+    OnlineUsersCount { v: u8 },
 }
 #[derive(Serialize)]
 #[serde(tag = "op")]
@@ -71,6 +76,8 @@ enum Success<'a> {
         v: u8,
         endpoints_utf16: Vec<Vec<u16>>,
     },
+    #[serde(rename = "get-online-users-count")]
+    OnlineUsersCount { v: u8, count: f64 },
 }
 #[derive(Serialize)]
 struct Description {
@@ -86,6 +93,7 @@ struct Parameter {
 struct App {
     bearer: String,
     catalog: Catalog,
+    online_users: OnlineUsers,
 }
 fn unavailable(status: StatusCode) -> Response {
     (status, "Rust backend unavailable").into_response()
@@ -155,6 +163,12 @@ async fn rpc(State(app): State<Arc<App>>, request: Request) -> Response {
             v: 1,
             endpoints_utf16: app.catalog.names(),
         }),
+        Rpc::OnlineUsersCount { v: 1 } => {
+            match app.online_users.count_at(SystemTime::now()).await {
+                Ok(count) => success(Success::OnlineUsersCount { v: 1, count }),
+                Err(_) => unavailable(StatusCode::SERVICE_UNAVAILABLE),
+            }
+        }
         _ => unavailable(StatusCode::BAD_REQUEST),
     }
 }
@@ -215,6 +229,7 @@ fn bootstrap() -> Result<App, Failure> {
     Ok(App {
         bearer: format!("Bearer {}", bootstrap.token),
         catalog: Catalog::new(endpoints),
+        online_users: OnlineUsers::new(bootstrap.postgres),
     })
 }
 async fn signal() {
@@ -235,10 +250,11 @@ async fn serve(app: App, eof: tokio::sync::oneshot::Receiver<()>) -> Result<(), 
         .await
         .map_err(|_| Failure)?;
     let port = listener.local_addr().map_err(|_| Failure)?.port();
+    let app = Arc::new(app);
     let router = Router::new()
         .route("/rpc", post(rpc))
         .fallback(|| async { unavailable(StatusCode::NOT_FOUND) })
-        .with_state(Arc::new(app));
+        .with_state(app.clone());
     writeln!(io::stdout().lock(), "{{\"v\":1,\"port\":{port}}}").map_err(|_| Failure)?;
     io::stdout().flush().map_err(|_| Failure)?;
     let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel();
@@ -256,6 +272,7 @@ async fn serve(app: App, eof: tokio::sync::oneshot::Receiver<()>) -> Result<(), 
         _ = &mut stop => {},
     }
     let _ = shutdown_tx.send(());
+    app.online_users.shutdown().await;
     match tokio::time::timeout(Duration::from_secs(2), &mut server).await {
         Ok(result) => result.map_err(|_| Failure),
         Err(_) => Ok(()),
