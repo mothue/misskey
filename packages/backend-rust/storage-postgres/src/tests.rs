@@ -37,6 +37,75 @@ fn deserialization_does_not_accept_unknown_connection_or_tls_settings() {
     assert_eq!(format!("{Failure:?}"), "Failure");
 }
 
+#[test]
+fn typed_query_errors_expose_only_explicit_legacy_messages_and_redact_formatting() {
+    let error = QueryError::Server {
+        message: "private server input".into(),
+    };
+    assert_eq!(error.legacy_message(), Some("private server input"));
+    assert_eq!(format!("{error:?}"), "QueryError::Server");
+    assert_eq!(error.to_string(), "Rust backend unavailable");
+    assert_eq!(
+        QueryError::QueryTimeout.legacy_message(),
+        Some("Query read timeout")
+    );
+    assert_eq!(QueryError::Unavailable.legacy_message(), None);
+}
+
+#[tokio::test]
+async fn typed_query_error_extracts_only_the_postgres_protocol_message() {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let (client_socket, mut server_socket) = tokio::io::duplex(4096);
+    let server = tokio::spawn(async move {
+        let startup_length = server_socket.read_u32().await.unwrap() as usize;
+        let mut startup = vec![0; startup_length - 4];
+        server_socket.read_exact(&mut startup).await.unwrap();
+        // AuthenticationOk, then ReadyForQuery. No real PostgreSQL is needed.
+        server_socket
+            .write_all(b"R\0\0\0\x08\0\0\0\0Z\0\0\0\x05I")
+            .await
+            .unwrap();
+        loop {
+            let kind = match server_socket.read_u8().await {
+                Ok(kind) => kind,
+                Err(_) => return,
+            };
+            let length = server_socket.read_u32().await.unwrap() as usize;
+            let mut payload = vec![0; length - 4];
+            server_socket.read_exact(&mut payload).await.unwrap();
+            if kind == b'P' {
+                let payload = b"SERROR\0C2201X\0MOFFSET must not be negative\0Dprivate server detail and parameters\0\0";
+                server_socket.write_u8(b'E').await.unwrap();
+                server_socket
+                    .write_u32((payload.len() + 4) as u32)
+                    .await
+                    .unwrap();
+                server_socket.write_all(payload).await.unwrap();
+            } else if kind == b'S' {
+                server_socket.write_all(b"Z\0\0\0\x05I").await.unwrap();
+            }
+        }
+    });
+    let (client, driver) = Config::new()
+        .user("fixture")
+        .dbname("fixture")
+        .ssl_mode(SslMode::Disable)
+        .connect_raw(client_socket, NoTls)
+        .await
+        .unwrap();
+    let driver = tokio::spawn(async move {
+        let _ = driver.await;
+    });
+    let error = client.query("SELECT 1 OFFSET -1", &[]).await.unwrap_err();
+    let error = QueryError::from_postgres(error);
+    assert_eq!(error.legacy_message(), Some("OFFSET must not be negative"));
+    assert_eq!(format!("{error:?}"), "QueryError::Server");
+    assert!(!format!("{error:?}").contains("private"));
+    drop(client);
+    driver.abort();
+    server.abort();
+}
+
 #[tokio::test]
 async fn absent_configuration_and_stopped_adapters_are_unavailable() {
     let adapter = OnlineUsers::new(None);
@@ -315,6 +384,24 @@ async fn dedicated_postgres_lifecycle() {
             .get::<_, String>(0),
         "off"
     );
+    let offset = database
+        .query_typed(true, "SELECT 1 OFFSET -1", &[])
+        .await
+        .unwrap_err();
+    assert_eq!(offset.legacy_message(), Some("OFFSET must not be negative"));
+    let nul = database
+        .query_typed(true, "SELECT $1::text", &[&"\0"])
+        .await
+        .unwrap_err();
+    assert_eq!(
+        nul.legacy_message(),
+        Some("invalid byte sequence for encoding \"UTF8\": 0x00")
+    );
+    // Existing callers deliberately retain the opaque Failure API.
+    assert!(matches!(
+        database.query(true, "SELECT 1 OFFSET -1", &[]).await,
+        Err(Failure)
+    ));
     assert!(
         database
             .query(true, "INSERT INTO \"user\" VALUES (99,NULL)", &[])
@@ -339,12 +426,11 @@ async fn dedicated_postgres_lifecycle() {
         ))
         .await
         .unwrap();
-    assert!(
-        database
-            .query(true, "SELECT * FROM \"user\"", &[])
-            .await
-            .is_err()
-    );
+    let timeout = database
+        .query_typed(true, "SELECT * FROM \"user\"", &[])
+        .await
+        .unwrap_err();
+    assert_eq!(timeout.legacy_message(), Some("Query read timeout"));
     for _ in 0..100 {
         let waiting:i64=admin.query_one("SELECT count(*) FROM pg_stat_activity WHERE application_name=$1 AND wait_event_type='Lock'",&[&app]).await.unwrap().get(0);
         if waiting == 0 {

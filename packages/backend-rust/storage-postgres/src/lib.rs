@@ -41,6 +41,55 @@ impl fmt::Display for Failure {
 }
 impl std::error::Error for Failure {}
 
+/// Native business queries need the same PostgreSQL message TypeORM exposes in
+/// QueryFailedError. Keep SQL, parameters, server detail/hint and connection
+/// diagnostics out of this type, including its Debug/Display representations.
+pub enum QueryError {
+    Server { message: String },
+    QueryTimeout,
+    Unavailable,
+}
+impl QueryError {
+    fn from_postgres(error: tokio_postgres::Error) -> Self {
+        match error.as_db_error() {
+            Some(error) => Self::Server {
+                message: error.message().to_owned(),
+            },
+            None => Self::Unavailable,
+        }
+    }
+
+    pub fn legacy_message(&self) -> Option<&str> {
+        match self {
+            Self::Server { message } => Some(message),
+            // node-postgres emits this exact Error.message for query_timeout;
+            // TypeORM wraps the query's rejection as QueryFailedError.
+            Self::QueryTimeout => Some("Query read timeout"),
+            Self::Unavailable => None,
+        }
+    }
+}
+impl fmt::Debug for QueryError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::Server { .. } => "QueryError::Server",
+            Self::QueryTimeout => "QueryError::QueryTimeout",
+            Self::Unavailable => "QueryError::Unavailable",
+        })
+    }
+}
+impl fmt::Display for QueryError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("Rust backend unavailable")
+    }
+}
+impl std::error::Error for QueryError {}
+impl From<Failure> for QueryError {
+    fn from(_: Failure) -> Self {
+        Self::Unavailable
+    }
+}
+
 #[derive(Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PostgresConfig {
@@ -329,10 +378,23 @@ impl Database {
         sql: &str,
         params: &[&(dyn tokio_postgres::types::ToSql + Sync)],
     ) -> Result<Vec<tokio_postgres::Row>, Failure> {
+        self.query_typed(read, sql, params)
+            .await
+            .map_err(|_| Failure)
+    }
+
+    /// Adds business-error information without changing the opaque query API
+    /// used by authentication, nor connection selection/cancellation behavior.
+    pub async fn query_typed(
+        &self,
+        read: bool,
+        sql: &str,
+        params: &[&(dyn tokio_postgres::types::ToSql + Sync)],
+    ) -> Result<Vec<tokio_postgres::Row>, QueryError> {
         let pool = if read { &self.reads } else { &self.primary };
         let mut stop = pool.stop_signal.subscribe();
         if pool.stopped.load(Ordering::Acquire) || pool.slots.is_empty() {
-            return Err(Failure);
+            return Err(QueryError::Unavailable);
         }
         let slot = &pool.slots[rand::random_range(0..pool.slots.len())];
         // Connection checkout is interruptible by shutdown. No arbitrary
@@ -340,26 +402,26 @@ impl Database {
         let operation = async {
             let mut stored = slot.connection.lock().await;
             if pool.stopped.load(Ordering::Acquire) {
-                return Err(Failure);
+                return Err(QueryError::Unavailable);
             }
             let mut connection = stored.take();
             if connection.as_ref().is_none_or(|c| c.client.is_closed()) {
                 connection = Some(
                     connect_with_access(&slot.target, &pool.cancellations, pool.read_only).await?,
                 );
-                *slot.driver.lock().map_err(|_| Failure)? =
+                *slot.driver.lock().map_err(|_| QueryError::Unavailable)? =
                     connection.as_ref().map(|c| c.driver.abort_handle());
             }
-            let current = connection.as_ref().ok_or(Failure)?;
+            let current = connection.as_ref().ok_or(QueryError::Unavailable)?;
             if pool.stopped.load(Ordering::Acquire) {
-                return Err(Failure);
+                return Err(QueryError::Unavailable);
             }
             current.in_flight.store(true, Ordering::Release);
             let execute = current.client.query(sql, params);
             let result = match positive_duration(slot.target.query_timeout_ms) {
                 Some(limit) => tokio::time::timeout(limit, execute)
                     .await
-                    .map_err(|_| Failure)?,
+                    .map_err(|_| QueryError::QueryTimeout)?,
                 None => execute.await,
             };
             if result.is_ok()
@@ -370,7 +432,7 @@ impl Database {
             {
                 current.in_flight.store(false, Ordering::Release);
             }
-            let rows = result.map_err(|_| Failure)?;
+            let rows = result.map_err(QueryError::from_postgres)?;
             if !pool.stopped.load(Ordering::Acquire) {
                 *stored = connection;
             }
@@ -378,7 +440,7 @@ impl Database {
         };
         tokio::select! {
             biased;
-            _ = stop.changed() => Err(Failure),
+            _ = stop.changed() => Err(QueryError::Unavailable),
             result = operation => result,
         }
     }
