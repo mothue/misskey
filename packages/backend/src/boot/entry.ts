@@ -62,22 +62,33 @@ process.on('exit', code => {
 
 //#endregion
 
-if (!envOption.disableClustering) {
-	if (cluster.isPrimary) {
+try {
+	if (!envOption.disableClustering) {
+		if (cluster.isPrimary) {
+			const { masterMain } = await import('./master.js');
+			await masterMain();
+			ev.mount();
+		} else if (cluster.isWorker) {
+			const { workerMain } = await import('./worker.js');
+			await workerMain();
+		} else {
+			throw new Error('Unknown process type');
+		}
+	} else {
+		// 非clusterの場合はMasterのみが起動するため、Workerの処理は行わない(cluster.isWorker === trueの状態でこのブロックに来ることはない)
 		const { masterMain } = await import('./master.js');
 		await masterMain();
 		ev.mount();
-	} else if (cluster.isWorker) {
-		const { workerMain } = await import('./worker.js');
-		await workerMain();
-	} else {
-		throw new Error('Unknown process type');
 	}
-} else {
-	// 非clusterの場合はMasterのみが起動するため、Workerの処理は行わない(cluster.isWorker === trueの状態でこのブロックに来ることはない)
-	const { masterMain } = await import('./master.js');
-	await masterMain();
-	ev.mount();
+} catch (error) {
+	logger.error(error instanceof Error ? error : new Error(String(error)));
+	if (cluster.isWorker && process.send && process.connected) {
+		await new Promise<void>(resolve => {
+			const timer = setTimeout(resolve, 250);
+			try { process.send!('listenFailed', () => { clearTimeout(timer); resolve(); }); } catch { clearTimeout(timer); resolve(); }
+		});
+	}
+	process.exit(1);
 }
 
 process.on('message', msg => {

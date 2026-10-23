@@ -4,6 +4,7 @@
  */
 
 import { Module } from '@nestjs/common';
+import { RustBackendModule } from '@/server/rust/RustBackendModule.js';
 import { EndpointsModule } from '@/server/api/EndpointsModule.js';
 import { CoreModule } from '@/core/CoreModule.js';
 import { ApiCallService } from './api/ApiCallService.js';
@@ -54,6 +55,7 @@ import { SigninWithPasskeyApiService } from './api/SigninWithPasskeyApiService.j
 
 @Module({
 	imports: [
+		RustBackendModule,
 		EndpointsModule,
 		CoreModule,
 	],

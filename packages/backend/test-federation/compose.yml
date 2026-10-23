@@ -3,6 +3,24 @@ include:
   - ./compose.b.yml
 
 services:
+  rust-builder:
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+    build:
+      context: ../../..
+      dockerfile: packages/backend/test-federation/Dockerfile
+    volumes:
+      - type: bind
+        source: ../../..
+        target: /misskey
+        read_only: true
+      - type: volume
+        source: backend-rust-built
+        target: /misskey/packages/backend-rust/built
+    working_dir: /misskey
+    command: bun scripts/build/backend-rust.mjs
+
   setup:
     extends:
       file: ./compose.tpl.yml
@@ -157,3 +175,6 @@ services:
       test: redis-cli ping
       interval: 5s
       retries: 20
+
+volumes:
+  backend-rust-built:

@@ -4,6 +4,7 @@
  */
 
 import { Injectable } from '@nestjs/common';
+import { RustBackendService } from '@/server/rust/RustBackendService.js';
 import { Endpoint } from '@/server/api/endpoint-base.js';
 
 export const meta = {
@@ -57,9 +58,8 @@ export const paramDef = {
 @Injectable()
 export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-disable-line import/no-default-export
 	constructor(
+		private rustBackendService: RustBackendService,
 	) {
-		super(meta, paramDef, async (ps, me) => {
-			return ps;
-		});
+		super(meta, paramDef, async (ps) => this.rustBackendService.test(ps));
 	}
 }

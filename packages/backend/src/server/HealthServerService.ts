@@ -8,6 +8,7 @@ import * as Redis from 'ioredis';
 import { DataSource } from 'typeorm';
 import { bindThis } from '@/decorators.js';
 import { DI } from '@/di-symbols.js';
+import { RustBackendService } from './rust/RustBackendService.js';
 import { readyRef } from '@/boot/ready.js';
 import type { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import type { Meilisearch } from 'meilisearch';
@@ -15,6 +16,7 @@ import type { Meilisearch } from 'meilisearch';
 @Injectable()
 export class HealthServerService {
 	constructor(
+		private rustBackendService: RustBackendService,
 		@Inject(DI.redis)
 		private redis: Redis.Redis,
 
@@ -41,7 +43,7 @@ export class HealthServerService {
 	public createServer(fastify: FastifyInstance, options: FastifyPluginOptions, done: (err?: Error) => void) {
 		fastify.get('/', async (request, reply) => {
 			reply.code(await Promise.all([
-				new Promise<void>((resolve, reject) => readyRef.value ? resolve() : reject()),
+				new Promise<void>((resolve, reject) => readyRef.value && this.rustBackendService.isReady() ? resolve() : reject()),
 				this.redis.ping(),
 				this.redisForPub.ping(),
 				this.redisForSub.ping(),

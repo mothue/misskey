@@ -28,6 +28,7 @@ WORKDIR /misskey
 COPY --link ["bun.lock", "bunfig.toml", "package.json", "./"]
 COPY --link ["scripts", "./scripts"]
 COPY --link ["patches", "./patches"]
+COPY --link ["packages/backend-rust/package.json", "./packages/backend-rust/"]
 COPY --link ["packages/backend/package.json", "./packages/backend/"]
 COPY --link ["packages/frontend-shared/package.json", "./packages/frontend-shared/"]
 COPY --link ["packages/frontend/package.json", "./packages/frontend/"]
@@ -79,6 +80,7 @@ WORKDIR /misskey
 COPY --link ["bun.lock", "bunfig.toml", "package.json", "./"]
 COPY --link ["scripts", "./scripts"]
 COPY --link ["patches", "./patches"]
+COPY --link ["packages/backend-rust/package.json", "./packages/backend-rust/"]
 COPY --link ["packages/backend/package.json", "./packages/backend/"]
 COPY --link ["packages/frontend-shared/package.json", "./packages/frontend-shared/"]
 COPY --link ["packages/frontend/package.json", "./packages/frontend/"]
@@ -105,6 +107,8 @@ RUN --mount=type=cache,target=/root/.bun/install/cache,sharing=locked \
 
 COPY --link ["packages-private/slacc", "./packages-private/slacc"]
 RUN bun run --filter slacc build
+COPY --link ["packages/backend-rust", "./packages/backend-rust"]
+RUN bun run --filter backend-rust build:native
 
 FROM --platform=$TARGETPLATFORM oven/bun:${BUN_VERSION} AS runner
 
@@ -143,6 +147,8 @@ COPY --chown=misskey:misskey --from=native-builder /misskey/packages/i18n/built 
 COPY --chown=misskey:misskey . ./
 
 COPY --chown=misskey:misskey --from=target-builder /misskey/packages-private/slacc/built ./packages-private/slacc/built
+
+COPY --chown=misskey:misskey --from=target-builder /misskey/packages/backend-rust/built/bin ./packages/backend-rust/built/bin
 
 ENV LD_PRELOAD=/usr/local/lib/libjemalloc.so
 ENV NODE_ENV=production

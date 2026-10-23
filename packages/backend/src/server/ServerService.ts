@@ -4,9 +4,10 @@
  */
 
 import cluster from 'node:cluster';
+import { RustBackendService } from './rust/RustBackendService.js';
 import * as fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { Inject, Injectable, OnApplicationShutdown } from '@nestjs/common';
+import { Inject, Injectable, OnApplicationShutdown, BeforeApplicationShutdown } from '@nestjs/common';
 import Fastify, { type FastifyInstance } from 'fastify';
 import fastifyStatic from '@fastify/static';
 import fastifyRawBody from 'fastify-raw-body';
@@ -32,14 +33,17 @@ import { HealthServerService } from './HealthServerService.js';
 import { ClientServerService } from './web/ClientServerService.js';
 import { OpenApiServerService } from './api/openapi/OpenApiServerService.js';
 import { OAuth2ProviderService } from './oauth/OAuth2ProviderService.js';
+import { HttpServerShutdown } from './http-shutdown.js';
 import { registerHttpAccessLog } from './http-access-log.js';
 
 const _dirname = fileURLToPath(new URL('.', import.meta.url));
 
 @Injectable()
-export class ServerService implements OnApplicationShutdown {
+export class ServerService implements OnApplicationShutdown, BeforeApplicationShutdown {
 	private logger: Logger;
 	#fastify: FastifyInstance;
+	private disposePromise?: Promise<void>;
+	private httpShutdown?: HttpServerShutdown;
 
 	constructor(
 		@Inject(DI.config)
@@ -69,6 +73,7 @@ export class ServerService implements OnApplicationShutdown {
 		private clientServerService: ClientServerService,
 		private globalEventService: GlobalEventService,
 		private loggerService: LoggerService,
+		private rustBackendService: RustBackendService,
 		private oauth2ProviderService: OAuth2ProviderService,
 	) {
 		this.logger = this.loggerService.getLogger('server', 'gray');
@@ -76,11 +81,22 @@ export class ServerService implements OnApplicationShutdown {
 
 	@bindThis
 	public async launch(): Promise<void> {
+		await this.rustBackendService.start();
+		try {
+			await this.launchHttp();
+		} catch (error) {
+			await this.dispose();
+			throw error;
+		}
+	}
+
+	private async launchHttp(): Promise<void> {
 		const fastify = Fastify({
 			trustProxy: this.config.trustProxy,
 			logger: false,
 		});
 		this.#fastify = fastify;
+		this.httpShutdown = new HttpServerShutdown(fastify);
 		registerHttpAccessLog(fastify);
 
 		// HSTS
@@ -289,23 +305,24 @@ export class ServerService implements OnApplicationShutdown {
 			}
 			await fastify.ready();
 		} catch (err) {
+			await this.dispose();
 			handleListenError(err);
-			return;
+			throw err;
 		}
 	}
 
 	@bindThis
-	public async dispose(): Promise<void> {
-		await this.streamingApiServerService.detach();
-		// fastify@5 close() waits for upgraded WebSocket connections to drain.
-		// streamingApiServerService.attach() adds raw ws.Server upgrades that
-		// fastify does not track in its connection registry, so close() can hang
-		// forever during OnApplicationShutdown. Cap at 5s so PM2/systemd/k8s
-		// shutdown timeouts aren't held hostage.
-		await Promise.race([
-			this.#fastify.close(),
-			new Promise<void>(resolve => setTimeout(resolve, 5_000)),
-		]).catch(err => this.logger.error('fastify.close() failed', err as Error));
+	public dispose(): Promise<void> {
+		return this.disposePromise ??= this.disposeServer();
+	}
+
+	private async disposeServer(): Promise<void> {
+		try {
+			await this.httpShutdown?.close(() => this.streamingApiServerService.detach())
+				.catch(err => this.logger.error('HTTP shutdown failed', err as Error));
+		} finally {
+			await this.rustBackendService.stop();
+		}
 	}
 
 	/**
@@ -313,6 +330,11 @@ export class ServerService implements OnApplicationShutdown {
 	 */
 	public get fastify(): FastifyInstance {
 		return this.#fastify;
+	}
+
+	@bindThis
+	async beforeApplicationShutdown(): Promise<void> {
+		await this.dispose();
 	}
 
 	@bindThis

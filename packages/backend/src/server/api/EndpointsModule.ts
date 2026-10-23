@@ -4,6 +4,7 @@
  */
 
 import { Module } from '@nestjs/common';
+import { RustBackendModule } from '@/server/rust/RustBackendModule.js';
 
 import { CoreModule } from '@/core/CoreModule.js';
 import * as endpointsObject from './endpoint-list.js';
@@ -16,6 +17,7 @@ const endpointProviders = endpoints.map(([path, endpoint]): Provider => ({ provi
 
 @Module({
 	imports: [
+		RustBackendModule,
 		CoreModule,
 	],
 	providers: [
