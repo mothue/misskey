@@ -87,7 +87,7 @@ export class ApiServerService implements OnApplicationShutdown {
 						idMethod: this.config.id,
 						maxFileSize: this.config.maxFileSize,
 						defaultPolicies: DEFAULT_POLICIES,
-						meta: { rootUserId: this.meta.rootUserId, policies: this.meta.policies, enableIpLogging: this.meta.enableIpLogging, preservedUsernames: this.meta.preservedUsernames },
+						meta: { rootUserId: this.meta.rootUserId, policies: this.meta.policies, enableIpLogging: this.meta.enableIpLogging },
 						entityLayouts,
 					},
 				});

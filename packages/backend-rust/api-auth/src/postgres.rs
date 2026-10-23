@@ -182,7 +182,7 @@ impl Store for PostgresAuthStore {
         self.select("role", "", &[]).await
     }
     async fn meta(&self) -> Result<Value, Failure> {
-        let rows = self.database.query(false, "SELECT json_build_object('rootUserId', \"rootUserId\", 'policies', policies, 'enableIpLogging', \"enableIpLogging\", 'preservedUsernames', \"preservedUsernames\")::text FROM meta ORDER BY id DESC LIMIT 1", &[]).await.map_err(|_| Failure)?;
+        let rows = self.database.query(false, "SELECT json_build_object('rootUserId', \"rootUserId\", 'policies', policies, 'enableIpLogging', \"enableIpLogging\")::text FROM meta ORDER BY id DESC LIMIT 1", &[]).await.map_err(|_| Failure)?;
         let text: String = rows
             .first()
             .ok_or(Failure)?
