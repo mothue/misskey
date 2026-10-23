@@ -7,7 +7,7 @@ import { randomBytes } from 'node:crypto';
 import { join } from 'node:path';
 import { Injectable, type OnApplicationShutdown } from '@nestjs/common';
 import { ApiError } from '@/server/api/error.js';
-import { decodeEndpoint, decodePing, decodeTest, encodeUtf16, object } from './protocol.js';
+import { decodeEndpoint, decodeEndpoints, decodePing, decodeTest, encodeUtf16, object } from './protocol.js';
 import type { TestResult } from './protocol.js';
 import { findCodeRoot } from './source-root.js';
 
@@ -125,5 +125,8 @@ export class RustBackendService implements OnApplicationShutdown {
 	}
 	async endpoint(name: string): Promise<{ params: { name: string; type: string }[] } | null> {
 		try { return decodeEndpoint(await this.transport.rpc({ v: 1, op: 'endpoint', endpointUtf16: encodeUtf16(name) })); } catch { throw unavailable(); }
+	}
+	async endpoints(): Promise<string[]> {
+		try { return decodeEndpoints(await this.transport.rpc({ v: 1, op: 'endpoints' })); } catch { throw unavailable(); }
 	}
 }

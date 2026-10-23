@@ -29,8 +29,11 @@ fn bootstrap() -> Value {
     json!({"v":1,"token":TOKEN,"endpoints":[{"nameUtf16":[55296],"properties":[{"nameUtf16":[56320],"type":null},{"nameUtf16":[97],"type":"integer"}]}]})
 }
 fn start() -> Server {
+    start_with(bootstrap())
+}
+fn start_with(bootstrap: Value) -> Server {
     let mut child = spawn();
-    writeln!(child.stdin.as_mut().unwrap(), "{}", bootstrap()).unwrap();
+    writeln!(child.stdin.as_mut().unwrap(), "{bootstrap}").unwrap();
     let mut frame = String::new();
     BufReader::new(child.stdout.take().unwrap())
         .read_line(&mut frame)
@@ -88,12 +91,52 @@ fn serves_exact_envelopes_and_utf16_catalog() {
         rpc(&server, json!({"v":1,"op":"endpoint","endpointUtf16":[]}))["result"],
         Value::Null
     );
+    assert_eq!(
+        rpc(&server, json!({"v":1,"op":"endpoints"})),
+        json!({"v":1,"op":"endpoints","endpointsUtf16":[[55296]]})
+    );
+}
+#[test]
+fn endpoints_uses_bootstrapped_names_without_sorting_or_deduplicating() {
+    let names = json!([
+        [122],
+        [],
+        [55296],
+        [56320],
+        [55357, 56832],
+        [0, 65535],
+        [97],
+        [122]
+    ]);
+    let definitions: Vec<_> = names
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|name| json!({"nameUtf16":name,"properties":[]}))
+        .collect();
+    let server = start_with(json!({"v":1,"token":TOKEN,"endpoints":definitions}));
+    assert_eq!(
+        rpc(&server, json!({"v":1,"op":"endpoints"})),
+        json!({"v":1,"op":"endpoints","endpointsUtf16":names})
+    );
+}
+#[test]
+fn endpoints_returns_an_empty_array_for_an_empty_catalog() {
+    let server = start_with(json!({"v":1,"token":TOKEN,"endpoints":[]}));
+    assert_eq!(
+        rpc(&server, json!({"v":1,"op":"endpoints"})),
+        json!({"v":1,"op":"endpoints","endpointsUtf16":[]})
+    );
 }
 #[test]
 fn rejects_unauthorized_malformed_versions_ops_and_oversize() {
     let server = start();
     assert_eq!(
         request(&server, "Bearer wrong", r#"{"v":1,"op":"ping"}"#).0,
+        401
+    );
+    assert_eq!(
+        request(&server, "Bearer wrong", r#"{"v":1,"op":"endpoints"}"#).0,
         401
     );
     for body in [
@@ -103,6 +146,11 @@ fn rejects_unauthorized_malformed_versions_ops_and_oversize() {
         r#"{"v":1,"op":"test","paramsJson":7}"#,
         r#"{"v":1,"op":"endpoint","endpointUtf16":[65536]}"#,
         r#"{"v":1,"op":"ping","extra":1}"#,
+        r#"{"v":2,"op":"endpoints"}"#,
+        r#"{"v":"1","op":"endpoints"}"#,
+        r#"{"op":"endpoints"}"#,
+        r#"{"v":1,"op":"endpoints","endpointUtf16":[]}"#,
+        r#"{"v":1,"op":"endpoints","extra":null}"#,
     ] {
         let (status, body) = request(&server, &format!("Bearer {TOKEN}"), body);
         assert_eq!(status, 400);

@@ -54,6 +54,8 @@ enum Rpc {
     Test { v: u8, params_json: String },
     #[serde(rename = "endpoint", rename_all = "camelCase")]
     Endpoint { v: u8, endpoint_utf16: Vec<u16> },
+    #[serde(rename = "endpoints")]
+    Endpoints { v: u8 },
 }
 #[derive(Serialize)]
 #[serde(tag = "op")]
@@ -64,6 +66,11 @@ enum Success<'a> {
     Test { v: u8, result_json: &'a str },
     #[serde(rename = "endpoint")]
     Endpoint { v: u8, result: Option<Description> },
+    #[serde(rename = "endpoints", rename_all = "camelCase")]
+    Endpoints {
+        v: u8,
+        endpoints_utf16: Vec<Vec<u16>>,
+    },
 }
 #[derive(Serialize)]
 struct Description {
@@ -144,6 +151,10 @@ async fn rpc(State(app): State<Arc<App>>, request: Request) -> Response {
                 });
             success(Success::Endpoint { v: 1, result })
         }
+        Rpc::Endpoints { v: 1 } => success(Success::Endpoints {
+            v: 1,
+            endpoints_utf16: app.catalog.names(),
+        }),
         _ => unavailable(StatusCode::BAD_REQUEST),
     }
 }

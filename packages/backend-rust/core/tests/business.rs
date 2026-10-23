@@ -51,3 +51,37 @@ fn catalog_preserves_utf16_order_types_and_first_match() {
     assert_eq!(catalog.lookup(&[]), None);
     assert_eq!(catalog.lookup(&[0xd801]), None);
 }
+
+#[test]
+fn catalog_names_preserves_order_duplicates_and_every_utf16_unit() {
+    let names = vec![
+        vec![122],
+        vec![],
+        vec![0xd800],
+        vec![0xdc00],
+        vec![0xd83d, 0xde00],
+        vec![0, 0xffff],
+        vec![97],
+        vec![122],
+    ];
+    let catalog = Catalog::new(
+        names
+            .iter()
+            .map(|name| Endpoint {
+                name: name.clone(),
+                properties: vec![],
+            })
+            .collect(),
+    );
+
+    assert_eq!(catalog.names(), names);
+    // Callers receive names without gaining mutable access to the catalog.
+    let mut returned = catalog.names();
+    returned[0].clear();
+    assert_eq!(catalog.names(), names);
+}
+
+#[test]
+fn empty_catalog_has_no_names() {
+    assert!(Catalog::new(vec![]).names().is_empty());
+}

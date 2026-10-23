@@ -1,5 +1,7 @@
 # First Rust port validation
 
+This document preserves the original three-handler validation. The later cloud `endpoints` unit, including its own reruns and limits, is recorded in [endpoints-validation.md](endpoints-validation.md). Its results must not be inferred from the local runs below.
+
 Baseline: `d875b7e3c737b7f9f75331fffb691f6a2b97f055`. Candidate: `feat/ts-to-rs`, validated as an uncommitted working tree. After validation the user authorized splitting the changes into commits and pushing the branch. The authoritative scope and contract are [PORTS.md](PORTS.md).
 
 ## Evidence and reproduction

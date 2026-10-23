@@ -72,7 +72,7 @@
   {
     "id": "test-extra",
     "endpoint": "test",
-    "body": "{\"required\":true,\"extra\":{\"nested\":[null,{},[],\"\u65e5\u672c\u8a9e\ud83d\ude00\"]}}",
+    "body": "{\"required\":true,\"extra\":{\"nested\":[null,{},[],\"日本語😀\"]}}",
     "method": "POST",
     "expectedStatus": 200
   },
@@ -255,6 +255,61 @@
     "method": "POST",
     "bodyBytes": 1048577,
     "pattern": "surrogate",
+    "expectedStatus": 413
+  },
+  {
+    "id": "endpoints",
+    "endpoint": "endpoints",
+    "body": "{}",
+    "method": "POST",
+    "expectedStatus": 200
+  },
+  {
+    "id": "endpoints-extra",
+    "endpoint": "endpoints",
+    "body": "{\"endpoint\":\"\",\"extra\":null}",
+    "method": "POST",
+    "expectedStatus": 200
+  },
+  {
+    "id": "endpoints-array",
+    "endpoint": "endpoints",
+    "body": "[]",
+    "method": "POST",
+    "expectedStatus": 400
+  },
+  {
+    "id": "endpoints-null",
+    "endpoint": "endpoints",
+    "body": "null",
+    "method": "POST",
+    "expectedStatus": 400
+  },
+  {
+    "id": "endpoints-empty-body",
+    "endpoint": "endpoints",
+    "body": "",
+    "method": "POST",
+    "expectedStatus": 400
+  },
+  {
+    "id": "endpoints-invalid-json",
+    "endpoint": "endpoints",
+    "body": "{",
+    "method": "POST",
+    "expectedStatus": 400
+  },
+  {
+    "id": "endpoints-get",
+    "endpoint": "endpoints",
+    "method": "GET",
+    "expectedStatus": 405
+  },
+  {
+    "id": "endpoints-body-limit",
+    "endpoint": "endpoints",
+    "method": "POST",
+    "bodyBytes": 1048577,
     "expectedStatus": 413
   }
 ]

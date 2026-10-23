@@ -14,6 +14,12 @@ impl Catalog {
     pub fn new(endpoints: Vec<Endpoint>) -> Self {
         Self(endpoints)
     }
+    pub fn names(&self) -> Vec<Vec<u16>> {
+        self.0
+            .iter()
+            .map(|endpoint| endpoint.name.clone())
+            .collect()
+    }
     pub fn lookup(&self, name: &[u16]) -> Option<Vec<(Vec<u16>, String)>> {
         self.0
             .iter()

@@ -34,8 +34,17 @@ export function encodeUtf16(value: string): number[] {
 }
 
 function decodeUtf16(value: unknown): string {
-	if (!Array.isArray(value) || !value.every(x => typeof x === 'number' && Number.isInteger(x) && x >= 0 && x <= 65535)) throw new Error('Invalid UTF16');
-	return value.map(x => String.fromCharCode(x)).join('');
+	if (!Array.isArray(value)) throw new Error('Invalid UTF16');
+	return Array.from(value, (unit: unknown) => {
+		if (typeof unit !== 'number' || !Number.isInteger(unit) || unit < 0 || unit > 65535) throw new Error('Invalid UTF16');
+		return String.fromCharCode(unit);
+	}).join('');
+}
+
+export function decodeEndpoints(value: unknown): string[] {
+	const result = envelope(value, 'endpoints');
+	if (!Array.isArray(result.endpointsUtf16)) throw new Error('Invalid endpoints');
+	return Array.from(result.endpointsUtf16, decodeUtf16);
 }
 
 export function decodeEndpoint(value: unknown): { params: { name: string; type: string }[] } | null {

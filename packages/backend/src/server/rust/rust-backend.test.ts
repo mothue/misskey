@@ -4,7 +4,7 @@
  */
 import { fileURLToPath } from 'node:url';
 import { expect, test, vi } from 'vitest';
-import { decodePing, decodeTest, decodeEndpoint, encodeUtf16 } from './protocol.js';
+import { decodePing, decodeTest, decodeEndpoint, decodeEndpoints, encodeUtf16 } from './protocol.js';
 
 test('ping rejects unsafe numbers and wrong envelopes', () => {
  expect(decodePing({ v: 1, op: 'ping', pong: 42 })).toEqual({ pong: 42 });
@@ -21,6 +21,66 @@ test('endpoint preserves UTF16 code units and rejects invalid values', () => {
  expect(decodeEndpoint({ v: 1, op: 'endpoint', result: { params: [{ nameUtf16: [55296], type: 'string' }] } })).toEqual({ params: [{ name: '\ud800', type: 'string' }] });
  expect(decodeEndpoint({ v: 1, op: 'endpoint', result: null })).toBeNull();
  expect(() => decodeEndpoint({ v: 1, op: 'endpoint', result: { params: [{ nameUtf16: [65536], type: 'String' }] } })).toThrow();
+});
+
+test('endpoints decoder preserves empty names, order, duplicates and exact UTF16 units', () => {
+	const names = ['z', '', '\ud800', '\udc00', '😀\u0000\uffff', 'a', 'z'];
+	expect(decodeEndpoints({ v: 1, op: 'endpoints', endpointsUtf16: names.map(encodeUtf16) })).toEqual(names);
+	expect(decodeEndpoints({ v: 1, op: 'endpoints', endpointsUtf16: [] })).toEqual([]);
+});
+
+test('endpoints decoder rejects malformed envelopes, lists and UTF16 units', () => {
+	for (const value of [
+		null, [], {},
+		{ v: 2, op: 'endpoints', endpointsUtf16: [] },
+		{ v: 1, op: 'endpoint', endpointsUtf16: [] },
+		{ v: 1, op: 'endpoints' },
+		{ v: 1, op: 'endpoints', endpointsUtf16: null },
+		{ v: 1, op: 'endpoints', endpointsUtf16: 'ping' },
+		{ v: 1, op: 'endpoints', endpointsUtf16: [null] },
+		{ v: 1, op: 'endpoints', endpointsUtf16: ['ping'] },
+		{ v: 1, op: 'endpoints', endpointsUtf16: new Array(1) },
+		{ v: 1, op: 'endpoints', endpointsUtf16: [new Array(1)] },
+	]) expect(() => decodeEndpoints(value)).toThrow();
+	for (const unit of [-1, 65536, 0.5, NaN, Infinity, '97', null, {}]) {
+		expect(() => decodeEndpoints({ v: 1, op: 'endpoints', endpointsUtf16: [[unit]] })).toThrow();
+	}
+});
+
+test('endpoints service maps invalid RPC data and transport errors to503 without retry', async () => {
+	const { RustBackendService, RustBackendTransport } = await import('./RustBackendService.js');
+	const rpc = vi.spyOn(RustBackendTransport.prototype, 'rpc');
+	const service = new RustBackendService();
+	try {
+		for (const value of [
+			{ v: 2, op: 'endpoints', endpointsUtf16: [] },
+			{ v: 1, op: 'endpoint', endpointsUtf16: [] },
+			{ v: 1, op: 'endpoints', endpointsUtf16: null },
+			{ v: 1, op: 'endpoints', endpointsUtf16: [[65536]] },
+		]) {
+			rpc.mockResolvedValueOnce(value);
+			await expect(service.endpoints()).rejects.toMatchObject({ code: 'RUST_BACKEND_UNAVAILABLE', httpStatusCode: 503, kind: 'server', id: '91600ba8-92ad-48fa-9afd-d6c615f06946' });
+			expect(rpc).toHaveBeenCalledExactlyOnceWith({ v: 1, op: 'endpoints' });
+			rpc.mockClear();
+		}
+		rpc.mockRejectedValueOnce(new Error('private transport detail'));
+		await expect(service.endpoints()).rejects.toMatchObject({ message: 'Rust backend unavailable.', code: 'RUST_BACKEND_UNAVAILABLE', httpStatusCode: 503 });
+		expect(rpc).toHaveBeenCalledExactlyOnceWith({ v: 1, op: 'endpoints' });
+	} finally { rpc.mockRestore(); await service.stop(); }
+});
+
+test('endpoints service uses the real child catalog and does not fall back after stop', async () => {
+	const { RustBackendService } = await import('./RustBackendService.js');
+	const names = ['z', '', '\ud800', '😀', 'a', 'z'];
+	vi.doMock('../api/endpoints.js', () => ({ default: names.map(name => ({ name, params: { properties: {} } })) }));
+	const service = new RustBackendService();
+	try {
+		await service.start();
+		expect(await service.endpoints()).toEqual(names);
+		await service.stop();
+		await expect(service.endpoints()).rejects.toMatchObject({ code: 'RUST_BACKEND_UNAVAILABLE', httpStatusCode: 503 });
+		expect(service.isReady()).toBe(false);
+	} finally { await service.stop(); vi.doUnmock('../api/endpoints.js'); }
 });
 
 test('transport starts one child and stop is terminal', async () => {

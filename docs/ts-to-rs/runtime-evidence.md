@@ -1,5 +1,7 @@
 # Rust port runtime acceptance
 
+Historical three-handler observations: `endpoints` was still TypeScript here. Its later Rust port intentionally changes the child-failure response from 200 to 503; see [endpoints-validation.md](endpoints-validation.md) for new cloud evidence.
+
 Observed on 2026-10-23 using the actual production Bun bundle, actual Rust executable and dedicated benchmark PostgreSQL/Redis services. These observations are live HTTP/process evidence, separate from source review and controlled fault fixtures. No bridge token or user credential is saved in records.
 
 ## Actual HTTP and child termination
