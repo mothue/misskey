@@ -162,9 +162,14 @@ pub struct OnlineUsers {
     stopped: AtomicBool,
     stop_signal: watch::Sender<bool>,
     cancellations: Cancellations,
+    read_only: bool,
 }
 impl OnlineUsers {
     pub fn new(config: Option<PostgresConfig>) -> Self {
+        Self::with_access(config, true)
+    }
+
+    fn with_access(config: Option<PostgresConfig>, read_only: bool) -> Self {
         Self {
             slots: config.map_or_else(Vec::new, |c| {
                 c.targets
@@ -179,6 +184,7 @@ impl OnlineUsers {
             stopped: AtomicBool::new(false),
             stop_signal: watch::channel(false).0,
             cancellations: Arc::new(SyncMutex::new(Vec::new())),
+            read_only,
         }
     }
 
@@ -296,6 +302,91 @@ impl OnlineUsers {
         }
     }
 }
+
+/// API infrastructure uses the same TLS/configuration and cancellation ownership
+/// as the original count adapter. Reads retain replica selection; writes always
+/// use the explicitly configured primary, with no retry or read fallback.
+pub struct Database {
+    reads: OnlineUsers,
+    primary: OnlineUsers,
+}
+impl Database {
+    pub fn new(reads: Option<PostgresConfig>, primary: Option<Target>) -> Self {
+        Self {
+            reads: OnlineUsers::new(reads),
+            primary: OnlineUsers::with_access(
+                primary.map(|target| PostgresConfig {
+                    targets: vec![target],
+                }),
+                false,
+            ),
+        }
+    }
+
+    pub async fn query(
+        &self,
+        read: bool,
+        sql: &str,
+        params: &[&(dyn tokio_postgres::types::ToSql + Sync)],
+    ) -> Result<Vec<tokio_postgres::Row>, Failure> {
+        let pool = if read { &self.reads } else { &self.primary };
+        let mut stop = pool.stop_signal.subscribe();
+        if pool.stopped.load(Ordering::Acquire) || pool.slots.is_empty() {
+            return Err(Failure);
+        }
+        let slot = &pool.slots[rand::random_range(0..pool.slots.len())];
+        // Connection checkout is interruptible by shutdown. No arbitrary
+        // five-second RPC deadline is imposed on existing API operations.
+        let operation = async {
+            let mut stored = slot.connection.lock().await;
+            if pool.stopped.load(Ordering::Acquire) {
+                return Err(Failure);
+            }
+            let mut connection = stored.take();
+            if connection.as_ref().is_none_or(|c| c.client.is_closed()) {
+                connection = Some(
+                    connect_with_access(&slot.target, &pool.cancellations, pool.read_only).await?,
+                );
+                *slot.driver.lock().map_err(|_| Failure)? =
+                    connection.as_ref().map(|c| c.driver.abort_handle());
+            }
+            let current = connection.as_ref().ok_or(Failure)?;
+            if pool.stopped.load(Ordering::Acquire) {
+                return Err(Failure);
+            }
+            current.in_flight.store(true, Ordering::Release);
+            let execute = current.client.query(sql, params);
+            let result = match positive_duration(slot.target.query_timeout_ms) {
+                Some(limit) => tokio::time::timeout(limit, execute)
+                    .await
+                    .map_err(|_| Failure)?,
+                None => execute.await,
+            };
+            if result.is_ok()
+                || result
+                    .as_ref()
+                    .err()
+                    .is_some_and(|error| error.as_db_error().is_some())
+            {
+                current.in_flight.store(false, Ordering::Release);
+            }
+            let rows = result.map_err(|_| Failure)?;
+            if !pool.stopped.load(Ordering::Acquire) {
+                *stored = connection;
+            }
+            Ok(rows)
+        };
+        tokio::select! {
+            biased;
+            _ = stop.changed() => Err(Failure),
+            result = operation => result,
+        }
+    }
+
+    pub async fn shutdown(&self) {
+        tokio::join!(self.reads.shutdown(), self.primary.shutdown());
+    }
+}
 fn system_time(millis: i64) -> Result<SystemTime, Failure> {
     let delta = Duration::from_millis(millis.unsigned_abs());
     if millis >= 0 {
@@ -374,6 +465,13 @@ fn config(target: &Target) -> Result<Config, Failure> {
     Ok(config)
 }
 async fn connect(target: &Target, cancellations: &Cancellations) -> Result<Connection, Failure> {
+    connect_with_access(target, cancellations, true).await
+}
+async fn connect_with_access(
+    target: &Target,
+    cancellations: &Cancellations,
+    read_only: bool,
+) -> Result<Connection, Failure> {
     let config = config(target)?;
     let establish = async {
         if let Some(tls) = &target.tls {
@@ -412,11 +510,13 @@ async fn connect(target: &Target, cancellations: &Cancellations) -> Result<Conne
     };
     // Session-scoped and applied before the first business query. This does
     // not create roles, grant privileges, or change the database schema.
-    connection
-        .client
-        .batch_execute("SET default_transaction_read_only = on")
-        .await
-        .map_err(|_| Failure)?;
+    if read_only {
+        connection
+            .client
+            .batch_execute("SET default_transaction_read_only = on")
+            .await
+            .map_err(|_| Failure)?;
+    }
     Ok(connection)
 }
 

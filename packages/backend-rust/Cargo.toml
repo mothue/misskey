@@ -1,5 +1,5 @@
 [workspace]
-members = ["core", "bridge", "storage-postgres"]
+members = ["core", "bridge", "storage-postgres", "api-validation", "api-auth", "api-runtime"]
 resolver = "2"
 
 [workspace.package]

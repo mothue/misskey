@@ -293,6 +293,74 @@ async fn dedicated_postgres_lifecycle() {
         tokio::time::sleep(Duration::from_millis(5)).await;
     }
     assert_eq!(sessions().await, 0, "shutdown leaves no adapter connection");
+    // The API kernel shares the original TLS/cancellation implementation but
+    // must route auth writes to the primary, never a read-only replica slot.
+    let database = Arc::new(Database::new(
+        Some(fixture.clone()),
+        Some(fixture.targets[0].clone()),
+    ));
+    assert_eq!(
+        database
+            .query(true, "SHOW default_transaction_read_only", &[])
+            .await
+            .unwrap()[0]
+            .get::<_, String>(0),
+        "on"
+    );
+    assert_eq!(
+        database
+            .query(false, "SHOW default_transaction_read_only", &[])
+            .await
+            .unwrap()[0]
+            .get::<_, String>(0),
+        "off"
+    );
+    assert!(
+        database
+            .query(true, "INSERT INTO \"user\" VALUES (99,NULL)", &[])
+            .await
+            .is_err()
+    );
+    database
+        .query(false, "INSERT INTO \"user\" VALUES (99,NULL)", &[])
+        .await
+        .unwrap();
+    assert_eq!(
+        database
+            .query(true, "SELECT count(*) FROM \"user\" WHERE id=99", &[])
+            .await
+            .unwrap()[0]
+            .get::<_, i64>(0),
+        1
+    );
+    admin
+        .batch_execute(&format!(
+            "BEGIN; LOCK TABLE {schema}.\"user\" IN ACCESS EXCLUSIVE MODE;"
+        ))
+        .await
+        .unwrap();
+    assert!(
+        database
+            .query(true, "SELECT * FROM \"user\"", &[])
+            .await
+            .is_err()
+    );
+    for _ in 0..100 {
+        let waiting:i64=admin.query_one("SELECT count(*) FROM pg_stat_activity WHERE application_name=$1 AND wait_event_type='Lock'",&[&app]).await.unwrap().get(0);
+        if waiting == 0 {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(5)).await;
+    }
+    let waiting:i64=admin.query_one("SELECT count(*) FROM pg_stat_activity WHERE application_name=$1 AND wait_event_type='Lock'",&[&app]).await.unwrap().get(0);
+    assert_eq!(waiting, 0, "generic query timeout sends CancelRequest");
+    admin.batch_execute("ROLLBACK").await.unwrap();
+    database
+        .query(true, "SELECT * FROM \"user\"", &[])
+        .await
+        .unwrap();
+    database.shutdown().await;
+    assert!(database.query(false, "SELECT 1", &[]).await.is_err());
     admin
         .batch_execute(&format!("DROP SCHEMA {schema} CASCADE"))
         .await

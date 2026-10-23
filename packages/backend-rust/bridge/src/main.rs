@@ -7,6 +7,7 @@ use axum::{
     response::{IntoResponse, Response},
     routing::post,
 };
+use misskey_api_runtime::{ApiBootstrap, Runtime as ApiRuntime};
 use misskey_backend_core::{Catalog, Endpoint, Property, echo, ping_at};
 use misskey_backend_postgres::{OnlineUsers, PostgresConfig};
 use serde::{Deserialize, Serialize};
@@ -29,6 +30,8 @@ struct Bootstrap {
     endpoints: Vec<EndpointDefinition>,
     #[serde(default)]
     postgres: Option<PostgresConfig>,
+    #[serde(default)]
+    api: Option<ApiBootstrap>,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
@@ -93,7 +96,10 @@ struct Parameter {
 struct App {
     bearer: String,
     catalog: Catalog,
-    online_users: OnlineUsers,
+    online_users: Arc<OnlineUsers>,
+    postgres: Option<PostgresConfig>,
+    api_config: Option<ApiBootstrap>,
+    api: Option<ApiRuntime>,
 }
 fn unavailable(status: StatusCode) -> Response {
     (status, "Rust backend unavailable").into_response()
@@ -172,6 +178,23 @@ async fn rpc(State(app): State<Arc<App>>, request: Request) -> Response {
         _ => unavailable(StatusCode::BAD_REQUEST),
     }
 }
+async fn api_request(State(app): State<Arc<App>>, request: Request) -> Response {
+    if request
+        .headers()
+        .get(header::AUTHORIZATION)
+        .and_then(|header| header.to_str().ok())
+        != Some(app.bearer.as_str())
+    {
+        return unavailable(StatusCode::UNAUTHORIZED);
+    }
+    match &app.api {
+        Some(api) => {
+            let (parts, body) = request.into_parts();
+            api.handle(&parts.headers, body).await
+        }
+        None => unavailable(StatusCode::SERVICE_UNAVAILABLE),
+    }
+}
 fn bootstrap() -> Result<App, Failure> {
     let mut frame = Vec::new();
     io::stdin()
@@ -229,7 +252,10 @@ fn bootstrap() -> Result<App, Failure> {
     Ok(App {
         bearer: format!("Bearer {}", bootstrap.token),
         catalog: Catalog::new(endpoints),
-        online_users: OnlineUsers::new(bootstrap.postgres),
+        online_users: Arc::new(OnlineUsers::new(bootstrap.postgres.clone())),
+        postgres: bootstrap.postgres,
+        api_config: bootstrap.api,
+        api: None,
     })
 }
 async fn signal() {
@@ -245,7 +271,14 @@ async fn signal() {
         let _ = tokio::signal::ctrl_c().await;
     }
 }
-async fn serve(app: App, eof: tokio::sync::oneshot::Receiver<()>) -> Result<(), Failure> {
+async fn serve(mut app: App, eof: tokio::sync::oneshot::Receiver<()>) -> Result<(), Failure> {
+    if let Some(config) = app.api_config.take() {
+        app.api = Some(
+            ApiRuntime::new(config, app.postgres.take(), app.online_users.clone())
+                .await
+                .map_err(|_| Failure)?,
+        );
+    }
     let listener = tokio::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0))
         .await
         .map_err(|_| Failure)?;
@@ -253,6 +286,7 @@ async fn serve(app: App, eof: tokio::sync::oneshot::Receiver<()>) -> Result<(), 
     let app = Arc::new(app);
     let router = Router::new()
         .route("/rpc", post(rpc))
+        .route("/api-request", post(api_request))
         .fallback(|| async { unavailable(StatusCode::NOT_FOUND) })
         .with_state(app.clone());
     writeln!(io::stdout().lock(), "{{\"v\":1,\"port\":{port}}}").map_err(|_| Failure)?;
@@ -272,6 +306,9 @@ async fn serve(app: App, eof: tokio::sync::oneshot::Receiver<()>) -> Result<(), 
         _ = &mut stop => {},
     }
     let _ = shutdown_tx.send(());
+    if let Some(api) = &app.api {
+        api.shutdown().await;
+    }
     app.online_users.shutdown().await;
     match tokio::time::timeout(Duration::from_secs(2), &mut server).await {
         Ok(result) => result.map_err(|_| Failure),

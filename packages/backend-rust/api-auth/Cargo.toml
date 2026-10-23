@@ -1,0 +1,18 @@
+[package]
+name = "misskey-backend-api-auth"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+misskey-backend-postgres = { path = "../storage-postgres" }
+async-trait = "0.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order", "unbounded_depth"] }
+serde_stacker = "0.1"
+tokio = { version = "1", features = ["sync", "rt", "macros"] }
+tokio-postgres = { version = "0.7", features = ["with-serde_json-1"] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt-multi-thread", "time"] }
