@@ -1,5 +1,7 @@
 # Database-read API candidate: cloud validation and hold
 
+Historical evidence: the user's2026-10-24 speed-first policy subsequently approved infrastructure `info.e` differences. Current reactivation/performance decisions are in [native-read-activation.md](native-read-activation.md), and current exceptions are in [compatibility-exceptions.md](compatibility-exceptions.md). The failures below retain their original status; they are not retroactively described as passes.
+
 Date: 2026-10-23. Repository `mothue/misskey`, branch `feat/ts-to-rs`, starting clean HEAD `a6306ed7617a7c10873ec2f76699cd0ccf4d9c9b`. The existing draft PR is [#48](https://github.com/mothue/misskey/pull/48). Its title/body are user-owned; this work does not edit them. No GitHub CodeRabbit review is requested.
 
 ## Acceptance decision
