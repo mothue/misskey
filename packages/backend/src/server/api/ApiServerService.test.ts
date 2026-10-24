@@ -82,10 +82,11 @@ test('request-bound legacy callback uses invokeValidated only and preserves spec
 	const server = Fastify();
 	try {
 		const endpoints = (await import('./endpoints.js')).default;
-		endpoints.push({ name: 'emoji', meta: {}, params: { type: 'object' } });
+		// Keep this fixture independent of which production APIs are native.
+		endpoints.push({ name: 'fixture/legacy', meta: {}, params: { type: 'object' } });
 		await service.prepareRustApi();
 		await server.register(service.createServer, { prefix: '/api' });
-		const ordinary = await server.inject({ method: 'POST', url: '/api/emoji', payload: { name: 'passed-by-rust' } });
+		const ordinary = await server.inject({ method: 'POST', url: '/api/fixture/legacy', payload: { name: 'passed-by-rust' } });
 		expect(ordinary.statusCode).toBe(200);
 		expect(ordinary.json()).toEqual({ at: '1970-01-01T00:00:00.000Z' });
 		expect(invokeValidated).toHaveBeenCalledOnce();
