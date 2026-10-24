@@ -56,12 +56,8 @@ impl Note {
             _ => return Err(Error::Internal),
         };
         let reactions = field(row, "reactions")?.clone();
-        let Value::Object(entries) = &reactions else {
-            return Err(Error::Internal);
-        };
-        if entries.iter().any(|(_, n)| n.as_number().is_none()) {
-            return Err(Error::Internal);
-        }
+        // JSONB is an untrusted legacy payload. Interpretation belongs to the
+        // shared reaction packer, after the endpoint's access restrictions.
         let reaction_acceptance = nullable_string(row, "reactionAcceptance")?;
         if !matches!(
             reaction_acceptance.as_deref(),

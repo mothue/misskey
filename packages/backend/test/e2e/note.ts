@@ -11,7 +11,7 @@ import * as assert from 'assert';
 import { describe, beforeAll, afterAll, test } from 'vitest';
 import { MiNote } from '@/models/Note.js';
 import { MAX_NOTE_TEXT_LENGTH } from '@/const.js';
-import { api, castAsError, initTestDb, post, role, signup, uploadFile, uploadUrl } from '../utils.js';
+import { api, castAsError, initTestDb, post, relativeFetch, role, signup, uploadFile, uploadUrl } from '../utils.js';
 import type * as misskey from 'misskey-js';
 
 describe('Note', () => {
@@ -32,6 +32,26 @@ describe('Note', () => {
 	}, 1000 * 60 * 2);
 
 	describe('notes/show response compatibility', () => {
+		test('checks author and server access restrictions before interpreting payload', async () => {
+			const note = await post(alice, { text: 'restricted payload' });
+			await Notes.query('UPDATE note SET reactions=$1::jsonb, "reactionAcceptance"=$2 WHERE id=$3', [JSON.stringify({ '👍': '1' }), 'legacy-unknown', note.id]);
+			try {
+				assert.strictEqual((await api('i/update', { requireSigninToViewContents: true }, alice)).status, 200);
+				assert.strictEqual((await api('admin/update-meta', { ugcVisibilityForVisitor: 'none' }, root)).status, 204);
+				const byAuthor = await api('notes/show', { noteId: note.id });
+				assert.strictEqual(byAuthor.status, 400);
+				assert.strictEqual(castAsError(byAuthor.body).error.code, 'CONTENT_RESTRICTED_BY_USER');
+				assert.strictEqual((await api('i/update', { requireSigninToViewContents: false }, alice)).status, 200);
+				const byServer = await api('notes/show', { noteId: note.id });
+				assert.strictEqual(byServer.status, 400);
+				assert.strictEqual(castAsError(byServer.body).error.code, 'CONTENT_RESTRICTED_BY_SERVER');
+			} finally {
+				await Notes.query('UPDATE note SET reactions=\'{}\'::jsonb, "reactionAcceptance"=NULL WHERE id=$1', [note.id]);
+				await api('i/update', { requireSigninToViewContents: false }, alice);
+				await api('admin/update-meta', { ugcVisibilityForVisitor: 'all' }, root);
+			}
+		});
+
 		test('preserves the TS creation response, including Unicode and nullable fields', async () => {
 			const created = await post(alice, { text: '😀 e\u0301 #native', cw: 'warning', localOnly: true });
 			const shown = await api('notes/show', { noteId: created.id }, alice);
@@ -82,6 +102,91 @@ describe('Note', () => {
 				assert.deepStrictEqual(shown.body.files, []);
 				assert.strictEqual(Object.hasOwn(shown.body, 'poll'), false);
 				assert.strictEqual(Object.hasOwn(shown.body, 'visibleUserIds'), false);
+			}
+		});
+	});
+
+	describe('notes/show-partial-bulk response compatibility', () => {
+		test('does not interpret reactions on notes excluded by visibility', async () => {
+			const note = await post(alice, { text: 'private payload', visibility: 'specified', visibleUserIds: [bob.id] });
+			await Notes.query('UPDATE note SET reactions=$1::jsonb WHERE id=$2', [JSON.stringify({ '👍': { toString: null } }), note.id]);
+			try {
+				const result = await api('notes/show-partial-bulk', { noteIds: [note.id] });
+				assert.strictEqual(result.status, 200);
+				assert.deepStrictEqual(result.body, []);
+			} finally {
+				await Notes.query('UPDATE note SET reactions=\'{}\'::jsonb WHERE id=$1', [note.id]);
+			}
+		});
+
+		test('preserves legacy reaction values on visible notes', async () => {
+			const note = await post(alice, { text: 'legacy payload' });
+			await Notes.query('UPDATE note SET reactions=$1::jsonb WHERE id=$2', [JSON.stringify({ '👍': '1' }), note.id]);
+			try {
+				const result = await relativeFetch('api/notes/show-partial-bulk', {
+					method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ noteIds: [note.id] }),
+				});
+				assert.strictEqual(result.status, 200);
+				const body: unknown = await result.json();
+				assert.deepStrictEqual(body, [{ id: note.id, reactions: { '👍': '01' }, reactionEmojis: {} }]);
+			} finally {
+				await Notes.query('UPDATE note SET reactions=\'{}\'::jsonb WHERE id=$1', [note.id]);
+			}
+		});
+
+		test('treats null recipient and mention members as nonmatching IDs', async () => {
+			const note = await post(alice, { text: 'private recipients', visibility: 'specified', visibleUserIds: [bob.id] });
+			await Notes.query('UPDATE note SET "visibleUserIds"=ARRAY[NULL,$1]::varchar[], mentions=ARRAY[NULL]::varchar[] WHERE id=$2', [bob.id, note.id]);
+			try {
+				for (const viewer of [undefined, root]) {
+					const result = await api('notes/show-partial-bulk', { noteIds: [note.id] }, viewer);
+					assert.strictEqual(result.status, 200);
+					assert.deepStrictEqual(result.body, []);
+				}
+				for (const viewer of [alice, bob]) {
+					const result = await api('notes/show-partial-bulk', { noteIds: [note.id] }, viewer);
+					assert.strictEqual(result.status, 200);
+					assert.deepStrictEqual(result.body, [{ id: note.id, reactions: {}, reactionEmojis: {} }]);
+				}
+			} finally {
+				await Notes.query('UPDATE note SET "visibleUserIds"=ARRAY[$1]::varchar[], mentions=ARRAY[]::varchar[] WHERE id=$2', [bob.id, note.id]);
+			}
+		});
+
+		test('returns only partial fields and deduplicates missing and repeated IDs', async () => {
+			const visible = await post(alice, { text: 'partial public' });
+			const hidden = await post(alice, { text: 'partial private', visibility: 'specified', visibleUserIds: [bob.id] });
+			const reaction = await api('notes/reactions/create', { noteId: visible.id, reaction: '👍' }, bob);
+			assert.strictEqual(reaction.status, 204);
+			const result = await api('notes/show-partial-bulk', { noteIds: [hidden.id, visible.id, '0000000000000000', visible.id] });
+			assert.strictEqual(result.status, 200);
+			assert.deepStrictEqual(result.body, [{ id: visible.id, reactions: { '👍': 1 }, reactionEmojis: {} }]);
+		});
+
+		test('keeps specified notes visible to their author and recipients', async () => {
+			const note = await post(alice, { text: 'partial specified', visibility: 'specified', visibleUserIds: [bob.id] });
+			for (const viewer of [alice, bob]) {
+				const result = await api('notes/show-partial-bulk', { noteIds: [note.id] }, viewer);
+				assert.strictEqual(result.status, 200);
+				assert.deepStrictEqual(result.body, [{ id: note.id, reactions: {}, reactionEmojis: {} }]);
+			}
+			for (const viewer of [undefined, root]) {
+				const result = await api('notes/show-partial-bulk', { noteIds: [note.id] }, viewer);
+				assert.strictEqual(result.status, 200);
+				assert.deepStrictEqual(result.body, []);
+			}
+		});
+
+		test('validates empty, oversized and incorrectly typed ID collections', async () => {
+			for (const noteIds of [[], Array(101).fill('0000000000000000'), [null], '0000000000000000']) {
+				const result = await relativeFetch('api/notes/show-partial-bulk', {
+					method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ noteIds }),
+				});
+				assert.strictEqual(result.status, 400);
+				const body: unknown = await result.json();
+				assert.ok(body !== null && typeof body === 'object' && 'error' in body);
+				assert.ok(body.error !== null && typeof body.error === 'object' && 'code' in body.error);
+				assert.strictEqual(body.error.code, 'INVALID_PARAM');
 			}
 		});
 	});

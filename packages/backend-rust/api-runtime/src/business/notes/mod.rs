@@ -1,4 +1,4 @@
-//! A complete notes/show operation, including its nested public representations.
+//! Complete note reads and their native public representations.
 use super::{Error, iso_date, parse_id_date, rows, text};
 use crate::Runtime;
 use misskey_api_validation::Value;
@@ -8,10 +8,12 @@ use std::collections::{HashMap, HashSet};
 pub(crate) mod config;
 mod entities;
 mod files;
+mod partial;
 mod reactions;
 mod row;
 mod users;
 pub(crate) use config::Config;
+pub(super) use partial::show_partial_bulk;
 use row::{Note, Visibility, boolean, field, null_string, optional_string, string, string_array};
 
 struct Graph {
@@ -54,31 +56,16 @@ async fn load_graph(
         users: HashMap::new(),
         detailed: HashSet::from([root.to_owned()]),
     };
-    insert_nodes(&mut graph, load_notes(runtime, &[root.to_owned()]).await?)?;
-    let Some(note) = graph.notes.get(root) else {
+    let root_rows = load_notes(runtime, &[root.to_owned()]).await?;
+    let Some(root_row) = root_rows.first() else {
         return Err(api_error(
             "No such note.",
             "NO_SUCH_NOTE",
             "24fcbfc6-2e37-42b6-8388-c29b3861a08d",
         ));
     };
-    if auth.user.is_none() {
-        let user = graph.users.get(&note.user_id).ok_or(Error::Internal)?;
-        if boolean(user, "requireSigninToViewContents")? {
-            return Err(api_error(
-                "Content restricted by user. Please sign in to view.",
-                "CONTENT_RESTRICTED_BY_USER",
-                "fbcc002d-37d9-4944-a6b0-d9e29f2d33ab",
-            ));
-        }
-        if visitor_policy == "none" || (visitor_policy == "local" && note.user_host.is_some()) {
-            return Err(api_error(
-                "Content restricted by server settings. Please sign in to view.",
-                "CONTENT_RESTRICTED_BY_SERVER",
-                "145f88d2-b03d-4087-8143-a78928883c4b",
-            ));
-        }
-    }
+    root_access(root_row, auth.user.is_none(), visitor_policy)?;
+    insert_nodes(&mut graph, root_rows)?;
     let mut expanded = HashSet::new();
     let mut attempted = HashSet::from([root.to_owned()]);
     loop {
@@ -109,6 +96,32 @@ async fn load_graph(
         insert_nodes(&mut graph, load_notes(runtime, &fetch).await?)?;
     }
     Ok(graph)
+}
+
+// Read only the fields used by the endpoint's ordered root access checks.
+// Payload decoding must not replace a denied request with an unrelated error.
+fn root_access(root: &Value, anonymous: bool, visitor_policy: &str) -> Result<(), Error> {
+    if !anonymous {
+        return Ok(());
+    }
+    if boolean(field(root, "user")?, "requireSigninToViewContents")? {
+        return Err(api_error(
+            "Content restricted by user. Please sign in to view.",
+            "CONTENT_RESTRICTED_BY_USER",
+            "fbcc002d-37d9-4944-a6b0-d9e29f2d33ab",
+        ));
+    }
+    if visitor_policy == "none"
+        || (visitor_policy == "local"
+            && row::nullable_string(field(root, "note")?, "userHost")?.is_some())
+    {
+        return Err(api_error(
+            "Content restricted by server settings. Please sign in to view.",
+            "CONTENT_RESTRICTED_BY_SERVER",
+            "145f88d2-b03d-4087-8143-a78928883c4b",
+        ));
+    }
+    Ok(())
 }
 
 fn api_error(message: &'static str, code: &'static str, id: &'static str) -> Error {
@@ -588,10 +601,7 @@ fn pack_one(
         ),
         ("renoteCount", Value::Number(f64::from(note.renote_count))),
         ("repliesCount", Value::Number(f64::from(note.replies_count))),
-        (
-            "reactionCount",
-            Value::Number(reactions::count(&reactions.reactions)?),
-        ),
+        ("reactionCount", reactions::count(&reactions.reactions)?),
         ("reactions", reactions.reactions.clone()),
         ("reactionEmojis", reaction_emojis.clone()),
         ("emojis", emojis.clone()),
@@ -751,6 +761,42 @@ mod tests {
         })))
         .unwrap()
     }
+    #[test]
+    fn root_restrictions_precede_unrelated_payload_decoding() {
+        let mut root = Value::parse_json(
+            r#"{"user":{"requireSigninToViewContents":true},"note":{"userHost":null,"reactions":{"👍":"1"}}}"#,
+        ).unwrap();
+        assert!(matches!(
+            root_access(&root, true, "none"),
+            Err(Error::Api {
+                code: "CONTENT_RESTRICTED_BY_USER",
+                ..
+            })
+        ));
+        root.get_mut("user")
+            .unwrap()
+            .set("requireSigninToViewContents", Value::Boolean(false));
+        assert!(matches!(
+            root_access(&root, true, "none"),
+            Err(Error::Api {
+                code: "CONTENT_RESTRICTED_BY_SERVER",
+                ..
+            })
+        ));
+        root.get_mut("note")
+            .unwrap()
+            .set("userHost", Value::string("remote.test"));
+        assert!(matches!(
+            root_access(&root, true, "local"),
+            Err(Error::Api {
+                code: "CONTENT_RESTRICTED_BY_SERVER",
+                ..
+            })
+        ));
+        assert!(root_access(&root, true, "all").is_ok());
+        assert!(root_access(&root, false, "none").is_ok());
+    }
+
     fn visible_user() -> Value {
         Value::from_json(
             &serde_json::json!({"requireSigninToViewContents":false,"makeNotesHiddenBefore":null,"makeNotesFollowersOnlyBefore":null}),
