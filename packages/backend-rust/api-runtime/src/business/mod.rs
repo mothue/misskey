@@ -10,6 +10,7 @@ mod id;
 pub(crate) mod notes;
 mod registry_apps;
 mod roles_admin;
+mod user_lists;
 use id::{iso_date, parse_id_date};
 
 pub(super) struct Config {
@@ -178,6 +179,7 @@ pub(super) const ACTIVE_READ_ENDPOINTS: &[&str] = &[
     "roles/list",
     "roles/show",
     "username/available",
+    "users/lists/list",
 ];
 
 pub(super) async fn execute(
@@ -188,6 +190,9 @@ pub(super) async fn execute(
 ) -> Option<Result<Value, Error>> {
     if !ACTIVE_READ_ENDPOINTS.contains(&name) {
         return None;
+    }
+    if name == "users/lists/list" {
+        return Some(user_lists::list(runtime, params, auth).await);
     }
     if name == "notes/drafts/count" {
         return Some(notes::count_drafts(runtime, auth).await);

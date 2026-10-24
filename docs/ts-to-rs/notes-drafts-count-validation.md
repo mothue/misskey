@@ -28,7 +28,7 @@ The unmodified benchmark runner used three AB/BA/AB pairs, concurrency 8, 100 wa
 | Rust child lifecycle | PASS, exit 0 | The new count/core APIs return 503 after child termination, host survives, no restart, owned processes collected. |
 | Performance activation gate | FAIL, exit 1 | Nine-draft account p95 +3.71%; successful measurement completion is not gate success. |
 | Local federation for this candidate | SKIPPED | No activation after the failed performance gate. Previous shared-pool federation results are not reused as this candidate's success. |
-| Final pushed-commit CI | PENDING | Check the actual pushed SHA; no final CI success claimed here. |
+| Pushed candidate CI | PASS at `fb102ecbcc23681020c6e895e94cdc6377048788` | All 18 executed workflows succeeded; Storybook was skipped. Later revisions require their own final-SHA check. |
 
 The first private benchmark preparation attempt failed its copied fixture-name guard before any benchmark requests. Correcting the dedicated fixture guards and draft-row digest allowed preparation, readiness and the paired measurement to complete. This setup failure is retained with exit 1 and is not a product regression or a successful measurement.
 

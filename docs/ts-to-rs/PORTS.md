@@ -2,6 +2,8 @@
 
 ## Authority and scope
 
+The complete [users/lists/list slice](users-lists-list-validation.md) passed its paired performance gate after bounded membership batching. Its final acceptance checks are recorded there.
+
 The complete [notes/drafts/count candidate](notes-drafts-count-validation.md) is also held after the paired p95 gate failed; its business operation continues on TS.
 
 The generated [native/TS/held registry](native-status.md) is the current selection record. [The notes/clips candidate](notes-clips-validation.md) remains held after its measured gate failed; its shared compatible-session reuse change does not activate the handler.

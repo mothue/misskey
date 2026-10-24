@@ -8,6 +8,7 @@ process.env.NODE_ENV = 'test';
 import * as assert from 'assert';
 import { beforeAll, beforeEach, describe, test } from 'vitest';
 import { inspect } from 'node:util';
+import { randomUUID } from 'node:crypto';
 import { api, post, role, signup, successfulApiCall, uploadFile } from '../utils.js';
 import type * as misskey from 'misskey-js';
 import { DEFAULT_POLICIES } from '@/core/RoleService.js';
@@ -891,4 +892,69 @@ describe('ユーザー', () => {
 	test.todo('を管理人として確認することができる(admin/show-user)');
 	test.todo('を管理人として確認することができる(admin/show-users)');
 	test.todo('をサーバー向けに取得することができる(federation/users)');
+});
+
+describe('users/lists/list response compatibility', () => {
+	let owner: misskey.entities.SignupResponse;
+	let other: misskey.entities.SignupResponse;
+
+	beforeAll(async () => {
+		owner = await signup({ username: 'listOwner' });
+		other = await signup({ username: 'listOther' });
+	});
+
+	function errorBody(value: unknown): { code: string; id: string } {
+		assert.ok(value !== null && typeof value === 'object' && 'error' in value);
+		const error = value.error;
+		assert.ok(error !== null && typeof error === 'object');
+		assert.ok('code' in error && typeof error.code === 'string');
+		assert.ok('id' in error && typeof error.id === 'string');
+		return { code: error.code, id: error.id };
+	}
+
+	test('preserves own private lists, explicit-self public filtering and member order', async () => {
+		const ids: string[] = [];
+		try {
+			const publicList = await successfulApiCall({ endpoint: 'users/lists/create', parameters: { name: 'public 😀 e\u0301' }, user: owner });
+			ids.push(publicList.id);
+			const privateList = await successfulApiCall({ endpoint: 'users/lists/create', parameters: { name: 'private' }, user: owner });
+			ids.push(privateList.id);
+			await successfulApiCall({ endpoint: 'users/lists/update', parameters: { listId: publicList.id, isPublic: true }, user: owner });
+			await successfulApiCall({ endpoint: 'users/lists/push', parameters: { listId: publicList.id, userId: other.id }, user: owner });
+			await successfulApiCall({ endpoint: 'users/lists/push', parameters: { listId: publicList.id, userId: owner.id }, user: owner });
+			const mine = await successfulApiCall({ endpoint: 'users/lists/list', parameters: {}, user: owner });
+			assert.deepStrictEqual(new Set(mine.map(list => list.id)), new Set(ids));
+			const packed = mine.find(list => list.id === publicList.id);
+			assert.ok(packed);
+			assert.deepStrictEqual(packed, { id: publicList.id, createdAt: publicList.createdAt, name: publicList.name, userIds: [other.id, owner.id], isPublic: true });
+			assert.deepStrictEqual(mine.find(list => list.id === privateList.id), privateList);
+			const explicit = await successfulApiCall({ endpoint: 'users/lists/list', parameters: { userId: owner.id }, user: owner });
+			const anonymous = await api('users/lists/list', { userId: owner.id });
+			assert.strictEqual(anonymous.status, 200);
+			assert.deepStrictEqual(explicit, [packed]);
+			assert.deepStrictEqual(anonymous.body, [packed]);
+			const allowed = await api('miauth/gen-token', { session: randomUUID(), permission: ['read:account'] }, owner);
+			const denied = await api('miauth/gen-token', { session: randomUUID(), permission: ['read:notifications'] }, owner);
+			const scoped = await api('users/lists/list', {}, { token: allowed.body.token });
+			assert.strictEqual(scoped.status, 200);
+			assert.deepStrictEqual(scoped.body, mine);
+			assert.strictEqual((await api('users/lists/list', { userId: owner.id }, { token: denied.body.token })).status, 403);
+		} finally {
+			for (const listId of ids) await api('users/lists/delete', { listId }, owner);
+		}
+		assert.deepStrictEqual((await api('users/lists/list', {}, owner)).body, []);
+	});
+
+	test('keeps anonymous, missing-user and remote-user errors distinct', async () => {
+		const remote = await signup({ username: 'listRemote', host: 'example.com' });
+		for (const [params, expected] of [
+			[{}, { code: 'INVALID_PARAM', id: 'ab36de0e-29e9-48cb-9732-d82f1281620d' }],
+			[{ userId: '0000000000000000' }, { code: 'NO_SUCH_USER', id: 'a8af4a82-0980-4cc4-a6af-8b0ffd54465e' }],
+			[{ userId: remote.id }, { code: 'REMOTE_USER_NOT_ALLOWED', id: '53858f1b-3315-4a01-81b7-db9b48d4b79a' }],
+		] as const) {
+			const response = await api('users/lists/list', params);
+			assert.strictEqual(response.status, 400);
+			assert.deepStrictEqual(errorBody(response.body), expected);
+		}
+	});
 });
