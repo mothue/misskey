@@ -26,7 +26,7 @@ Fresh cloud evidence is stored privately under `/workspace/native-queue/partial-
 | Rust fmt / clippy / workspace tests | PASS | Clippy `-D warnings`; 246 tests passed, 8 ignored. Ignored tests are not successes. |
 | Local federation E2E | PASS, exit 0 | Fresh container-native build, 9 files / 92 passed / 13 skipped; owned services and volumes removed. |
 | Paired measurement | PASS, exit 0 | 36,000 measured + 3,600 warm-up requests; all six throughput/p95 gates passed. |
-| Final pushed-commit CI | PENDING | Must be read from the exact final pushed SHA; no CI acceptance claimed here. |
+| Activation commit CI | PASS | `f597c92ea699109f82ffc9b9cbc116cc0ad35536`: 18 successful workflows; Storybook explicitly skipped. Backend and federation workflows succeeded. |
 
 ## Paired cloud measurement
 

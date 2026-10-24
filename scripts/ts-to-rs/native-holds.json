@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "holds": [
+    {
+      "endpoint": "admin/get-index-stats",
+      "kind": "performance",
+      "reason": "The complete native candidate failed its paired measurement gate; continue using the TS body.",
+      "evidence": "native-read-activation.md"
+    },
+    {
+      "endpoint": "admin/get-table-stats",
+      "kind": "performance",
+      "reason": "The complete native candidate failed its paired measurement gate; continue using the TS body.",
+      "evidence": "native-read-activation.md"
+    },
+    {
+      "endpoint": "admin/emoji/list",
+      "kind": "compatibility",
+      "reason": "Separate TS/Rust ID generator state can change date-pagination bounds within the same millisecond.",
+      "evidence": "db-read-validation.md#candidate-and-separate-date-pagination-hold"
+    },
+    {
+      "endpoint": "admin/emoji/list-remote",
+      "kind": "compatibility",
+      "reason": "Separate TS/Rust ID generator state can change date-pagination bounds within the same millisecond.",
+      "evidence": "db-read-validation.md#candidate-and-separate-date-pagination-hold"
+    },
+    {
+      "endpoint": "admin/ad/list",
+      "kind": "compatibility",
+      "reason": "Separate TS/Rust ID generator state can change date-pagination bounds within the same millisecond.",
+      "evidence": "db-read-validation.md#candidate-and-separate-date-pagination-hold"
+    },
+    {
+      "endpoint": "admin/announcements/list",
+      "kind": "compatibility",
+      "reason": "Separate TS/Rust ID generator state can change date-pagination bounds within the same millisecond.",
+      "evidence": "db-read-validation.md#candidate-and-separate-date-pagination-hold"
+    }
+  ]
+}
