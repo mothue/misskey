@@ -188,6 +188,7 @@ export class ApiServerService implements OnApplicationShutdown {
 			'roles/show',
 			'username/available',
 			'notes/show',
+			'notes/show-partial-bulk',
 		].includes(invocation.endpoint)) throw new Error('Native API cannot execute through TS');
 		const userRecord = invocation.user === null ? null : hydrateApiEntity(this.db.getMetadata('user'), invocation.user);
 		if (userRecord !== null && typeof userRecord.id !== 'string') throw new Error('Invalid API user');
