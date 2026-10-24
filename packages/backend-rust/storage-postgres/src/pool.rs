@@ -112,6 +112,8 @@ impl TargetPool {
             state.waiters.push_back(waiter);
             (waiter, queued)
         };
+        // One opportunity per checkout, never renewed by unrelated releases.
+        let mut mode_grace_until = None;
         let mut waiter = Waiter {
             pool: Arc::clone(self),
             id: Some(waiter),
@@ -123,6 +125,7 @@ impl TargetPool {
             changed.as_mut().enable();
             enum Next {
                 Wait,
+                ModeWait(Instant),
                 Ready(Idle, Option<JoinHandle<()>>),
                 Connect(u64),
                 Retire(Idle),
@@ -159,11 +162,34 @@ impl TargetPool {
                     state.waiters.pop_front();
                     waiter.id = None;
                     Next::Connect(id)
-                } else if let Some(idle) = state.idle.pop() {
-                    // Read-only and writable sessions share the source budget.
-                    // An incompatible idle session must not starve max=1.
-                    state.retiring.insert(idle.id);
-                    Next::Retire(idle)
+                } else if !state.idle.is_empty() {
+                    // Do not hold expired/closed sessions during the grace.
+                    let invalid = state
+                        .idle
+                        .iter()
+                        .rposition(|idle| idle.connection.client.is_closed() || self.expired(idle));
+                    let in_flight = state.total > state.idle.len() + state.retiring.len();
+                    let grace = if invalid.is_none() && in_flight {
+                        let until = *mode_grace_until
+                            .get_or_insert_with(|| Instant::now() + Duration::from_millis(2));
+                        (Instant::now() < until).then_some(until)
+                    } else {
+                        None
+                    };
+                    if let Some(until) = grace {
+                        // At full budget, a matching in-flight session may soon
+                        // return. Wait briefly before destroying healthy idle
+                        // capacity of the other mode; never change its mode.
+                        Next::ModeWait(until)
+                    } else {
+                        // Read-only and writable sessions share source budget.
+                        // No in-flight capacity (including max=1 idle-only)
+                        // must progress immediately by replacing an idle slot.
+                        let index = invalid.unwrap_or(state.idle.len() - 1);
+                        let idle = state.idle.remove(index);
+                        state.retiring.insert(idle.id);
+                        Next::Retire(idle)
+                    }
                 } else {
                     Next::Wait
                 }
@@ -234,6 +260,21 @@ impl TargetPool {
                         set_read_only(lease.connection()).await?;
                     }
                     return Ok(lease);
+                }
+                Next::ModeWait(until) => {
+                    queued = true;
+                    let wait = async {
+                        tokio::select! {
+                            _ = &mut changed => {},
+                            _ = tokio::time::sleep_until(until) => {},
+                        }
+                    };
+                    match deadline {
+                        Some(deadline) => timeout_at(deadline, wait)
+                            .await
+                            .map_err(|_| QueryError::CheckoutTimeout)?,
+                        None => wait.await,
+                    }
                 }
                 Next::Wait => {
                     queued = true;
@@ -580,5 +621,132 @@ impl Drop for Lease {
         if let Some(connection) = self.connection.take() {
             self.pool.retire(self.id, connection);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn dedicated_target(max: usize) -> Target {
+        let path = std::env::var_os("MISSKEY_POSTGRES_TEST_CONFIG")
+            .expect("dedicated config path required");
+        let fixture: PostgresConfig =
+            serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+        assert_eq!(fixture.targets.len(), 1);
+        let mut target = fixture.targets.into_iter().next().unwrap();
+        assert_eq!(
+            target.database, "online-adapter",
+            "dedicated database required"
+        );
+        assert!(target.tls.is_none(), "plaintext lease fixture only");
+        target.pool = PoolSettings {
+            max,
+            held: None,
+            ..PoolSettings::default()
+        };
+        target.connect_timeout_ms = Some(1000);
+        target
+    }
+
+    async fn session(lease: &Lease) -> (i32, String) {
+        let client = &lease.connection().client;
+        let pid = client
+            .query_one("SELECT pg_backend_pid()", &[])
+            .await
+            .unwrap()
+            .get(0);
+        let mode = client
+            .query_one("SHOW default_transaction_read_only", &[])
+            .await
+            .unwrap()
+            .get(0);
+        (pid, mode)
+    }
+
+    #[tokio::test]
+    #[ignore = "requires explicit MISSKEY_POSTGRES_TEST_CONFIG for dedicated online-adapter database"]
+    async fn compatible_return_preserves_healthy_other_mode_session() {
+        let pool = TargetPool::new(dedicated_target(2), Arc::new(SystemResolver));
+        let read = pool.acquire(true).await.unwrap();
+        let (read_pid, read_mode) = session(&read).await;
+        let write = pool.acquire(false).await.unwrap();
+        let (write_pid, write_mode) = session(&write).await;
+        write.release();
+
+        let checkout = pool.acquire(true);
+        tokio::pin!(checkout);
+        // Poll once to enter the full-budget FIFO queue before returning the
+        // compatible lease, without depending on task scheduling or a sleep.
+        assert!(
+            std::future::poll_fn(|cx| { std::task::Poll::Ready(checkout.as_mut().poll(cx)) })
+                .await
+                .is_pending()
+        );
+        assert_eq!(pool.state.lock().unwrap().waiters.len(), 1);
+        read.release();
+        let reused_read = checkout.await.unwrap();
+        let read_after = session(&reused_read).await;
+        reused_read.release();
+        let reused_write = pool.acquire(false).await.unwrap();
+        let write_after = session(&reused_write).await;
+        reused_write.release();
+        let total = pool.total_count();
+        pool.shutdown().await;
+
+        assert_eq!(read_mode, "on");
+        assert_eq!(write_mode, "off");
+        assert_eq!(read_after, (read_pid, "on".into()));
+        assert_eq!(write_after, (write_pid, "off".into()));
+        assert_eq!(total, 2);
+    }
+
+    #[tokio::test]
+    #[ignore = "requires explicit MISSKEY_POSTGRES_TEST_CONFIG for dedicated online-adapter database"]
+    async fn busy_compatible_session_does_not_block_mode_replacement() {
+        let pool = TargetPool::new(dedicated_target(2), Arc::new(SystemResolver));
+        let held_read = pool.acquire(true).await.unwrap();
+        let (held_pid, _) = session(&held_read).await;
+        let write = pool.acquire(false).await.unwrap();
+        let (write_pid, _) = session(&write).await;
+        write.release();
+        // A compatible session that stays checked out cannot indefinitely
+        // preserve the other mode's idle session at the shared capacity limit.
+        let read = tokio::time::timeout(Duration::from_secs(1), pool.acquire(true))
+            .await
+            .expect("mode grace must be bounded even when no lease returns")
+            .unwrap();
+        let (read_pid, mode) = session(&read).await;
+        read.release();
+        held_read.release();
+        let total = pool.total_count();
+        pool.shutdown().await;
+
+        assert_eq!(mode, "on");
+        assert_ne!(read_pid, held_pid);
+        assert_ne!(read_pid, write_pid);
+        assert_eq!(total, 2);
+    }
+
+    #[tokio::test]
+    #[ignore = "requires explicit MISSKEY_POSTGRES_TEST_CONFIG for dedicated online-adapter database"]
+    async fn single_idle_mode_change_keeps_progress_and_session_isolation() {
+        let pool = TargetPool::new(dedicated_target(1), Arc::new(SystemResolver));
+        let write = pool.acquire(false).await.unwrap();
+        let (write_pid, write_mode) = session(&write).await;
+        write.release();
+        let read = tokio::time::timeout(Duration::from_secs(1), pool.acquire(true))
+            .await
+            .expect("an idle incompatible session cannot starve max=1")
+            .unwrap();
+        let (read_pid, read_mode) = session(&read).await;
+        read.release();
+        let total = pool.total_count();
+        pool.shutdown().await;
+
+        assert_eq!(write_mode, "off");
+        assert_eq!(read_mode, "on");
+        assert_ne!(write_pid, read_pid);
+        assert_eq!(total, 1);
     }
 }
