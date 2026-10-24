@@ -235,6 +235,8 @@ async fn typed_limits_use_endpoint_fallback_and_preserve_empty_or_shared_keys() 
     let (stop, _) = watch::channel(false);
     let state = RedisState {
         client: client.clone(),
+        reads: Arc::new(RedisReads::new(config.clone()).unwrap()),
+        reactions: Arc::new(RedisReads::new(config.clone()).unwrap()),
         config,
         connection: Mutex::new(Some(connection.clone())),
         ready: Arc::new(AtomicBool::new(true)),
@@ -649,4 +651,56 @@ async fn pubsub_disconnect_closes_admission_then_refreshes_and_recovers() {
         driver.abort();
         let _ = driver.await;
     }
+}
+
+#[tokio::test]
+#[ignore = "requires explicit dedicated Redis fixture; unique keys only"]
+async fn unfollow_invalidation_rejects_an_older_in_flight_following_fill() {
+    let unique = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let mut config = config(1);
+    config.key_prefix = format!("native-note-revoke:{unique}:");
+    let mut reads = RedisReads::new(config).unwrap();
+    reads.client = dedicated_client();
+    let key = "kvcache:userFollowings:viewer";
+    let (generation, cached) = reads.get_cache(key, Duration::from_secs(60)).await.unwrap();
+    assert!(cached.is_none());
+    // A SELECT started at the cache miss can complete after revocation. Its
+    // old result must be rejected before SET and before returning membership.
+    let before_unfollow = JsValue::object([(
+        "author",
+        JsValue::object([("withReplies", JsValue::Boolean(false))]),
+    )]);
+    reads
+        .apply_event(&json!({"message":{"type":"unfollow","body":{"followerId":"viewer"}}}))
+        .await
+        .unwrap();
+    assert!(
+        !reads
+            .set_cache(key, &before_unfollow, generation)
+            .await
+            .unwrap()
+    );
+    let (next_generation, cached) = reads.get_cache(key, Duration::from_secs(60)).await.unwrap();
+    assert_ne!(generation, next_generation);
+    assert!(
+        cached.is_none(),
+        "revoked membership must not be restored in memory or Redis"
+    );
+    let after_unfollow = JsValue::object(std::iter::empty::<(&str, JsValue)>());
+    assert!(
+        reads
+            .set_cache(key, &after_unfollow, next_generation)
+            .await
+            .unwrap()
+    );
+    let (_, cached) = reads.get_cache(key, Duration::from_secs(60)).await.unwrap();
+    assert!(cached.unwrap().get("author").is_none());
+    reads
+        .apply_event(&json!({"message":{"type":"unfollow","body":{"followerId":"viewer"}}}))
+        .await
+        .unwrap();
+    reads.shutdown().await;
 }

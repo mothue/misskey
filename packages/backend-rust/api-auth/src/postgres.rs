@@ -182,7 +182,7 @@ impl Store for PostgresAuthStore {
         self.select("role", "", &[]).await
     }
     async fn meta(&self) -> Result<Value, Failure> {
-        let rows = self.database.query(false, "SELECT json_build_object('rootUserId', \"rootUserId\", 'policies', policies, 'enableIpLogging', \"enableIpLogging\", 'preservedUsernames', \"preservedUsernames\")::text FROM meta ORDER BY id DESC LIMIT 1", &[]).await.map_err(|_| Failure)?;
+        let rows = self.database.query(false, "SELECT json_build_object('rootUserId', \"rootUserId\", 'policies', policies, 'enableIpLogging', \"enableIpLogging\", 'preservedUsernames', \"preservedUsernames\", 'ugcVisibilityForVisitor', \"ugcVisibilityForVisitor\", 'enableReactionsBuffering', \"enableReactionsBuffering\", 'showRoleBadgesOfRemoteUsers', \"showRoleBadgesOfRemoteUsers\", 'proxyRemoteFiles', \"proxyRemoteFiles\", 'iconUrl', \"iconUrl\")::text FROM meta ORDER BY id DESC LIMIT 1", &[]).await.map_err(|_| Failure)?;
         let text: String = rows
             .first()
             .ok_or(Failure)?
@@ -229,11 +229,11 @@ mod tests {
         let primary = config.targets[0].clone();
         let database = Arc::new(Database::new(Some(config), Some(primary)));
         database.query(false,
-            "CREATE TEMP TABLE meta (id text, \"rootUserId\" text, policies jsonb, \"enableIpLogging\" boolean, \"preservedUsernames\" text[])",
+            "CREATE TEMP TABLE meta (id text, \"rootUserId\" text, policies jsonb, \"enableIpLogging\" boolean, \"preservedUsernames\" text[], \"ugcVisibilityForVisitor\" text, \"enableReactionsBuffering\" boolean, \"showRoleBadgesOfRemoteUsers\" boolean, \"proxyRemoteFiles\" boolean, \"iconUrl\" text)",
             &[],
         ).await.unwrap();
         database.query(false,
-            "INSERT INTO meta VALUES ('fixture', NULL, '{}'::jsonb, false, ARRAY['MiXeD', 'reserved-name'])",
+            "INSERT INTO meta VALUES ('fixture', NULL, '{}'::jsonb, false, ARRAY['MiXeD', 'reserved-name'], 'none', true, true, false, 'https://example.test/icon.png')",
             &[],
         ).await.unwrap();
         let store = Arc::new(PostgresAuthStore {
@@ -253,6 +253,26 @@ mod tests {
         )
         .unwrap();
         auth.invalidate_all().await.unwrap();
+        assert_eq!(
+            auth.meta().await.get("ugcVisibilityForVisitor"),
+            Some(&json!("none"))
+        );
+        assert_eq!(
+            auth.meta().await.get("enableReactionsBuffering"),
+            Some(&json!(true))
+        );
+        assert_eq!(
+            auth.meta().await.get("showRoleBadgesOfRemoteUsers"),
+            Some(&json!(true))
+        );
+        assert_eq!(
+            auth.meta().await.get("proxyRemoteFiles"),
+            Some(&json!(false))
+        );
+        assert_eq!(
+            auth.meta().await.get("iconUrl"),
+            Some(&json!("https://example.test/icon.png"))
+        );
         assert_eq!(
             auth.meta().await.get("preservedUsernames"),
             Some(&json!(["MiXeD", "reserved-name"]))

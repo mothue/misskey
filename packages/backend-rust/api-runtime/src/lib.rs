@@ -100,6 +100,10 @@ pub struct ApiBootstrap {
     postgres_primary: Option<Target>,
     redis: redis::RedisConfig,
     redis_pubsub: redis::RedisConfig,
+    #[serde(default)]
+    redis_reactions: Option<redis::RedisConfig>,
+    #[serde(default)]
+    notes: business::notes::Config,
     auth: AuthConfig,
 }
 #[derive(Deserialize)]
@@ -299,8 +303,9 @@ impl Runtime {
                     .map_err(|_| Failure::new(FailureStage::EndpointSchema))?,
             });
         }
-        let business_config =
+        let mut business_config =
             business::Config::new(&config.auth.id_method, &config.auth.default_policies);
+        business_config.notes = config.notes;
         let database = Arc::new(online_users.database(config.postgres_primary));
         let store = Arc::new(
             PostgresAuthStore::new(database.clone(), config.auth.entity_layouts.clone())
@@ -310,10 +315,15 @@ impl Runtime {
             AuthService::new(store, config.auth, now_ms())
                 .map_err(|_| Failure::new(FailureStage::AuthService))?,
         );
-        let redis =
-            redis::RedisState::new(config.redis, config.redis_pubsub, config.host, auth.clone())
-                .await
-                .map_err(|_| Failure::new(FailureStage::Redis))?;
+        let redis = redis::RedisState::new(
+            config.redis,
+            config.redis_pubsub,
+            config.redis_reactions,
+            config.host,
+            auth.clone(),
+        )
+        .await
+        .map_err(|_| Failure::new(FailureStage::Redis))?;
         Ok(Self {
             endpoints,
             catalog,

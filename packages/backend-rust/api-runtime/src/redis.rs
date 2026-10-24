@@ -3,7 +3,9 @@
 //! arguments fail per command while the other commands still execute.
 use crate::meta::RateLimit;
 use futures_util::{FutureExt, StreamExt};
+use misskey_api_validation::Value as JsValue;
 use misskey_backend_api_auth::{AuthService, SafeJson, Store, postgres::PostgresAuthStore};
+use misskey_backend_postgres::Database;
 use redis::{
     Client, ConnectionAddr, ConnectionInfo, ProtocolVersion, RedisConnectionInfo,
     Value as RedisValue,
@@ -11,6 +13,7 @@ use redis::{
 };
 use serde::Deserialize;
 use serde_json::{Value, json, value::RawValue};
+use std::collections::{HashMap, HashSet};
 use std::{
     fmt,
     path::PathBuf,
@@ -117,6 +120,234 @@ pub struct RedisState {
     stop: watch::Sender<bool>,
     tasks: Mutex<Vec<JoinHandle<()>>>,
     clock: Clock,
+    reads: Arc<RedisReads>,
+    reactions: Arc<RedisReads>,
+}
+
+/// A decoded reaction buffer retains Redis's entry order until JS-compatible
+/// object construction orders canonical integer property names.
+pub(crate) struct ReactionBuffer {
+    pub deltas: JsValue,
+    pub pairs: Vec<(String, String)>,
+}
+
+struct CacheEntry {
+    stored: Instant,
+    lifetime: Duration,
+    value: JsValue,
+}
+
+#[derive(Default)]
+struct ReadCache {
+    generation: u64,
+    entries: HashMap<String, CacheEntry>,
+}
+impl ReadCache {
+    fn invalidate(&mut self, key: Option<&str>) {
+        self.generation = self.generation.wrapping_add(1);
+        if let Some(key) = key {
+            self.entries.remove(key);
+        } else {
+            self.entries.clear();
+        }
+    }
+    fn remember(&mut self, key: &str, value: &JsValue, lifetime: Duration) {
+        self.entries
+            .retain(|_, entry| entry.stored.elapsed() <= entry.lifetime);
+        self.entries.insert(
+            key.to_owned(),
+            CacheEntry {
+                stored: Instant::now(),
+                lifetime,
+                value: value.clone(),
+            },
+        );
+    }
+}
+
+/// Lazy native data connection, separate from subscription and limiter state.
+/// The reactions lane uses redisForReactions, including its own DB and prefix.
+struct RedisReads {
+    client: Client,
+    config: RedisConfig,
+    connection: Mutex<Option<MultiplexedConnection>>,
+    stopped: AtomicBool,
+    stop: watch::Sender<bool>,
+    cache: Mutex<ReadCache>,
+}
+
+impl RedisReads {
+    fn new(config: RedisConfig) -> Result<Self, Failure> {
+        let (stop, _) = watch::channel(false);
+        Ok(Self {
+            client: client(&config)?,
+            config,
+            connection: Mutex::new(None),
+            stopped: AtomicBool::new(false),
+            stop,
+            cache: Mutex::new(ReadCache::default()),
+        })
+    }
+
+    async fn execute(&self, pipeline: &redis::Pipeline) -> Result<Vec<RedisValue>, Failure> {
+        if self.stopped.load(Ordering::Acquire) {
+            return Err(Failure::new(FailureStage::Shutdown));
+        }
+        let mut stop = self.stop.subscribe();
+        let operation = async {
+            let mut connection = self.connection.lock().await;
+            if connection.is_none() {
+                *connection = Some(
+                    tokio::time::timeout(
+                        connect_deadline(&self.config),
+                        self.client.get_multiplexed_async_connection(),
+                    )
+                    .await
+                    .map_err(|_| Failure::new(FailureStage::ConnectionTimeout))?
+                    .map_err(|_| Failure::new(FailureStage::Connection))?,
+                );
+            }
+            let result = pipeline
+                .query_async(
+                    connection
+                        .as_mut()
+                        .ok_or_else(|| Failure::new(FailureStage::Connection))?,
+                )
+                .await
+                .map_err(|_| Failure::new(FailureStage::Command));
+            if result.is_err() {
+                *connection = None;
+            }
+            result
+        };
+        tokio::select! {
+            biased;
+            _ = stop.changed() => Err(Failure::new(FailureStage::Shutdown)),
+            result = operation => result,
+        }
+    }
+
+    fn key(&self, name: &str) -> String {
+        format!("{}{name}", self.config.key_prefix)
+    }
+
+    async fn get_cache(
+        &self,
+        key: &str,
+        lifetime: Duration,
+    ) -> Result<(u64, Option<JsValue>), Failure> {
+        loop {
+            let generation = {
+                let mut cache = self.cache.lock().await;
+                if let Some(entry) = cache.entries.get(key) {
+                    if entry.stored.elapsed() <= lifetime {
+                        return Ok((cache.generation, Some(entry.value.clone())));
+                    }
+                    cache.entries.remove(key);
+                }
+                cache.generation
+            };
+            let mut pipeline = redis::pipe();
+            pipeline.cmd("GET").arg(self.key(key));
+            let response = self.execute(&pipeline).await?;
+            let text: Option<String> = redis::from_redis_value(
+                response
+                    .first()
+                    .ok_or_else(|| Failure::new(FailureStage::CommandResponse))?,
+            )
+            .map_err(|_| Failure::new(FailureStage::CommandResponse))?;
+            let value = text
+                .map(|text| {
+                    JsValue::parse_json(&text)
+                        .map_err(|_| Failure::new(FailureStage::CommandResponse))
+                })
+                .transpose()?;
+            let mut cache = self.cache.lock().await;
+            // A follow/unfollow may have arrived while GET was in flight.
+            // Neither publish nor return the stale value after that event.
+            if cache.generation != generation {
+                continue;
+            }
+            if let Some(value) = &value {
+                cache.remember(key, value, lifetime);
+            }
+            return Ok((generation, value));
+        }
+    }
+
+    async fn set_cache(
+        &self,
+        key: &str,
+        value: &JsValue,
+        generation: u64,
+    ) -> Result<bool, Failure> {
+        let text = value
+            .stringify()
+            .ok_or_else(|| Failure::new(FailureStage::CommandResponse))?;
+        let mut cache = self.cache.lock().await;
+        if cache.generation != generation {
+            return Ok(false);
+        }
+        // Serialize publication with the event's DEL. An old DB fill must not
+        // overwrite the invalidation in either memory or the shared Redis key.
+        cache.remember(
+            key,
+            value,
+            Duration::from_secs(if key.starts_with("kvcache:userFollowings:") {
+                60
+            } else {
+                180
+            }),
+        );
+        let mut pipeline = redis::pipe();
+        pipeline
+            .cmd("SET")
+            .arg(self.key(key))
+            .arg(text)
+            .arg("EX")
+            .arg(1800);
+        self.execute(&pipeline).await?;
+        Ok(true)
+    }
+
+    async fn apply_event(&self, event: &Value) -> Result<(), Failure> {
+        let Some(message) = event.get("message") else {
+            return Ok(());
+        };
+        match message.get("type").and_then(Value::as_str) {
+            Some(
+                "avatarDecorationCreated" | "avatarDecorationUpdated" | "avatarDecorationDeleted",
+            ) => {
+                self.cache
+                    .lock()
+                    .await
+                    .invalidate(Some("native:avatarDecorations"));
+            }
+            Some("follow" | "unfollow") => {
+                if let Some(follower) = message
+                    .get("body")
+                    .and_then(|body| body.get("followerId"))
+                    .and_then(Value::as_str)
+                {
+                    let key = format!("kvcache:userFollowings:{follower}");
+                    let mut cache = self.cache.lock().await;
+                    cache.invalidate(Some(&key));
+                    let mut pipeline = redis::pipe();
+                    pipeline.cmd("DEL").arg(self.key(&key));
+                    self.execute(&pipeline).await?;
+                }
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+
+    async fn shutdown(&self) {
+        self.stopped.store(true, Ordering::Release);
+        self.stop.send_replace(true);
+        *self.connection.lock().await = None;
+        self.cache.lock().await.invalidate(None);
+    }
 }
 
 struct Clock {
@@ -235,12 +466,18 @@ impl RedisState {
     pub async fn new(
         config: RedisConfig,
         pubsub_config: RedisConfig,
+        reactions_config: Option<RedisConfig>,
         host: String,
         auth: Arc<AuthService<PostgresAuthStore>>,
     ) -> Result<Self, Failure> {
-        Self::new_with_auth(config, pubsub_config, host, auth)
+        let reactions = reactions_config.map(RedisReads::new).transpose()?;
+        let mut state = Self::new_with_auth(config, pubsub_config, host, auth)
             .await
-            .inspect_err(report)
+            .inspect_err(report)?;
+        if let Some(reactions) = reactions {
+            state.reactions = Arc::new(reactions);
+        }
+        Ok(state)
     }
 
     async fn new_with_auth<S: Store>(
@@ -250,6 +487,8 @@ impl RedisState {
         auth: Arc<AuthService<S>>,
     ) -> Result<Self, Failure> {
         let client = client(&config)?;
+        let reads = Arc::new(RedisReads::new(config.clone())?);
+        let reactions = Arc::new(RedisReads::new(config.clone())?);
         let subscription_client = self::client(&pubsub_config)?;
         let subscription = subscribe(&subscription_client, &pubsub_config, &host).await?;
         auth.invalidate_all()
@@ -266,8 +505,11 @@ impl RedisState {
             stop: stop.clone(),
             tasks: Mutex::new(Vec::new()),
             clock: Clock::new(),
+            reads: reads.clone(),
+            reactions,
         };
         let maintenance_auth = auth.clone();
+        let maintenance_reads = reads.clone();
         let mut signal = stop.subscribe();
         let invalidation = tokio::spawn(async move {
             let mut subscription = subscription;
@@ -292,6 +534,10 @@ impl RedisState {
                         }
                     };
                     let now = crate::now_ms();
+                    if reads.apply_event(&event).await.is_err() {
+                        report(&Failure::new(FailureStage::EventApply));
+                        break;
+                    }
                     if auth.apply_event(&event, now).await.is_err() {
                         // A missed refresh could retain revoked privileges.
                         // Re-enter subscription recovery with admission shut.
@@ -301,6 +547,7 @@ impl RedisState {
                 }
                 drop(stream);
                 ready.store(false, Ordering::Release);
+                reads.cache.lock().await.invalidate(None);
                 // ioredis reconnects its existing subscription; do the same for
                 // future requests, without replaying any application operation.
                 loop {
@@ -340,7 +587,9 @@ impl RedisState {
                             let event = decode_event(message.get_payload_bytes());
                             let failed_event = match event {
                                 Ok(Some(event)) => {
-                                    if auth.apply_event(&event, crate::now_ms()).await.is_err() {
+                                    if reads.apply_event(&event).await.is_err()
+                                        || auth.apply_event(&event, crate::now_ms()).await.is_err()
+                                    {
                                         report(&Failure::new(FailureStage::EventApply));
                                         true
                                     } else {
@@ -381,7 +630,10 @@ impl RedisState {
                 tokio::select! {
                     biased;
                     _ = signal.changed() => return,
-                    _ = ticker.tick() => maintenance_auth.collect_garbage(crate::now_ms()).await,
+                    _ = ticker.tick() => {
+                        maintenance_auth.collect_garbage(crate::now_ms()).await;
+                        maintenance_reads.cache.lock().await.entries.retain(|_, entry| entry.stored.elapsed() <= entry.lifetime);
+                    },
                     _ = ip_ticker.tick() => maintenance_auth.clear_ip_history().await,
                 }
             }
@@ -392,6 +644,201 @@ impl RedisState {
 
     pub fn ready(&self) -> bool {
         !self.stopped.load(Ordering::Acquire) && self.ready.load(Ordering::Acquire)
+    }
+
+    /// Read buffered reaction deltas/pairs in one pipeline on the configured
+    /// reactions Redis lane, not the main limiter/cache database.
+    pub(crate) async fn reaction_buffers(
+        &self,
+        note_ids: &[String],
+    ) -> Result<HashMap<String, ReactionBuffer>, Failure> {
+        if !self.ready() {
+            return Err(Failure::new(FailureStage::Unavailable));
+        }
+        if note_ids.is_empty() {
+            return Ok(HashMap::new());
+        }
+        let mut pipeline = redis::pipe();
+        for id in note_ids {
+            pipeline
+                .cmd("HGETALL")
+                .arg(self.reactions.key(&format!("reactionsBufferDeltas:{id}")));
+            pipeline
+                .cmd("ZRANGE")
+                .arg(self.reactions.key(&format!("reactionsBufferPairs:{id}")))
+                .arg(0)
+                .arg(-1);
+        }
+        let results = self.reactions.execute(&pipeline).await?;
+        if results.len() != note_ids.len() * 2 {
+            return Err(Failure::new(FailureStage::CommandResponse));
+        }
+        let mut buffers = HashMap::new();
+        for (id, values) in note_ids.iter().zip(results.as_chunks::<2>().0) {
+            let raw_deltas: Vec<(String, String)> = redis::from_redis_value(&values[0])
+                .map_err(|_| Failure::new(FailureStage::CommandResponse))?;
+            let raw_pairs: Vec<String> = redis::from_redis_value(&values[1])
+                .map_err(|_| Failure::new(FailureStage::CommandResponse))?;
+            let deltas = JsValue::object(raw_deltas.into_iter().map(|(name, count)| {
+                // HINCRBY stores canonical signed decimal integers. Decode to
+                // JS Number, including its rounding outside the safe range.
+                let value = count.parse::<f64>().unwrap_or(f64::NAN);
+                (name, JsValue::Number(value))
+            }));
+            let pairs = raw_pairs
+                .into_iter()
+                .map(|pair| {
+                    let mut parts = pair.split('/');
+                    (
+                        parts.next().unwrap_or_default().to_owned(),
+                        parts.next().unwrap_or_default().to_owned(),
+                    )
+                })
+                .collect();
+            buffers.insert(id.clone(), ReactionBuffer { deltas, pairs });
+        }
+        Ok(buffers)
+    }
+
+    pub(crate) async fn avatar_decorations(&self, database: &Database) -> Result<JsValue, Failure> {
+        let key = "native:avatarDecorations";
+        loop {
+            if !self.ready() {
+                return Err(Failure::new(FailureStage::Unavailable));
+            }
+            let generation = {
+                let cache = self.reads.cache.lock().await;
+                if let Some(entry) = cache.entries.get(key)
+                    && entry.stored.elapsed() <= Duration::from_secs(1800)
+                {
+                    return Ok(entry.value.clone());
+                }
+                cache.generation
+            };
+            let rows = database
+                .query_typed(
+                    true,
+                    "SELECT row_to_json(t)::text FROM avatar_decoration t",
+                    &[],
+                )
+                .await
+                .map_err(|_| Failure::new(FailureStage::Command))?;
+            let values = rows
+                .into_iter()
+                .map(|row| {
+                    let text: String = row
+                        .try_get(0)
+                        .map_err(|_| Failure::new(FailureStage::CommandResponse))?;
+                    JsValue::parse_json(&text)
+                        .map_err(|_| Failure::new(FailureStage::CommandResponse))
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            let value = JsValue::Array(values);
+            let mut cache = self.reads.cache.lock().await;
+            if cache.generation != generation {
+                continue;
+            }
+            cache.remember(key, &value, Duration::from_secs(1800));
+            return Ok(value);
+        }
+    }
+
+    pub(crate) async fn following_ids(
+        &self,
+        viewer: &str,
+        database: &Database,
+    ) -> Result<HashSet<String>, Failure> {
+        let key = format!("kvcache:userFollowings:{viewer}");
+        loop {
+            if !self.ready() {
+                return Err(Failure::new(FailureStage::Unavailable));
+            }
+            let (generation, cached) = self.reads.get_cache(&key, Duration::from_secs(60)).await?;
+            let value = if let Some(value) = cached {
+                value
+            } else {
+                let rows = database.query_typed(true,
+                    "SELECT json_build_object('followeeId', \"followeeId\", 'withReplies', \"withReplies\")::text FROM following WHERE \"followerId\" = $1",
+                    &[&viewer],
+                ).await.map_err(|_| Failure::new(FailureStage::Command))?;
+                let mut entries = Vec::with_capacity(rows.len());
+                for row in rows {
+                    let text: String = row
+                        .try_get(0)
+                        .map_err(|_| Failure::new(FailureStage::CommandResponse))?;
+                    let row = JsValue::parse_json(&text)
+                        .map_err(|_| Failure::new(FailureStage::CommandResponse))?;
+                    let id = row
+                        .get("followeeId")
+                        .and_then(JsValue::to_utf8)
+                        .ok_or_else(|| Failure::new(FailureStage::CommandResponse))?;
+                    let with_replies = row
+                        .get("withReplies")
+                        .cloned()
+                        .ok_or_else(|| Failure::new(FailureStage::CommandResponse))?;
+                    entries.push((id, JsValue::object([("withReplies", with_replies)])));
+                }
+                let value = JsValue::object(entries);
+                if !self.reads.set_cache(&key, &value, generation).await? {
+                    continue;
+                }
+                value
+            };
+            let JsValue::Object(entries) = &value else {
+                return Err(Failure::new(FailureStage::CommandResponse));
+            };
+            return entries
+                .iter()
+                .filter(|(_, value)| value.truthy())
+                .map(|(key, _)| {
+                    String::from_utf16(key).map_err(|_| Failure::new(FailureStage::CommandResponse))
+                })
+                .collect();
+        }
+    }
+
+    pub(crate) async fn federated_instance(
+        &self,
+        host: &str,
+        database: &Database,
+    ) -> Result<Option<JsValue>, Failure> {
+        let key = format!("kvcache:federatedInstance:{host}");
+        loop {
+            if !self.ready() {
+                return Err(Failure::new(FailureStage::Unavailable));
+            }
+            let (generation, cached) = self.reads.get_cache(&key, Duration::from_secs(180)).await?;
+            let value = if let Some(value) = cached {
+                value
+            } else {
+                let rows = database
+                    .query_typed(
+                        true,
+                        "SELECT row_to_json(t)::text FROM instance t WHERE host = $1 LIMIT 1",
+                        &[&host],
+                    )
+                    .await
+                    .map_err(|_| Failure::new(FailureStage::Command))?;
+                let value = if let Some(row) = rows.first() {
+                    let text: String = row
+                        .try_get(0)
+                        .map_err(|_| Failure::new(FailureStage::CommandResponse))?;
+                    JsValue::parse_json(&text)
+                        .map_err(|_| Failure::new(FailureStage::CommandResponse))?
+                } else {
+                    JsValue::Null
+                };
+                if !self.reads.set_cache(&key, &value, generation).await? {
+                    continue;
+                }
+                value
+            };
+            return match value {
+                JsValue::Null => Ok(None),
+                JsValue::Object(_) => Ok(Some(value)),
+                _ => Err(Failure::new(FailureStage::CommandResponse)),
+            };
+        }
     }
 
     pub(crate) async fn limit(
@@ -477,6 +924,8 @@ impl RedisState {
             let _ = task.await;
         }
         *self.connection.lock().await = None;
+        self.reads.shutdown().await;
+        self.reactions.shutdown().await;
     }
 }
 

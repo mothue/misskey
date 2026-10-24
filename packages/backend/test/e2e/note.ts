@@ -31,6 +31,61 @@ describe('Note', () => {
 		tom = await signup({ username: 'tom', host: 'example.com' });
 	}, 1000 * 60 * 2);
 
+	describe('notes/show response compatibility', () => {
+		test('preserves the TS creation response, including Unicode and nullable fields', async () => {
+			const created = await post(alice, { text: '😀 e\u0301 #native', cw: 'warning', localOnly: true });
+			const shown = await api('notes/show', { noteId: created.id }, alice);
+			assert.strictEqual(shown.status, 200);
+			assert.deepStrictEqual(shown.body, created);
+		});
+
+		test('preserves nested reply and renote detail levels', async () => {
+			const original = await post(alice, { text: 'poll', poll: { choices: ['one', 'two'], multiple: true } });
+			const reply = await post(bob, { text: 'reply', replyId: original.id });
+			const quote = await post(bob, { text: 'quote', renoteId: original.id });
+			for (const created of [reply, quote]) {
+				const shown = await api('notes/show', { noteId: created.id }, bob);
+				assert.strictEqual(shown.status, 200);
+				assert.strictEqual(shown.body.text, created.text);
+				assert.strictEqual(shown.body.replyId, created.replyId);
+				assert.strictEqual(shown.body.renoteId, created.renoteId);
+				if (created.replyId) {
+					assert.ok(shown.body.reply);
+					assert.strictEqual(shown.body.reply.id, original.id);
+					assert.strictEqual(Object.hasOwn(shown.body.reply, 'poll'), false);
+					assert.strictEqual(Object.hasOwn(shown.body.reply, 'clippedCount'), false);
+				}
+				if (created.renoteId) {
+					assert.ok(shown.body.renote);
+					assert.strictEqual(shown.body.renote.id, original.id);
+					assert.deepStrictEqual(shown.body.renote.poll, original.poll);
+					assert.strictEqual(shown.body.renote.clippedCount, 0);
+				}
+			}
+		});
+
+		test('hides specified content from other viewers while preserving the response shape', async () => {
+			const created = await post(alice, {
+				text: 'private', cw: 'private warning', visibility: 'specified', visibleUserIds: [bob.id],
+				poll: { choices: ['one', 'two'] },
+			});
+			const recipient = await api('notes/show', { noteId: created.id }, bob);
+			assert.strictEqual(recipient.status, 200);
+			assert.strictEqual(recipient.body.text, 'private');
+			for (const viewer of [undefined, root]) {
+				const shown = await api('notes/show', { noteId: created.id }, viewer);
+				assert.strictEqual(shown.status, 200);
+				assert.strictEqual(shown.body.isHidden, true);
+				assert.strictEqual(shown.body.text, null);
+				assert.strictEqual(shown.body.cw, null);
+				assert.deepStrictEqual(shown.body.fileIds, []);
+				assert.deepStrictEqual(shown.body.files, []);
+				assert.strictEqual(Object.hasOwn(shown.body, 'poll'), false);
+				assert.strictEqual(Object.hasOwn(shown.body, 'visibleUserIds'), false);
+			}
+		});
+	});
+
 	test('投稿できる', async () => {
 		const post = {
 			text: 'test',

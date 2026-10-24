@@ -7,6 +7,7 @@ use tokio_postgres::types::ToSql;
 
 mod discovery;
 mod id;
+pub(crate) mod notes;
 mod registry_apps;
 mod roles_admin;
 use id::{iso_date, parse_id_date};
@@ -14,6 +15,7 @@ use id::{iso_date, parse_id_date};
 pub(super) struct Config {
     pub id_method: String,
     pub default_policies: Value,
+    pub notes: notes::Config,
 }
 
 impl Config {
@@ -21,6 +23,7 @@ impl Config {
         Self {
             id_method: id_method.to_lowercase(),
             default_policies: Value::from_json(default_policies),
+            notes: notes::Config::default(),
         }
     }
 }
@@ -183,6 +186,9 @@ pub(super) async fn execute(
 ) -> Option<Result<Value, Error>> {
     if !ACTIVE_READ_ENDPOINTS.contains(&name) {
         return None;
+    }
+    if name == "notes/show" {
+        return Some(notes::show(runtime, params, auth).await);
     }
     if let Some(result) = discovery::execute(runtime, name, params, auth).await {
         return Some(result);
