@@ -36,7 +36,7 @@ Initial checks also found missing PATH tools, an unused import after helper extr
 
 ## Outstanding review work and acceptance limits
 
-The endpoint registry already originates in TS `endpoint-list.ts`; redundant bootstrap projections and multiple transport adapters still need a concrete consolidation review. Native PostgreSQL slots still have one connection per target, while TS uses pools; pool capacity/lifecycle requires its own behavior-preserving unit. The remaining std `RwLock` protects only synchronous shared user snapshots and is not held over an await; auth cache/service locks use awaited Tokio locks. Deep JSON ownership helpers still require consolidation across validation/auth boundaries. None of these is described as fixed merely because the current tests pass.
+The endpoint registry originates in TS `endpoint-list.ts`. Subsequent sections record the shared catalog and JSON ownership correction; [the source-pool unit](postgres-pooling-validation.md) records native pool capacity/lifecycle and its remaining compatibility holds. Legacy TS callbacks still own separate pools. The remaining std `RwLock` protects only synchronous shared user snapshots and is not held over an await; auth cache/service locks use awaited Tokio locks. These changes do not activate held business handlers or establish exhaustive connection-error parity.
 
 Public HTTP, complete backend/federation E2E, API generation, cloud benchmark, final-SHA CI and final process cleanup will be recorded in the continuation evidence after their actual execution. This initial document records the verified coherent source unit and its current limits, not completion of all API migration.
 
