@@ -1,0 +1,662 @@
+{
+  "baselineCommit": "48783a1dedb2a97f8bb1323324c0b74e64cd8d0b",
+  "evidence": "Actual public HTTP capture of the existing TypeScript API: special-method-baseline.json; request matrix from probe-special-methods.py. Response bodies are retained byte-for-byte; dynamic transport headers are excluded.",
+  "cases": [
+    {
+      "id": "PUT/api/signup:valid",
+      "path": "/api/signup",
+      "method": "PUT",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "{}",
+      "expected": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"message\":\"Route PUT:/api/signup not found\",\"error\":\"Not Found\",\"statusCode\":404}"
+      }
+    },
+    {
+      "id": "PUT/api/signup:bad-json",
+      "path": "/api/signup",
+      "method": "PUT",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "{",
+      "expected": {
+        "status": 400,
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"statusCode\":400,\"code\":\"FST_ERR_CTP_INVALID_JSON_BODY\",\"error\":\"Bad Request\",\"message\":\"Body is not valid JSON but content-type is set to 'application/json'\"}"
+      }
+    },
+    {
+      "id": "PUT/api/signup:empty-json",
+      "path": "/api/signup",
+      "method": "PUT",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "",
+      "expected": {
+        "status": 400,
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"statusCode\":400,\"code\":\"FST_ERR_CTP_EMPTY_JSON_BODY\",\"error\":\"Bad Request\",\"message\":\"Body cannot be empty when content-type is set to 'application/json'\"}"
+      }
+    },
+    {
+      "id": "PUT/api/signup:multipart",
+      "path": "/api/signup",
+      "method": "PUT",
+      "headers": {
+        "content-type": "multipart/form-data; boundary=x"
+      },
+      "body": "x",
+      "expected": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"message\":\"Route PUT:/api/signup not found\",\"error\":\"Not Found\",\"statusCode\":404}"
+      }
+    },
+    {
+      "id": "DELETE/api/signin-flow:valid",
+      "path": "/api/signin-flow",
+      "method": "DELETE",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "{}",
+      "expected": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"message\":\"Route DELETE:/api/signin-flow not found\",\"error\":\"Not Found\",\"statusCode\":404}"
+      }
+    },
+    {
+      "id": "DELETE/api/signin-flow:bad-json",
+      "path": "/api/signin-flow",
+      "method": "DELETE",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "{",
+      "expected": {
+        "status": 400,
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"statusCode\":400,\"code\":\"FST_ERR_CTP_INVALID_JSON_BODY\",\"error\":\"Bad Request\",\"message\":\"Body is not valid JSON but content-type is set to 'application/json'\"}"
+      }
+    },
+    {
+      "id": "DELETE/api/signin-flow:empty-json",
+      "path": "/api/signin-flow",
+      "method": "DELETE",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "",
+      "expected": {
+        "status": 400,
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"statusCode\":400,\"code\":\"FST_ERR_CTP_EMPTY_JSON_BODY\",\"error\":\"Bad Request\",\"message\":\"Body cannot be empty when content-type is set to 'application/json'\"}"
+      }
+    },
+    {
+      "id": "DELETE/api/signin-flow:multipart",
+      "path": "/api/signin-flow",
+      "method": "DELETE",
+      "headers": {
+        "content-type": "multipart/form-data; boundary=x"
+      },
+      "body": "x",
+      "expected": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"message\":\"Route DELETE:/api/signin-flow not found\",\"error\":\"Not Found\",\"statusCode\":404}"
+      }
+    },
+    {
+      "id": "PATCH/api/signin-with-passkey:valid",
+      "path": "/api/signin-with-passkey",
+      "method": "PATCH",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "{}",
+      "expected": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"message\":\"Route PATCH:/api/signin-with-passkey not found\",\"error\":\"Not Found\",\"statusCode\":404}"
+      }
+    },
+    {
+      "id": "PATCH/api/signin-with-passkey:bad-json",
+      "path": "/api/signin-with-passkey",
+      "method": "PATCH",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "{",
+      "expected": {
+        "status": 400,
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"statusCode\":400,\"code\":\"FST_ERR_CTP_INVALID_JSON_BODY\",\"error\":\"Bad Request\",\"message\":\"Body is not valid JSON but content-type is set to 'application/json'\"}"
+      }
+    },
+    {
+      "id": "PATCH/api/signin-with-passkey:empty-json",
+      "path": "/api/signin-with-passkey",
+      "method": "PATCH",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "",
+      "expected": {
+        "status": 400,
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"statusCode\":400,\"code\":\"FST_ERR_CTP_EMPTY_JSON_BODY\",\"error\":\"Bad Request\",\"message\":\"Body cannot be empty when content-type is set to 'application/json'\"}"
+      }
+    },
+    {
+      "id": "PATCH/api/signin-with-passkey:multipart",
+      "path": "/api/signin-with-passkey",
+      "method": "PATCH",
+      "headers": {
+        "content-type": "multipart/form-data; boundary=x"
+      },
+      "body": "x",
+      "expected": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"message\":\"Route PATCH:/api/signin-with-passkey not found\",\"error\":\"Not Found\",\"statusCode\":404}"
+      }
+    },
+    {
+      "id": "PUT/api/signup-pending:valid",
+      "path": "/api/signup-pending",
+      "method": "PUT",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "{}",
+      "expected": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"message\":\"Route PUT:/api/signup-pending not found\",\"error\":\"Not Found\",\"statusCode\":404}"
+      }
+    },
+    {
+      "id": "PUT/api/signup-pending:bad-json",
+      "path": "/api/signup-pending",
+      "method": "PUT",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "{",
+      "expected": {
+        "status": 400,
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"statusCode\":400,\"code\":\"FST_ERR_CTP_INVALID_JSON_BODY\",\"error\":\"Bad Request\",\"message\":\"Body is not valid JSON but content-type is set to 'application/json'\"}"
+      }
+    },
+    {
+      "id": "PUT/api/signup-pending:empty-json",
+      "path": "/api/signup-pending",
+      "method": "PUT",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "",
+      "expected": {
+        "status": 400,
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"statusCode\":400,\"code\":\"FST_ERR_CTP_EMPTY_JSON_BODY\",\"error\":\"Bad Request\",\"message\":\"Body cannot be empty when content-type is set to 'application/json'\"}"
+      }
+    },
+    {
+      "id": "PUT/api/signup-pending:multipart",
+      "path": "/api/signup-pending",
+      "method": "PUT",
+      "headers": {
+        "content-type": "multipart/form-data; boundary=x"
+      },
+      "body": "x",
+      "expected": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"message\":\"Route PUT:/api/signup-pending not found\",\"error\":\"Not Found\",\"statusCode\":404}"
+      }
+    },
+    {
+      "id": "POST/api/v1/instance/peers:valid",
+      "path": "/api/v1/instance/peers",
+      "method": "POST",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "{}",
+      "expected": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"message\":\"Route POST:/api/v1/instance/peers not found\",\"error\":\"Not Found\",\"statusCode\":404}"
+      }
+    },
+    {
+      "id": "POST/api/v1/instance/peers:bad-json",
+      "path": "/api/v1/instance/peers",
+      "method": "POST",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "{",
+      "expected": {
+        "status": 400,
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"statusCode\":400,\"code\":\"FST_ERR_CTP_INVALID_JSON_BODY\",\"error\":\"Bad Request\",\"message\":\"Body is not valid JSON but content-type is set to 'application/json'\"}"
+      }
+    },
+    {
+      "id": "POST/api/v1/instance/peers:empty-json",
+      "path": "/api/v1/instance/peers",
+      "method": "POST",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "",
+      "expected": {
+        "status": 400,
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"statusCode\":400,\"code\":\"FST_ERR_CTP_EMPTY_JSON_BODY\",\"error\":\"Bad Request\",\"message\":\"Body cannot be empty when content-type is set to 'application/json'\"}"
+      }
+    },
+    {
+      "id": "POST/api/v1/instance/peers:multipart",
+      "path": "/api/v1/instance/peers",
+      "method": "POST",
+      "headers": {
+        "content-type": "multipart/form-data; boundary=x"
+      },
+      "body": "x",
+      "expected": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"message\":\"Route POST:/api/v1/instance/peers not found\",\"error\":\"Not Found\",\"statusCode\":404}"
+      }
+    },
+    {
+      "id": "PUT/api/miauth/probe/check:valid",
+      "path": "/api/miauth/probe/check",
+      "method": "PUT",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "{}",
+      "expected": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"message\":\"Route PUT:/api/miauth/probe/check not found\",\"error\":\"Not Found\",\"statusCode\":404}"
+      }
+    },
+    {
+      "id": "PUT/api/miauth/probe/check:bad-json",
+      "path": "/api/miauth/probe/check",
+      "method": "PUT",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "{",
+      "expected": {
+        "status": 400,
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"statusCode\":400,\"code\":\"FST_ERR_CTP_INVALID_JSON_BODY\",\"error\":\"Bad Request\",\"message\":\"Body is not valid JSON but content-type is set to 'application/json'\"}"
+      }
+    },
+    {
+      "id": "PUT/api/miauth/probe/check:empty-json",
+      "path": "/api/miauth/probe/check",
+      "method": "PUT",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "",
+      "expected": {
+        "status": 400,
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"statusCode\":400,\"code\":\"FST_ERR_CTP_EMPTY_JSON_BODY\",\"error\":\"Bad Request\",\"message\":\"Body cannot be empty when content-type is set to 'application/json'\"}"
+      }
+    },
+    {
+      "id": "PUT/api/miauth/probe/check:multipart",
+      "path": "/api/miauth/probe/check",
+      "method": "PUT",
+      "headers": {
+        "content-type": "multipart/form-data; boundary=x"
+      },
+      "body": "x",
+      "expected": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"message\":\"Route PUT:/api/miauth/probe/check not found\",\"error\":\"Not Found\",\"statusCode\":404}"
+      }
+    },
+    {
+      "id": "PUT/api/clear-browser-cache:valid",
+      "path": "/api/clear-browser-cache",
+      "method": "PUT",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "{}",
+      "expected": {
+        "status": 405,
+        "headers": {
+          "access-control-allow-origin": "*",
+          "cache-control": "private, max-age=0, must-revalidate"
+        },
+        "body": ""
+      }
+    },
+    {
+      "id": "PUT/api/clear-browser-cache:bad-json",
+      "path": "/api/clear-browser-cache",
+      "method": "PUT",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "{",
+      "expected": {
+        "status": 400,
+        "headers": {
+          "access-control-allow-origin": "*",
+          "cache-control": "private, max-age=0, must-revalidate",
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"statusCode\":400,\"code\":\"FST_ERR_CTP_INVALID_JSON_BODY\",\"error\":\"Bad Request\",\"message\":\"Body is not valid JSON but content-type is set to 'application/json'\"}"
+      }
+    },
+    {
+      "id": "PUT/api/clear-browser-cache:empty-json",
+      "path": "/api/clear-browser-cache",
+      "method": "PUT",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "",
+      "expected": {
+        "status": 400,
+        "headers": {
+          "access-control-allow-origin": "*",
+          "cache-control": "private, max-age=0, must-revalidate",
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"statusCode\":400,\"code\":\"FST_ERR_CTP_EMPTY_JSON_BODY\",\"error\":\"Bad Request\",\"message\":\"Body cannot be empty when content-type is set to 'application/json'\"}"
+      }
+    },
+    {
+      "id": "PUT/api/clear-browser-cache:multipart",
+      "path": "/api/clear-browser-cache",
+      "method": "PUT",
+      "headers": {
+        "content-type": "multipart/form-data; boundary=x"
+      },
+      "body": "x",
+      "expected": {
+        "status": 405,
+        "headers": {
+          "access-control-allow-origin": "*",
+          "cache-control": "private, max-age=0, must-revalidate"
+        },
+        "body": ""
+      }
+    },
+    {
+      "id": "PUT/api/test:valid",
+      "path": "/api/test",
+      "method": "PUT",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "{}",
+      "expected": {
+        "status": 400,
+        "headers": {
+          "access-control-allow-origin": "*",
+          "cache-control": "private, max-age=0, must-revalidate",
+          "www-authenticate": "Bearer realm=\"Misskey\", error=\"invalid_request\", error_description=\"Invalid param.\"",
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"error\":{\"message\":\"Invalid param.\",\"code\":\"INVALID_PARAM\",\"id\":\"3d81ceae-475f-4600-b2a8-2bc116157532\",\"kind\":\"client\",\"info\":{\"param\":\"#/required\",\"reason\":\"must have required property 'required'\"}}}"
+      }
+    },
+    {
+      "id": "PUT/api/test:bad-json",
+      "path": "/api/test",
+      "method": "PUT",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "{",
+      "expected": {
+        "status": 400,
+        "headers": {
+          "access-control-allow-origin": "*",
+          "cache-control": "private, max-age=0, must-revalidate",
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"statusCode\":400,\"code\":\"FST_ERR_CTP_INVALID_JSON_BODY\",\"error\":\"Bad Request\",\"message\":\"Body is not valid JSON but content-type is set to 'application/json'\"}"
+      }
+    },
+    {
+      "id": "PUT/api/test:empty-json",
+      "path": "/api/test",
+      "method": "PUT",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "",
+      "expected": {
+        "status": 400,
+        "headers": {
+          "access-control-allow-origin": "*",
+          "cache-control": "private, max-age=0, must-revalidate",
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"statusCode\":400,\"code\":\"FST_ERR_CTP_EMPTY_JSON_BODY\",\"error\":\"Bad Request\",\"message\":\"Body cannot be empty when content-type is set to 'application/json'\"}"
+      }
+    },
+    {
+      "id": "PUT/api/test:multipart",
+      "path": "/api/test",
+      "method": "PUT",
+      "headers": {
+        "content-type": "multipart/form-data; boundary=x"
+      },
+      "body": "x",
+      "expected": {
+        "status": 400,
+        "headers": {
+          "access-control-allow-origin": "*",
+          "cache-control": "private, max-age=0, must-revalidate",
+          "www-authenticate": "Bearer realm=\"Misskey\", error=\"invalid_request\", error_description=\"Invalid param.\"",
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"error\":{\"message\":\"Invalid param.\",\"code\":\"INVALID_PARAM\",\"id\":\"3d81ceae-475f-4600-b2a8-2bc116157532\",\"kind\":\"client\",\"info\":{\"param\":\"#/type\",\"reason\":\"must be object\"}}}"
+      }
+    },
+    {
+      "id": "POST/api/not-a-route:valid",
+      "path": "/api/not-a-route",
+      "method": "POST",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "{}",
+      "expected": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"message\":\"Route POST:/api/not-a-route not found\",\"error\":\"Not Found\",\"statusCode\":404}"
+      }
+    },
+    {
+      "id": "POST/api/not-a-route:bad-json",
+      "path": "/api/not-a-route",
+      "method": "POST",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "{",
+      "expected": {
+        "status": 400,
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"statusCode\":400,\"code\":\"FST_ERR_CTP_INVALID_JSON_BODY\",\"error\":\"Bad Request\",\"message\":\"Body is not valid JSON but content-type is set to 'application/json'\"}"
+      }
+    },
+    {
+      "id": "POST/api/not-a-route:empty-json",
+      "path": "/api/not-a-route",
+      "method": "POST",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "",
+      "expected": {
+        "status": 400,
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"statusCode\":400,\"code\":\"FST_ERR_CTP_EMPTY_JSON_BODY\",\"error\":\"Bad Request\",\"message\":\"Body cannot be empty when content-type is set to 'application/json'\"}"
+      }
+    },
+    {
+      "id": "POST/api/not-a-route:multipart",
+      "path": "/api/not-a-route",
+      "method": "POST",
+      "headers": {
+        "content-type": "multipart/form-data; boundary=x"
+      },
+      "body": "x",
+      "expected": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"message\":\"Route POST:/api/not-a-route not found\",\"error\":\"Not Found\",\"statusCode\":404}"
+      }
+    },
+    {
+      "id": "bad-path",
+      "path": "/api/%FF",
+      "method": "POST",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "{}",
+      "expected": {
+        "status": 400,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "body": "{\"error\":\"Bad Request\",\"code\":\"FST_ERR_BAD_URL\",\"message\":\"'/api/%FF' is not a valid url component\",\"statusCode\":400}"
+      }
+    },
+    {
+      "id": "bad-path-get",
+      "path": "/api/%FF",
+      "method": "GET",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": null,
+      "expected": {
+        "status": 400,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "body": "{\"error\":\"Bad Request\",\"code\":\"FST_ERR_BAD_URL\",\"message\":\"'/api/%FF' is not a valid url component\",\"statusCode\":400}"
+      }
+    },
+    {
+      "id": "bad-path-percent",
+      "path": "/api/%ZZ",
+      "method": "GET",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": null,
+      "expected": {
+        "status": 400,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "body": "{\"error\":\"Bad Request\",\"code\":\"FST_ERR_BAD_URL\",\"message\":\"'/api/%ZZ' is not a valid url component\",\"statusCode\":400}"
+      }
+    },
+    {
+      "id": "bad-path-partial",
+      "path": "/api/%74est%ZZ",
+      "method": "GET",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": null,
+      "expected": {
+        "status": 400,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "body": "{\"error\":\"Bad Request\",\"code\":\"FST_ERR_BAD_URL\",\"message\":\"'/api/%74est%ZZ' is not a valid url component\",\"statusCode\":400}"
+      }
+    }
+  ]
+}

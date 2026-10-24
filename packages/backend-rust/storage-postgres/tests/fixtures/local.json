@@ -1,0 +1,21 @@
+{
+  "targets": [{
+    "host": "127.0.0.1",
+    "port": 5432,
+    "user": "postgres",
+    "password": null,
+    "database": "online-adapter",
+    "options": null,
+    "applicationName": "misskey-rust-online-adapter-test",
+    "statementTimeoutMs": 10000,
+    "lockTimeoutMs": null,
+    "idleInTransactionSessionTimeoutMs": null,
+    "connectTimeoutMs": 1000,
+    "queryTimeoutMs": null,
+    "keepAlive": false,
+    "keepAliveInitialDelayMs": null,
+    "channelBinding": false,
+    "sslNegotiation": "postgres",
+    "tls": null
+  }]
+}

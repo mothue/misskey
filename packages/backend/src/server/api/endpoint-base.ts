@@ -22,7 +22,7 @@ ajv.addFormat('misskey:id', /^[a-zA-Z0-9]+$/);
 export type Response = Record<string, any> | void;
 
 type File = {
-	name: string | null;
+	name?: string | null;
 	path: string;
 };
 
@@ -33,9 +33,20 @@ type Executor<T extends IEndpointMeta, Ps extends Schema> =
 
 export abstract class Endpoint<T extends IEndpointMeta, Ps extends Schema> {
 	public exec: (params: any, user: T['requireCredential'] extends true ? MiLocalUser : MiLocalUser | null, token: MiAccessToken | null, file?: File, ip?: string | null, headers?: Record<string, string> | null) => Promise<any>;
+	/** Private executor seam: callers must already have completed the API kernel checks. */
+	public readonly invokeValidated: Endpoint<T, Ps>['exec'];
 
 	constructor(meta: T, paramDef: Ps, cb: Executor<T, Ps>) {
 		const validate = ajv.compile(paramDef);
+		this.invokeValidated = (params, user, token, file, ip, headers) => cb(
+			params,
+			user,
+			token,
+			file,
+			meta.requireFile ? () => { if (file) fs.unlink(file.path, () => {}); } : undefined,
+			ip,
+			headers,
+		);
 
 		this.exec = (params: any, user: T['requireCredential'] extends true ? MiLocalUser : MiLocalUser | null, token: MiAccessToken | null, file?: File, ip?: string | null, headers?: Record<string, string> | null) => {
 			let cleanup: undefined | (() => void) = undefined;
@@ -68,7 +79,7 @@ export abstract class Endpoint<T extends IEndpointMeta, Ps extends Schema> {
 				return Promise.reject(err);
 			}
 
-			return cb(params as SchemaType<Ps>, user, token, file, cleanup, ip, headers);
+			return this.invokeValidated(params, user, token, file, ip, headers);
 		};
 	}
 }

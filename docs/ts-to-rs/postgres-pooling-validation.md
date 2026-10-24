@@ -1,0 +1,65 @@
+# Native PostgreSQL source pools (cloud, 2026-10-24)
+
+This review correction replaces the native adapter's serialized connection slots with exclusive connection leases. Count, auth and subsequent native operations share one capacity budget per configured source. In the hybrid backend, **legacy TS callbacks retain their separate TypeORM pools**: this is not a combined cross-language or deployment-wide connection cap. No business handler is activated, SQL replay/TS fallback is added, schema/role is changed, or replica failure is retried on primary.
+
+## Source, access and type contract
+
+The private TS bootstrap carries typed source identity (`primary` or replica index) and effective pool settings. The installed pg-pool constructor resolves defaults and precedence without opening a socket: max10, min0, idle timeout10,000ms. Supported primitive comparison/timer inputs retain JS coercion, including numeric strings and fractions. Maximum uses and physical connection lifetime trigger retirement rather than being silently discarded. Exotic unbounded/permanently-full/object comparator settings explicitly record a held setting and retain availability under a bounded single-connection policy; their TS pool behavior is not accepted as equivalent.
+
+An unchanged v1 bootstrap without the new fields remains valid: an unspecified source is not silently promoted to primary, and omitted pool settings retain the former single-connection owner. A typed checkout policy distinguishes that legacy/held queue from an explicit pg-pool configuration. Legacy/held queues retain the existing complete-operation bound without adding a connect-timeout queue deadline. Explicit supported pools apply the effective pg-pool checkout deadline. Physical connection deadlines remain separate in both cases.
+
+The same primary source shares a max budget across read-only and writable idle lanes. Incompatible idle sessions retire before a requested access mode connects, including max1. Distinct configured replica indices remain distinct even when their connection addresses match. Source selection occurs once before FIFO checkout. A selected pool's saturation/failure cannot select another replica or primary. Primary ownership requires matching source/configuration, not credential/host deduplication.
+
+Short state locks protect reservation/queue bookkeeping; an owned lease holds its connection while SQL is active. Capacity includes connecting and retiring resources until actual driver-future drop, protocol cancellation and owned timer disposal complete. Idle timers cancel/join on checkout; idle/lifetime timers cancel/join on retirement. Owner drop aborts residual timers. Idle minimum counts live entries, excluding resources already retiring; maximum still counts their cleanup reservations. Completed server SQL errors return healthy sessions; timeout, aborted or transport-failed operations discard their lease.
+
+Checkout timeout is a distinct typed internal cause, never invented DNS/socket evidence. It remains opaque to legacy error projection pending an actual matching oracle. Query timeout begins after checkout; count retains its four-second complete-operation deadline. Read-only session setup remains outside configured connect/query timers, while count/shutdown still bound it. Cancellation retains the original successful IP, options, TLS policy and protocol token without DNS/SQL replay. Shutdown closes admission, interrupts waiters/active work and drains owners within existing bounds.
+
+Runtime receives the same `OnlineUsers` owner instead of reconstructing another read pool from duplicated configuration. The unused constructor parameter and bridge's redundant configuration clone are removed. Bootstrap API failures now log their static failure-stage enum, without config, SQL, credentials, URLs or capabilities.
+
+## Fresh validation and review
+
+| Check | Result | Command / cloud evidence |
+| --- | --- | --- |
+| Workspace tests | PASS, 191 passed; 6 explicit ignores not counted | `cargo test --locked --manifest-path packages/backend-rust/Cargo.toml --workspace`; `rust-pool-legacy-policy-final.log`, exit0 |
+| Pool wire/resource controls | PASS, all17; storage total85 passed/1 dedicated DB ignored | Same workspace run; two live SQL sessions before releasing either, third queued, max1 read/write, count/auth sharing, aborted waiter recovery, isolated cancellation, shutdown, use/lifetime retirement, idle minimum/no prewarming, stale timer, server-error reuse, query timer after checkout, replica identity/no fallback, actual driver-drop capacity, bounded owned timers, unchanged v1 bootstrap and legacy/held queue policy |
+| Dedicated PostgreSQL and Redis adapters | PASS, 1 PostgreSQL and 4 Redis tests | `live-pool-legacy-policy-final.log`, exit0; ignored tests explicitly selected with dedicated configuration |
+| Clippy all-targets with warnings denied | PASS | `rust-pool-legacy-policy-clippy.log`, exit0 |
+| Rust formatting | PASS | `rust-pool-legacy-policy-format.log`, exit0 |
+| Backend source/test/federation TS checks | PASS | `backend-pool-typecheck.log`, exit0 |
+| Socket-free effective-config tests | PASS, 13 | `ts-pool-legacy-policy-final.log`, exit0 |
+| Changed-file lint, SPDX and locale safety | PASS | `shipping-pool-legacy-policy-final.log`, exit0 |
+| Independent source review | PASS, no outstanding actionable finding | `/workspace/api-native-phase/review-pool-final2.json`, final source hashes; previous review preserved; reviewer ran no Cargo |
+| Fresh Bun/native network controls | PASS, 36 exact fault comparisons and 4 native identity controls | `fault-matrix/attempt3/runtime-validation.json`; same frozen sources, no response normalization; all42 native shutdowns complete |
+| Saturated checkout public error parity | HOLD, typed behavior PASS; public legacy projection absent | `fault-matrix/attempt3/saturation/comparison.json`; two actual TypeORM controls return `Error` / `timeout exceeded when trying to connect`, whereas native `CheckoutTimeout` deliberately has no unverified projection. This is not accepted as public parity or used to activate held business handlers |
+
+Full commands, cwd, exit codes and times are in `/workspace/api-native-phase/results.jsonl`; logs live under `logs/`. Test PostgreSQL and Redis are owned dedicated services. Raw wire fixtures use separate random loopback ports, without shared database resets.
+
+The source review found two resource issues: capacity reopened after scheduling abort but before actual driver drop, and uncancelled timer tasks accumulated on repeated checkout. Fixes retain/join the driver and own/cancel/join timers. The subsequent idle-min regression control found a real race where concurrent timer expiry counted already-retiring connections toward min; atomic retiring IDs corrected it. The failed run (80 passed/1 failed) remains in `rust-pool-final-tests.log`; it is not claimed as a pass. A later constructor-test adaptation missed one removed parameter and failed compilation; `rust-pool-resource-fix-tests.log` preserves it. The final separate retry passed. No gate was weakened or failing test removed.
+
+The first live run rejected an unchanged private v1 fixture because new source fields were required (`live-pool-adapters.log`, exit101). Defaulting to an unspecified source and legacy single-slot policy corrected the wire compatibility issue without rewriting the fixture. The next workspace run exposed a second regression: a newly imposed checkout deadline interrupted the unchanged 16-request count control (`rust-pool-v1-compat-tests.log`, exit101). The typed legacy/pg-pool checkout distinction fixes that regression; both the unchanged control and a paired legacy/explicit-pool deadline test pass in the final workspace run. These intermediate failures are retained as FAIL, not baseline or successful validation.
+
+## Validation resumed after commit `6463d68399`
+
+The source commit was pushed before the requested pause. On resumption, the branch and clean HEAD still matched `6463d68399aa9fd322d7320903febd00acbfced3`. The following checks use its actual built executable. Earlier type-unit runs remain historical, rather than being counted again.
+
+| Check | Result | Evidence under `/workspace/api-native-phase/` |
+| --- | --- | --- |
+| Bun-to-Cargo release and backend E2E build | PASS, exit0 | `logs/build-e2e-pool-final.log`; 25.34s, after the source commit |
+| Public HTTP baseline/candidate | PASS, 30 exact response comparisons, exit0 | `logs/http-pool-final.log`, `pool-acceptance/http-comparison.json`; includes errors, defaults/null, unknown names, enumeration, UTF-16 and JS numeric boundaries |
+| Child loss and normal shutdown | PASS, exit0 | `logs/lifecycle-pool-child-loss.log`; 20 requests remain503, no automatic restart; six server exits across HTTP/lifecycle controls are0 with no forced kill/orphan |
+| Dedicated DB proxy refusal | PASS, exit0 | `logs/lifecycle-pool-db-refusal.log`; TS callback500 and native count503 match the baseline; this does not prove every DB failure shape |
+| Complete backend E2E | PASS, 37 files, 1475 passed; 2 skipped and20 todo excluded | `logs/backend-e2e-pool-final.log`, exit0, 376.85s; dedicated DB/Redis and explicit test config |
+| Linux container slacc/Rust build | PASS, exit0 | `federation/native-artifacts.json`, `federation/report.txt`; Rust1.99/Bun1.4.4, 195.943s, isolated Linux outputs |
+| Local federation services | PASS | Both apps, dedicated DB/Redis and proxies became healthy; no published ports |
+| Local federation suite | SKIPPED, no verdict | `federation/final-results.json`; tester creation crossed the1GiB disk guard, command interrupted with exit130. Native build/startup are not a passing test suite |
+| Source-commit GitHub CI | PASS, 18 workflows successful; Storybook SKIPPED | `resumed-ci-6463.json`; includes backend, federation, frontend, Rust, production build and Dockle. This is remote CI, distinct from the incomplete local federation suite |
+| Paired cloud benchmark | PASS, 34000 measured +3400 warmup, zero errors, exit0 | `benchmark/completion.json`, `benchmark/results.json`, [CSV](postgres-pooling-benchmark.csv); actual duration77.95s |
+| Changed-file shipping checks | PASS, exit0 | `logs/resumed-shipping-6463.log`; changed-file lint, SPDX and locale safety |
+
+The E2E command is `bun --preload=/workspace/api-native-phase/localhost-dns-preload.mjs node_modules/vitest/vitest.mjs run --config /workspace/api-native-phase/vitest-e2e.mjs`, from `packages/backend`, with `NODE_ENV=test` and `MISSKEY_CONFIG_JSON=/workspace/api-native-phase/test-config.json`. The private configuration extends the repository E2E configuration and adds the same loopback-only DNS fixture to Vitest workers. Assertions are unchanged; other destinations retain the enforced networking policy. Full argv/cwd/exits remain in `results.jsonl`.
+
+Federation uses project `cloud-api-native-fed`, separate data and native-output volumes. Private proxy/CA and subnet corrections retain certificate verification. The full suite was selected through the normal federation Vitest configuration after a separate native build, but capacity guards prevented a verdict. Two exact task-owned unused image tags were removed after checking zero ancestor containers; shared layers meant insufficient actual reclamation. No general image/volume prune or daemon change was performed. Cleanup verified zero owned federation containers, networks and volumes; native ELF artifacts remain disposable under `/tmp/cloud-api-native-fed-native`. Repeating the local suite needs at least approximately0.6GiB more actual overlay headroom, plus the maintained1GiB guard.
+
+Benchmark comparison is the immutable prior native baseline `bebe5e7cb0f2dbf3ed10ac8122e149f439de0ba3` versus source commit `6463d68399`, not a pure-TS performance comparison. The unchanged common runner uses concurrency8, 100 warmup/1000 measured requests per scenario, three AB/BA/AB pairs for five native APIs and one AB pair for two TS callback smoke controls. All inputs, binaries, bundles and review/build identities are checked before/after measurement. Eight owned server groups exited0 without remaining processes. Throughput medians change from -5.0% to +4.6%; all shown throughput/p95 colors are white under the documented noise heuristic. Three short shared-host runs and an empty dedicated fixture do not establish statistical significance or production scaling; sampled VmRSS is not peak memory. Performance is not an acceptance gate.
+
+Four date-pagination APIs and all24 database-read activations remain held. Saturated checkout public-error projection, exotic pool settings and unsupported TLS/hostname branches remain explicit compatibility decisions; CI success does not remove those holds. Final documentation-commit CI and main fixture shutdown are recorded separately after publication. Tracked docs/CSV persist in Git; private logs, configs, ignored builds and Docker/tmp state require workspace retention and are not guaranteed to survive its disposal.

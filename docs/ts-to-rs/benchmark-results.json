@@ -1,0 +1,1457 @@
+{
+  "statistics": "median, range and population variance across 3 runs; percentage=(candidate/baseline-1)*100",
+  "results": [
+    {
+      "name": "ports/ping",
+      "metrics": {
+        "baseline": {
+          "p50": {
+            "median": 0.2842080000000351,
+            "min": 0.26929199999904085,
+            "max": 0.2845839999972668,
+            "variance": 0.000050719299552591215
+          },
+          "p95": {
+            "median": 0.5650830000013229,
+            "min": 0.5598749999990105,
+            "max": 0.5766250000001492,
+            "variance": 0.00004898928089279301
+          },
+          "p99": {
+            "median": 0.8137079999996786,
+            "min": 0.7362910000010743,
+            "max": 1.2554999999999836,
+            "variance": 0.05230572764810232
+          },
+          "throughput": {
+            "median": 24182.1394877065,
+            "min": 21566.61718853349,
+            "max": 24768.671138254747,
+            "variance": 1937569.5301657338
+          },
+          "tsKiB": {
+            "median": 634016,
+            "min": 631888,
+            "max": 638080,
+            "variance": 6598371.555555555
+          },
+          "rustKiB": {
+            "median": 0,
+            "min": 0,
+            "max": 0,
+            "variance": 0
+          },
+          "startupMs": {
+            "median": 1059.0050419999989,
+            "min": 1028.7647089999991,
+            "max": 1130.6116670000001,
+            "variance": 1823.8654819661826
+          }
+        },
+        "candidate": {
+          "p50": {
+            "median": 0.44704099999944447,
+            "min": 0.44633299999986775,
+            "max": 0.48241699999925913,
+            "variance": 0.0002837797439935961
+          },
+          "p95": {
+            "median": 0.7561659999992116,
+            "min": 0.7259170000006634,
+            "max": 1.042833999999857,
+            "variance": 0.020392214345974567
+          },
+          "p99": {
+            "median": 1.233541999999943,
+            "min": 0.9102500000008149,
+            "max": 1.5244999999995343,
+            "variance": 0.06294192639173614
+          },
+          "throughput": {
+            "median": 16631.26729142457,
+            "min": 14546.080608763834,
+            "max": 16741.585260708118,
+            "variance": 1020046.0258446139
+          },
+          "tsKiB": {
+            "median": 617328,
+            "min": 613776,
+            "max": 643712,
+            "variance": 178321806.22222224
+          },
+          "rustKiB": {
+            "median": 4096,
+            "min": 4064,
+            "max": 4192,
+            "variance": 2958.2222222222226
+          },
+          "startupMs": {
+            "median": 1052.8835,
+            "min": 1046.3778340000008,
+            "max": 1055.5400420000005,
+            "variance": 14.8141067707301
+          }
+        }
+      },
+      "pairedPercentage": {
+        "p50": {
+          "median": 57.29360186883876,
+          "min": 56.83699716222781,
+          "max": 79.14271497147236,
+          "variance": 108.34858646838042
+        },
+        "p95": {
+          "median": 33.81503248150119,
+          "min": 25.890656839449488,
+          "max": 86.26193346759547,
+          "variance": 717.5737993415161
+        },
+        "p99": {
+          "median": 23.626392282329522,
+          "min": -1.7489446435715483,
+          "max": 87.35221971519715,
+          "variance": 1404.878477354993
+        },
+        "throughput": {
+          "median": -31.224996448807087,
+          "min": -41.272260721740196,
+          "max": -22.37268777780662,
+          "variance": 59.611638404432675
+        }
+      },
+      "pairs": [
+        {
+          "pair": 1,
+          "baseline": {
+            "name": "ports/ping",
+            "warmup": {
+              "elapsedMs": 13.55424999999991,
+              "completed": 100,
+              "counts": {
+                "success": 100,
+                "httpError": 0,
+                "timeout": 0,
+                "transportError": 0,
+                "validationFailure": 0
+              },
+              "throughput": 7377.75974325401,
+              "completedThroughput": 7377.75974325401,
+              "latencyMs": {
+                "min": 0.21483299999999872,
+                "p50": 0.6232919999999922,
+                "p90": 2.4565829999999096,
+                "p95": 3.57220899999993,
+                "p99": 4.179041999999981,
+                "max": 4.32383300000015
+              },
+              "partial": false
+            },
+            "measure": {
+              "elapsedMs": 46.367958000000044,
+              "completed": 1000,
+              "counts": {
+                "success": 1000,
+                "httpError": 0,
+                "timeout": 0,
+                "transportError": 0,
+                "validationFailure": 0
+              },
+              "throughput": 21566.61718853349,
+              "completedThroughput": 21566.61718853349,
+              "latencyMs": {
+                "min": 0.0929999999998472,
+                "p50": 0.2842080000000351,
+                "p90": 0.46974999999997635,
+                "p95": 0.5766250000001492,
+                "p99": 1.2554999999999836,
+                "max": 7.3211670000000595
+              },
+              "partial": false
+            },
+            "memory": {
+              "tsPid": 4459,
+              "rustPids": [],
+              "tsKiB": 634016,
+              "rustKiB": 0
+            }
+          },
+          "candidate": {
+            "name": "ports/ping",
+            "warmup": {
+              "elapsedMs": 13.425208000000566,
+              "completed": 100,
+              "counts": {
+                "success": 100,
+                "httpError": 0,
+                "timeout": 0,
+                "transportError": 0,
+                "validationFailure": 0
+              },
+              "throughput": 7448.6741657928715,
+              "completedThroughput": 7448.6741657928715,
+              "latencyMs": {
+                "min": 0.34587499999997817,
+                "p50": 0.7211250000000291,
+                "p90": 1.9538749999992433,
+                "p95": 3.965041000000383,
+                "p99": 4.101082999999562,
+                "max": 4.125833000000057
+              },
+              "partial": false
+            },
+            "measure": {
+              "elapsedMs": 59.73150000000078,
+              "completed": 1000,
+              "counts": {
+                "success": 1000,
+                "httpError": 0,
+                "timeout": 0,
+                "transportError": 0,
+                "validationFailure": 0
+              },
+              "throughput": 16741.585260708118,
+              "completedThroughput": 16741.585260708118,
+              "latencyMs": {
+                "min": 0.203708000000006,
+                "p50": 0.44704099999944447,
+                "p90": 0.6458339999999225,
+                "p95": 0.7259170000006634,
+                "p99": 1.233541999999943,
+                "max": 1.514125000000604
+              },
+              "partial": false
+            },
+            "memory": {
+              "tsPid": 4474,
+              "rustPids": [
+                4475
+              ],
+              "tsKiB": 613776,
+              "rustKiB": 4064
+            }
+          },
+          "startupMs": {
+            "baseline": 1130.6116670000001,
+            "candidate": 1055.5400420000005
+          },
+          "percentage": {
+            "p50": 57.29360186883876,
+            "p95": 25.890656839449488,
+            "p99": -1.7489446435715483,
+            "throughput": -22.37268777780662
+          }
+        },
+        {
+          "pair": 2,
+          "baseline": {
+            "name": "ports/ping",
+            "warmup": {
+              "elapsedMs": 23.839125000000422,
+              "completed": 100,
+              "counts": {
+                "success": 100,
+                "httpError": 0,
+                "timeout": 0,
+                "transportError": 0,
+                "validationFailure": 0
+              },
+              "throughput": 4194.78483375536,
+              "completedThroughput": 4194.78483375536,
+              "latencyMs": {
+                "min": 0.18891599999915343,
+                "p50": 0.5565420000002632,
+                "p90": 3.2107909999995172,
+                "p95": 14.39416699999856,
+                "p99": 14.935457999999926,
+                "max": 15.068417000000409
+              },
+              "partial": false
+            },
+            "measure": {
+              "elapsedMs": 40.37358299999869,
+              "completed": 1000,
+              "counts": {
+                "success": 1000,
+                "httpError": 0,
+                "timeout": 0,
+                "transportError": 0,
+                "validationFailure": 0
+              },
+              "throughput": 24768.671138254747,
+              "completedThroughput": 24768.671138254747,
+              "latencyMs": {
+                "min": 0.11345799999980954,
+                "p50": 0.26929199999904085,
+                "p90": 0.473374999999578,
+                "p95": 0.5598749999990105,
+                "p99": 0.8137079999996786,
+                "max": 1.668999999999869
+              },
+              "partial": false
+            },
+            "memory": {
+              "tsPid": 4487,
+              "rustPids": [],
+              "tsKiB": 638080,
+              "rustKiB": 0
+            }
+          },
+          "candidate": {
+            "name": "ports/ping",
+            "warmup": {
+              "elapsedMs": 13.644874999999956,
+              "completed": 100,
+              "counts": {
+                "success": 100,
+                "httpError": 0,
+                "timeout": 0,
+                "transportError": 0,
+                "validationFailure": 0
+              },
+              "throughput": 7328.758966278571,
+              "completedThroughput": 7328.758966278571,
+              "latencyMs": {
+                "min": 0.34083299999838346,
+                "p50": 0.7637500000000728,
+                "p90": 1.7750829999986308,
+                "p95": 3.968417000000045,
+                "p99": 4.0897079999995185,
+                "max": 4.1194589999995515
+              },
+              "partial": false
+            },
+            "measure": {
+              "elapsedMs": 68.74704100000054,
+              "completed": 1000,
+              "counts": {
+                "success": 1000,
+                "httpError": 0,
+                "timeout": 0,
+                "transportError": 0,
+                "validationFailure": 0
+              },
+              "throughput": 14546.080608763834,
+              "completedThroughput": 14546.080608763834,
+              "latencyMs": {
+                "min": 0.20141599999988102,
+                "p50": 0.48241699999925913,
+                "p90": 0.8002500000002328,
+                "p95": 1.042833999999857,
+                "p99": 1.5244999999995343,
+                "max": 2.277874999999767
+              },
+              "partial": false
+            },
+            "memory": {
+              "tsPid": 4480,
+              "rustPids": [
+                4481
+              ],
+              "tsKiB": 617328,
+              "rustKiB": 4096
+            }
+          },
+          "startupMs": {
+            "baseline": 1028.7647089999991,
+            "candidate": 1046.3778340000008
+          },
+          "percentage": {
+            "p50": 79.14271497147236,
+            "p95": 86.26193346759547,
+            "p99": 87.35221971519715,
+            "throughput": -41.272260721740196
+          }
+        },
+        {
+          "pair": 3,
+          "baseline": {
+            "name": "ports/ping",
+            "warmup": {
+              "elapsedMs": 22.668416000000434,
+              "completed": 100,
+              "counts": {
+                "success": 100,
+                "httpError": 0,
+                "timeout": 0,
+                "transportError": 0,
+                "validationFailure": 0
+              },
+              "throughput": 4411.424247728562,
+              "completedThroughput": 4411.424247728562,
+              "latencyMs": {
+                "min": 0.24262500000259024,
+                "p50": 0.5742090000021562,
+                "p90": 1.981167000001733,
+                "p95": 14.103124999997817,
+                "p99": 14.644416999999521,
+                "max": 14.776750000000902
+              },
+              "partial": false
+            },
+            "measure": {
+              "elapsedMs": 41.35283400000117,
+              "completed": 1000,
+              "counts": {
+                "success": 1000,
+                "httpError": 0,
+                "timeout": 0,
+                "transportError": 0,
+                "validationFailure": 0
+              },
+              "throughput": 24182.1394877065,
+              "completedThroughput": 24182.1394877065,
+              "latencyMs": {
+                "min": 0.11020900000221445,
+                "p50": 0.2845839999972668,
+                "p90": 0.5125000000007276,
+                "p95": 0.5650830000013229,
+                "p99": 0.7362910000010743,
+                "max": 1.1233329999995476
+              },
+              "partial": false
+            },
+            "memory": {
+              "tsPid": 4493,
+              "rustPids": [],
+              "tsKiB": 631888,
+              "rustKiB": 0
+            }
+          },
+          "candidate": {
+            "name": "ports/ping",
+            "warmup": {
+              "elapsedMs": 13.9587500000016,
+              "completed": 100,
+              "counts": {
+                "success": 100,
+                "httpError": 0,
+                "timeout": 0,
+                "transportError": 0,
+                "validationFailure": 0
+              },
+              "throughput": 7163.965254767693,
+              "completedThroughput": 7163.965254767693,
+              "latencyMs": {
+                "min": 0.33962500000052387,
+                "p50": 0.602167000000918,
+                "p90": 1.8997920000001614,
+                "p95": 5.0882500000006985,
+                "p99": 5.263708000002225,
+                "max": 5.292667000001529
+              },
+              "partial": false
+            },
+            "measure": {
+              "elapsedMs": 60.12770900000032,
+              "completed": 1000,
+              "counts": {
+                "success": 1000,
+                "httpError": 0,
+                "timeout": 0,
+                "transportError": 0,
+                "validationFailure": 0
+              },
+              "throughput": 16631.26729142457,
+              "completedThroughput": 16631.26729142457,
+              "latencyMs": {
+                "min": 0.17929200000071432,
+                "p50": 0.44633299999986775,
+                "p90": 0.6954160000022966,
+                "p95": 0.7561659999992116,
+                "p99": 0.9102500000008149,
+                "max": 1.6386669999992591
+              },
+              "partial": false
+            },
+            "memory": {
+              "tsPid": 4503,
+              "rustPids": [
+                4504
+              ],
+              "tsKiB": 643712,
+              "rustKiB": 4192
+            }
+          },
+          "startupMs": {
+            "baseline": 1059.0050419999989,
+            "candidate": 1052.8835
+          },
+          "percentage": {
+            "p50": 56.83699716222781,
+            "p95": 33.81503248150119,
+            "p99": 23.626392282329522,
+            "throughput": -31.224996448807087
+          }
+        }
+      ]
+    },
+    {
+      "name": "ports/test",
+      "metrics": {
+        "baseline": {
+          "p50": {
+            "median": 0.2640409999999065,
+            "min": 0.2549589999980526,
+            "max": 0.27741599999899336,
+            "variance": 0.00008507668867238894
+          },
+          "p95": {
+            "median": 0.5148329999999532,
+            "min": 0.4808329999978014,
+            "max": 0.5479580000010174,
+            "variance": 0.0007510034722942854
+          },
+          "p99": {
+            "median": 0.6831249999997908,
+            "min": 0.5518750000010186,
+            "max": 0.7576250000001892,
+            "variance": 0.007234430555488415
+          },
+          "throughput": {
+            "median": 26869.862297598494,
+            "min": 25802.678761862146,
+            "max": 27853.666639965148,
+            "variance": 701478.106570186
+          },
+          "tsKiB": {
+            "median": 634352,
+            "min": 633248,
+            "max": 639088,
+            "variance": 6417123.555555555
+          },
+          "rustKiB": {
+            "median": 0,
+            "min": 0,
+            "max": 0,
+            "variance": 0
+          },
+          "startupMs": {
+            "median": 1059.0050419999989,
+            "min": 1028.7647089999991,
+            "max": 1130.6116670000001,
+            "variance": 1823.8654819661826
+          }
+        },
+        "candidate": {
+          "p50": {
+            "median": 0.42816599999969185,
+            "min": 0.4188750000002983,
+            "max": 0.4354170000005979,
+            "variance": 0.00004583749400130913
+          },
+          "p95": {
+            "median": 0.6598750000011933,
+            "min": 0.6568340000003445,
+            "max": 0.6900840000016615,
+            "variance": 0.00022526598468011424
+          },
+          "p99": {
+            "median": 0.8979580000013812,
+            "min": 0.8665410000003249,
+            "max": 0.9291670000002341,
+            "variance": 0.0006536717162203789
+          },
+          "throughput": {
+            "median": 17452.717882086592,
+            "min": 17135.10972330432,
+            "max": 17953.361654761557,
+            "variance": 113450.59477519873
+          },
+          "tsKiB": {
+            "median": 618224,
+            "min": 614864,
+            "max": 644864,
+            "variance": 180108800
+          },
+          "rustKiB": {
+            "median": 4144,
+            "min": 4096,
+            "max": 4240,
+            "variance": 3584
+          },
+          "startupMs": {
+            "median": 1052.8835,
+            "min": 1046.3778340000008,
+            "max": 1055.5400420000005,
+            "variance": 14.8141067707301
+          }
+        }
+      },
+      "pairedPercentage": {
+        "p50": {
+          "median": 58.64013543368139,
+          "min": 54.34077342375547,
+          "max": 70.77922332764234,
+          "variance": 48.45162264803354
+        },
+        "p95": {
+          "median": 27.581953759841383,
+          "min": 20.424375590824127,
+          "max": 43.51843571568858,
+          "variance": 93.17088838061004
+        },
+        "p99": {
+          "median": 26.8495516926756,
+          "min": 22.642072265303035,
+          "max": 62.71039637594087,
+          "variance": 323.24151795157326
+        },
+        "throughput": {
+          "median": -33.18402061045863,
+          "min": -38.48167300631642,
+          "max": -32.360829496964016,
+          "variance": 7.3563877536284155
+        }
+      },
+      "pairs": [
+        {
+          "pair": 1,
+          "baseline": {
+            "name": "ports/test",
+            "warmup": {
+              "elapsedMs": 4.324583000000075,
+              "completed": 100,
+              "counts": {
+                "success": 100,
+                "httpError": 0,
+                "timeout": 0,
+                "transportError": 0,
+                "validationFailure": 0
+              },
+              "throughput": 23123.61677414869,
+              "completedThroughput": 23123.61677414869,
+              "latencyMs": {
+                "min": 0.11170800000013514,
+                "p50": 0.23787500000003092,
+                "p90": 0.4604580000000169,
+                "p95": 0.8793339999999716,
+                "p99": 1.0950419999999212,
+                "max": 1.1286250000000564
+              },
+              "partial": false
+            },
+            "measure": {
+              "elapsedMs": 37.216416999999865,
+              "completed": 1000,
+              "counts": {
+                "success": 1000,
+                "httpError": 0,
+                "timeout": 0,
+                "transportError": 0,
+                "validationFailure": 0
+              },
+              "throughput": 26869.862297598494,
+              "completedThroughput": 26869.862297598494,
+              "latencyMs": {
+                "min": 0.08924999999999272,
+                "p50": 0.2640409999999065,
+                "p90": 0.44145800000001145,
+                "p95": 0.5148329999999532,
+                "p99": 0.6831249999997908,
+                "max": 0.9791250000000673
+              },
+              "partial": false
+            },
+            "memory": {
+              "tsPid": 4459,
+              "rustPids": [],
+              "tsKiB": 634352,
+              "rustKiB": 0
+            }
+          },
+          "candidate": {
+            "name": "ports/test",
+            "warmup": {
+              "elapsedMs": 8.352958000000399,
+              "completed": 100,
+              "counts": {
+                "success": 100,
+                "httpError": 0,
+                "timeout": 0,
+                "transportError": 0,
+                "validationFailure": 0
+              },
+              "throughput": 11971.806873684174,
+              "completedThroughput": 11971.806873684174,
+              "latencyMs": {
+                "min": 0.2776670000002923,
+                "p50": 0.44250000000010914,
+                "p90": 0.7802920000003724,
+                "p95": 2.442540999999437,
+                "p99": 2.478874999999789,
+                "max": 2.482125000000451
+              },
+              "partial": false
+            },
+            "measure": {
+              "elapsedMs": 55.69987499999934,
+              "completed": 1000,
+              "counts": {
+                "success": 1000,
+                "httpError": 0,
+                "timeout": 0,
+                "transportError": 0,
+                "validationFailure": 0
+              },
+              "throughput": 17953.361654761557,
+              "completedThroughput": 17953.361654761557,
+              "latencyMs": {
+                "min": 0.1450830000003407,
+                "p50": 0.4188750000002983,
+                "p90": 0.602415999999721,
+                "p95": 0.6568340000003445,
+                "p99": 0.8665410000003249,
+                "max": 1.3350000000000364
+              },
+              "partial": false
+            },
+            "memory": {
+              "tsPid": 4474,
+              "rustPids": [
+                4475
+              ],
+              "tsKiB": 614864,
+              "rustKiB": 4096
+            }
+          },
+          "startupMs": {
+            "baseline": 1130.6116670000001,
+            "candidate": 1055.5400420000005
+          },
+          "percentage": {
+            "p50": 58.64013543368139,
+            "p95": 27.581953759841383,
+            "p99": 26.8495516926756,
+            "throughput": -33.18402061045863
+          }
+        },
+        {
+          "pair": 2,
+          "baseline": {
+            "name": "ports/test",
+            "warmup": {
+              "elapsedMs": 11.976915999999619,
+              "completed": 100,
+              "counts": {
+                "success": 100,
+                "httpError": 0,
+                "timeout": 0,
+                "transportError": 0,
+                "validationFailure": 0
+              },
+              "throughput": 8349.394785769824,
+              "completedThroughput": 8349.394785769824,
+              "latencyMs": {
+                "min": 0.14158300000053714,
+                "p50": 0.2913330000010319,
+                "p90": 0.48145800000020245,
+                "p95": 8.488790999999765,
+                "p99": 8.634000000000015,
+                "max": 8.639291999999841
+              },
+              "partial": false
+            },
+            "measure": {
+              "elapsedMs": 38.75566599999911,
+              "completed": 1000,
+              "counts": {
+                "success": 1000,
+                "httpError": 0,
+                "timeout": 0,
+                "transportError": 0,
+                "validationFailure": 0
+              },
+              "throughput": 25802.678761862146,
+              "completedThroughput": 25802.678761862146,
+              "latencyMs": {
+                "min": 0.05437499999970896,
+                "p50": 0.27741599999899336,
+                "p90": 0.4693329999990965,
+                "p95": 0.5479580000010174,
+                "p99": 0.7576250000001892,
+                "max": 0.9987079999991693
+              },
+              "partial": false
+            },
+            "memory": {
+              "tsPid": 4487,
+              "rustPids": [],
+              "tsKiB": 639088,
+              "rustKiB": 0
+            }
+          },
+          "candidate": {
+            "name": "ports/test",
+            "warmup": {
+              "elapsedMs": 7.077792000000045,
+              "completed": 100,
+              "counts": {
+                "success": 100,
+                "httpError": 0,
+                "timeout": 0,
+                "transportError": 0,
+                "validationFailure": 0
+              },
+              "throughput": 14128.700023962187,
+              "completedThroughput": 14128.700023962187,
+              "latencyMs": {
+                "min": 0.2352919999993901,
+                "p50": 0.474833000000217,
+                "p90": 0.8329579999990528,
+                "p95": 1.3681660000002012,
+                "p99": 1.3908329999994749,
+                "max": 1.3939589999990858
+              },
+              "partial": false
+            },
+            "measure": {
+              "elapsedMs": 57.29766599999857,
+              "completed": 1000,
+              "counts": {
+                "success": 1000,
+                "httpError": 0,
+                "timeout": 0,
+                "transportError": 0,
+                "validationFailure": 0
+              },
+              "throughput": 17452.717882086592,
+              "completedThroughput": 17452.717882086592,
+              "latencyMs": {
+                "min": 0.18833299999823794,
+                "p50": 0.42816599999969185,
+                "p90": 0.6007500000014261,
+                "p95": 0.6598750000011933,
+                "p99": 0.9291670000002341,
+                "max": 1.7024170000004233
+              },
+              "partial": false
+            },
+            "memory": {
+              "tsPid": 4480,
+              "rustPids": [
+                4481
+              ],
+              "tsKiB": 618224,
+              "rustKiB": 4144
+            }
+          },
+          "startupMs": {
+            "baseline": 1028.7647089999991,
+            "candidate": 1046.3778340000008
+          },
+          "percentage": {
+            "p50": 54.34077342375547,
+            "p95": 20.424375590824127,
+            "p99": 22.642072265303035,
+            "throughput": -32.360829496964016
+          }
+        },
+        {
+          "pair": 3,
+          "baseline": {
+            "name": "ports/test",
+            "warmup": {
+              "elapsedMs": 11.61424999999872,
+              "completed": 100,
+              "counts": {
+                "success": 100,
+                "httpError": 0,
+                "timeout": 0,
+                "transportError": 0,
+                "validationFailure": 0
+              },
+              "throughput": 8610.112577222897,
+              "completedThroughput": 8610.112577222897,
+              "latencyMs": {
+                "min": 0.13391699999920093,
+                "p50": 0.32837499999732245,
+                "p90": 0.9835840000014286,
+                "p95": 7.119167000000743,
+                "p99": 7.4287919999987935,
+                "max": 7.490042000001267
+              },
+              "partial": false
+            },
+            "measure": {
+              "elapsedMs": 35.90191599999889,
+              "completed": 1000,
+              "counts": {
+                "success": 1000,
+                "httpError": 0,
+                "timeout": 0,
+                "transportError": 0,
+                "validationFailure": 0
+              },
+              "throughput": 27853.666639965148,
+              "completedThroughput": 27853.666639965148,
+              "latencyMs": {
+                "min": 0.0838339999972959,
+                "p50": 0.2549589999980526,
+                "p90": 0.43145799999911105,
+                "p95": 0.4808329999978014,
+                "p99": 0.5518750000010186,
+                "max": 0.651583999999275
+              },
+              "partial": false
+            },
+            "memory": {
+              "tsPid": 4493,
+              "rustPids": [],
+              "tsKiB": 633248,
+              "rustKiB": 0
+            }
+          },
+          "candidate": {
+            "name": "ports/test",
+            "warmup": {
+              "elapsedMs": 10.73229100000026,
+              "completed": 100,
+              "counts": {
+                "success": 100,
+                "httpError": 0,
+                "timeout": 0,
+                "transportError": 0,
+                "validationFailure": 0
+              },
+              "throughput": 9317.675042541949,
+              "completedThroughput": 9317.675042541949,
+              "latencyMs": {
+                "min": 0.2667090000031749,
+                "p50": 0.4610420000026352,
+                "p90": 0.7357080000001588,
+                "p95": 5.138457999997627,
+                "p99": 5.2190410000002885,
+                "max": 5.220000000001164
+              },
+              "partial": false
+            },
+            "measure": {
+              "elapsedMs": 58.359707999999955,
+              "completed": 1000,
+              "counts": {
+                "success": 1000,
+                "httpError": 0,
+                "timeout": 0,
+                "transportError": 0,
+                "validationFailure": 0
+              },
+              "throughput": 17135.10972330432,
+              "completedThroughput": 17135.10972330432,
+              "latencyMs": {
+                "min": 0.20154100000218023,
+                "p50": 0.4354170000005979,
+                "p90": 0.6397500000020955,
+                "p95": 0.6900840000016615,
+                "p99": 0.8979580000013812,
+                "max": 2.2792910000025586
+              },
+              "partial": false
+            },
+            "memory": {
+              "tsPid": 4503,
+              "rustPids": [
+                4504
+              ],
+              "tsKiB": 644864,
+              "rustKiB": 4240
+            }
+          },
+          "startupMs": {
+            "baseline": 1059.0050419999989,
+            "candidate": 1052.8835
+          },
+          "percentage": {
+            "p50": 70.77922332764234,
+            "p95": 43.51843571568858,
+            "p99": 62.71039637594087,
+            "throughput": -38.48167300631642
+          }
+        }
+      ]
+    },
+    {
+      "name": "ports/endpoint",
+      "metrics": {
+        "baseline": {
+          "p50": {
+            "median": 0.25641600000017206,
+            "min": 0.25616599999989376,
+            "max": 0.2582079999992857,
+            "variance": 8.270586660532157e-7
+          },
+          "p95": {
+            "median": 0.4962920000000395,
+            "min": 0.49566699999923003,
+            "max": 0.50291599999764,
+            "variance": 0.000010757333549574673
+          },
+          "p99": {
+            "median": 0.5556669999998576,
+            "min": 0.5487909999992553,
+            "max": 0.5676669999993464,
+            "variance": 0.00006084252799993962
+          },
+          "throughput": {
+            "median": 26675.97338025961,
+            "min": 26436.318213962222,
+            "max": 26780.12513013538,
+            "variance": 20720.597927078943
+          },
+          "tsKiB": {
+            "median": 634464,
+            "min": 633456,
+            "max": 639744,
+            "variance": 7603712
+          },
+          "rustKiB": {
+            "median": 0,
+            "min": 0,
+            "max": 0,
+            "variance": 0
+          },
+          "startupMs": {
+            "median": 1059.0050419999989,
+            "min": 1028.7647089999991,
+            "max": 1130.6116670000001,
+            "variance": 1823.8654819661826
+          }
+        },
+        "candidate": {
+          "p50": {
+            "median": 0.4116250000006403,
+            "min": 0.40662500000053114,
+            "max": 0.41466700000091805,
+            "variance": 0.000010991947556556036
+          },
+          "p95": {
+            "median": 0.6450420000001031,
+            "min": 0.6329589999995733,
+            "max": 0.6664170000003651,
+            "variance": 0.0001913696975641096
+          },
+          "p99": {
+            "median": 0.8118340000000899,
+            "min": 0.735541999999441,
+            "max": 0.8542919999999867,
+            "variance": 0.0024138570586910942
+          },
+          "throughput": {
+            "median": 18345.327753223122,
+            "min": 18162.156491641606,
+            "max": 18789.972731052152,
+            "variance": 69490.45531617134
+          },
+          "tsKiB": {
+            "median": 619424,
+            "min": 615888,
+            "max": 645296,
+            "variance": 171854904.88888887
+          },
+          "rustKiB": {
+            "median": 4208,
+            "min": 4128,
+            "max": 4272,
+            "variance": 3470.2222222222226
+          },
+          "startupMs": {
+            "median": 1052.8835,
+            "min": 1046.3778340000008,
+            "max": 1055.5400420000005,
+            "variance": 14.8141067707301
+          }
+        }
+      },
+      "pairedPercentage": {
+        "p50": {
+          "median": 60.5301541246896,
+          "min": 58.734960924049176,
+          "max": 60.59417214108982,
+          "variance": 0.7426092537354659
+        },
+        "p95": {
+          "median": 30.136159962455665,
+          "min": 27.537618982277156,
+          "max": 32.51059819204247,
+          "variance": 4.124543816949832
+        },
+        "p99": {
+          "median": 47.93136184835238,
+          "min": 32.37100637605428,
+          "max": 50.491749564616285,
+          "variance": 64.11573126529875
+        },
+        "throughput": {
+          "median": -31.298464692979277,
+          "min": -31.496482320094444,
+          "max": -29.562185179878565,
+          "variance": 0.7550425505454327
+        }
+      },
+      "pairs": [
+        {
+          "pair": 1,
+          "baseline": {
+            "name": "ports/endpoint",
+            "warmup": {
+              "elapsedMs": 5.428042000000005,
+              "completed": 100,
+              "counts": {
+                "success": 100,
+                "httpError": 0,
+                "timeout": 0,
+                "transportError": 0,
+                "validationFailure": 0
+              },
+              "throughput": 18422.849344201815,
+              "completedThroughput": 18422.849344201815,
+              "latencyMs": {
+                "min": 0.19683400000008078,
+                "p50": 0.2623329999998987,
+                "p90": 0.6613339999998971,
+                "p95": 1.5727090000000317,
+                "p99": 1.5824169999998503,
+                "max": 1.588124999999991
+              },
+              "partial": false
+            },
+            "measure": {
+              "elapsedMs": 37.48691699999995,
+              "completed": 1000,
+              "counts": {
+                "success": 1000,
+                "httpError": 0,
+                "timeout": 0,
+                "transportError": 0,
+                "validationFailure": 0
+              },
+              "throughput": 26675.97338025961,
+              "completedThroughput": 26675.97338025961,
+              "latencyMs": {
+                "min": 0.07554099999993014,
+                "p50": 0.25616599999989376,
+                "p90": 0.46100000000001273,
+                "p95": 0.4962920000000395,
+                "p99": 0.5556669999998576,
+                "max": 0.6630830000001424
+              },
+              "partial": false
+            },
+            "memory": {
+              "tsPid": 4459,
+              "rustPids": [],
+              "tsKiB": 634464,
+              "rustKiB": 0
+            }
+          },
+          "candidate": {
+            "name": "ports/endpoint",
+            "warmup": {
+              "elapsedMs": 7.135041999999885,
+              "completed": 100,
+              "counts": {
+                "success": 100,
+                "httpError": 0,
+                "timeout": 0,
+                "transportError": 0,
+                "validationFailure": 0
+              },
+              "throughput": 14015.334457737124,
+              "completedThroughput": 14015.334457737124,
+              "latencyMs": {
+                "min": 0.20100000000002183,
+                "p50": 0.4677499999997963,
+                "p90": 0.7566249999999854,
+                "p95": 1.1665000000002692,
+                "p99": 1.2020830000001297,
+                "max": 1.2151670000002923
+              },
+              "partial": false
+            },
+            "measure": {
+              "elapsedMs": 53.219874999999774,
+              "completed": 1000,
+              "counts": {
+                "success": 1000,
+                "httpError": 0,
+                "timeout": 0,
+                "transportError": 0,
+                "validationFailure": 0
+              },
+              "throughput": 18789.972731052152,
+              "completedThroughput": 18789.972731052152,
+              "latencyMs": {
+                "min": 0.15020900000035908,
+                "p50": 0.40662500000053114,
+                "p90": 0.5870409999997719,
+                "p95": 0.6329589999995733,
+                "p99": 0.735541999999441,
+                "max": 0.8447089999999662
+              },
+              "partial": false
+            },
+            "memory": {
+              "tsPid": 4474,
+              "rustPids": [
+                4475
+              ],
+              "tsKiB": 615888,
+              "rustKiB": 4128
+            }
+          },
+          "startupMs": {
+            "baseline": 1130.6116670000001,
+            "candidate": 1055.5400420000005
+          },
+          "percentage": {
+            "p50": 58.734960924049176,
+            "p95": 27.537618982277156,
+            "p99": 32.37100637605428,
+            "throughput": -29.562185179878565
+          }
+        },
+        {
+          "pair": 2,
+          "baseline": {
+            "name": "ports/endpoint",
+            "warmup": {
+              "elapsedMs": 5.185249999998632,
+              "completed": 100,
+              "counts": {
+                "success": 100,
+                "httpError": 0,
+                "timeout": 0,
+                "transportError": 0,
+                "validationFailure": 0
+              },
+              "throughput": 19285.47321730416,
+              "completedThroughput": 19285.47321730416,
+              "latencyMs": {
+                "min": 0.12824999999975262,
+                "p50": 0.2825830000001588,
+                "p90": 0.5668749999986176,
+                "p95": 1.2282079999986308,
+                "p99": 1.449124999999185,
+                "max": 1.451374999998734
+              },
+              "partial": false
+            },
+            "measure": {
+              "elapsedMs": 37.34112499999901,
+              "completed": 1000,
+              "counts": {
+                "success": 1000,
+                "httpError": 0,
+                "timeout": 0,
+                "transportError": 0,
+                "validationFailure": 0
+              },
+              "throughput": 26780.12513013538,
+              "completedThroughput": 26780.12513013538,
+              "latencyMs": {
+                "min": 0.07099999999991269,
+                "p50": 0.25641600000017206,
+                "p90": 0.4647079999995185,
+                "p95": 0.49566699999923003,
+                "p99": 0.5487909999992553,
+                "max": 0.588000000001557
+              },
+              "partial": false
+            },
+            "memory": {
+              "tsPid": 4487,
+              "rustPids": [],
+              "tsKiB": 639744,
+              "rustKiB": 0
+            }
+          },
+          "candidate": {
+            "name": "ports/endpoint",
+            "warmup": {
+              "elapsedMs": 7.028874999999971,
+              "completed": 100,
+              "counts": {
+                "success": 100,
+                "httpError": 0,
+                "timeout": 0,
+                "transportError": 0,
+                "validationFailure": 0
+              },
+              "throughput": 14227.027796055616,
+              "completedThroughput": 14227.027796055616,
+              "latencyMs": {
+                "min": 0.24783299999944575,
+                "p50": 0.45291700000052515,
+                "p90": 0.9022500000010041,
+                "p95": 1.183208000000377,
+                "p99": 1.2659590000002936,
+                "max": 1.2730419999988953
+              },
+              "partial": false
+            },
+            "measure": {
+              "elapsedMs": 54.509791999998924,
+              "completed": 1000,
+              "counts": {
+                "success": 1000,
+                "httpError": 0,
+                "timeout": 0,
+                "transportError": 0,
+                "validationFailure": 0
+              },
+              "throughput": 18345.327753223122,
+              "completedThroughput": 18345.327753223122,
+              "latencyMs": {
+                "min": 0.15824999999858846,
+                "p50": 0.4116250000006403,
+                "p90": 0.5678330000009737,
+                "p95": 0.6450420000001031,
+                "p99": 0.8118340000000899,
+                "max": 1.2253339999988384
+              },
+              "partial": false
+            },
+            "memory": {
+              "tsPid": 4480,
+              "rustPids": [
+                4481
+              ],
+              "tsKiB": 619424,
+              "rustKiB": 4208
+            }
+          },
+          "startupMs": {
+            "baseline": 1028.7647089999991,
+            "candidate": 1046.3778340000008
+          },
+          "percentage": {
+            "p50": 60.5301541246896,
+            "p95": 30.136159962455665,
+            "p99": 47.93136184835238,
+            "throughput": -31.496482320094444
+          }
+        },
+        {
+          "pair": 3,
+          "baseline": {
+            "name": "ports/endpoint",
+            "warmup": {
+              "elapsedMs": 5.098042000001442,
+              "completed": 100,
+              "counts": {
+                "success": 100,
+                "httpError": 0,
+                "timeout": 0,
+                "transportError": 0,
+                "validationFailure": 0
+              },
+              "throughput": 19615.373902367166,
+              "completedThroughput": 19615.373902367166,
+              "latencyMs": {
+                "min": 0.14391600000089966,
+                "p50": 0.3199580000000424,
+                "p90": 0.5286669999986771,
+                "p95": 1.122624999999971,
+                "p99": 1.1334999999999127,
+                "max": 1.1337500000008731
+              },
+              "partial": false
+            },
+            "measure": {
+              "elapsedMs": 37.826750000000175,
+              "completed": 1000,
+              "counts": {
+                "success": 1000,
+                "httpError": 0,
+                "timeout": 0,
+                "transportError": 0,
+                "validationFailure": 0
+              },
+              "throughput": 26436.318213962222,
+              "completedThroughput": 26436.318213962222,
+              "latencyMs": {
+                "min": 0.08300000000235741,
+                "p50": 0.2582079999992857,
+                "p90": 0.46199999999953434,
+                "p95": 0.50291599999764,
+                "p99": 0.5676669999993464,
+                "max": 0.6913749999985157
+              },
+              "partial": false
+            },
+            "memory": {
+              "tsPid": 4493,
+              "rustPids": [],
+              "tsKiB": 633456,
+              "rustKiB": 0
+            }
+          },
+          "candidate": {
+            "name": "ports/endpoint",
+            "warmup": {
+              "elapsedMs": 6.814249999999447,
+              "completed": 100,
+              "counts": {
+                "success": 100,
+                "httpError": 0,
+                "timeout": 0,
+                "transportError": 0,
+                "validationFailure": 0
+              },
+              "throughput": 14675.129324578365,
+              "completedThroughput": 14675.129324578365,
+              "latencyMs": {
+                "min": 0.2475830000003043,
+                "p50": 0.43708300000071176,
+                "p90": 0.7506250000005821,
+                "p95": 1.2295000000012806,
+                "p99": 1.2649170000004233,
+                "max": 1.302040999999008
+              },
+              "partial": false
+            },
+            "measure": {
+              "elapsedMs": 55.059541000002355,
+              "completed": 1000,
+              "counts": {
+                "success": 1000,
+                "httpError": 0,
+                "timeout": 0,
+                "transportError": 0,
+                "validationFailure": 0
+              },
+              "throughput": 18162.156491641606,
+              "completedThroughput": 18162.156491641606,
+              "latencyMs": {
+                "min": 0.17508399999860558,
+                "p50": 0.41466700000091805,
+                "p90": 0.595499999999447,
+                "p95": 0.6664170000003651,
+                "p99": 0.8542919999999867,
+                "max": 1.545750000001135
+              },
+              "partial": false
+            },
+            "memory": {
+              "tsPid": 4503,
+              "rustPids": [
+                4504
+              ],
+              "tsKiB": 645296,
+              "rustKiB": 4272
+            }
+          },
+          "startupMs": {
+            "baseline": 1059.0050419999989,
+            "candidate": 1052.8835
+          },
+          "percentage": {
+            "p50": 60.59417214108982,
+            "p95": 32.51059819204247,
+            "p99": 50.491749564616285,
+            "throughput": -31.298464692979277
+          }
+        }
+      ]
+    }
+  ]
+}

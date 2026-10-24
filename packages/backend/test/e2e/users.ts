@@ -8,9 +8,17 @@ process.env.NODE_ENV = 'test';
 import * as assert from 'assert';
 import { beforeAll, beforeEach, describe, test } from 'vitest';
 import { inspect } from 'node:util';
-import { api, post, role, signup, successfulApiCall, uploadFile } from '../utils.js';
+import { randomUUID } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
+import { api, createAppToken, initTestDb, post, relativeFetch, role, signup, successfulApiCall, uploadFile } from '../utils.js';
 import type * as misskey from 'misskey-js';
 import { DEFAULT_POLICIES } from '@/core/RoleService.js';
+import { MiUserProfile } from '@/models/UserProfile.js';
+import { MiFollowing } from '@/models/Following.js';
+import { MiFollowRequest } from '@/models/FollowRequest.js';
+import { MiBlocking } from '@/models/Blocking.js';
+import { MiMuting } from '@/models/Muting.js';
+import { MiRenoteMuting } from '@/models/RenoteMuting.js';
 
 describe('ユーザー', () => {
 	// エンティティとしてのユーザーを主眼においたテストを記述する
@@ -891,4 +899,449 @@ describe('ユーザー', () => {
 	test.todo('を管理人として確認することができる(admin/show-user)');
 	test.todo('を管理人として確認することができる(admin/show-users)');
 	test.todo('をサーバー向けに取得することができる(federation/users)');
+});
+
+describe('users/lists list and show response compatibility', () => {
+	let owner: misskey.entities.SignupResponse;
+	let other: misskey.entities.SignupResponse;
+
+	beforeAll(async () => {
+		owner = await signup({ username: 'listOwner' });
+		other = await signup({ username: 'listOther' });
+	});
+
+	function errorBody(value: unknown): { code: string; id: string } {
+		assert.ok(value !== null && typeof value === 'object' && 'error' in value);
+		const error = value.error;
+		assert.ok(error !== null && typeof error === 'object');
+		assert.ok('code' in error && typeof error.code === 'string');
+		assert.ok('id' in error && typeof error.id === 'string');
+		return { code: error.code, id: error.id };
+	}
+
+	test('preserves own private lists, explicit-self public filtering and member order', async () => {
+		const ids: string[] = [];
+		try {
+			const publicList = await successfulApiCall({ endpoint: 'users/lists/create', parameters: { name: 'public 😀 e\u0301' }, user: owner });
+			ids.push(publicList.id);
+			const privateList = await successfulApiCall({ endpoint: 'users/lists/create', parameters: { name: 'private' }, user: owner });
+			ids.push(privateList.id);
+			await successfulApiCall({ endpoint: 'users/lists/update', parameters: { listId: publicList.id, isPublic: true }, user: owner });
+			await successfulApiCall({ endpoint: 'users/lists/push', parameters: { listId: publicList.id, userId: other.id }, user: owner });
+			await successfulApiCall({ endpoint: 'users/lists/push', parameters: { listId: publicList.id, userId: owner.id }, user: owner });
+			const mine = await successfulApiCall({ endpoint: 'users/lists/list', parameters: {}, user: owner });
+			assert.deepStrictEqual(new Set(mine.map(list => list.id)), new Set(ids));
+			const packed = mine.find(list => list.id === publicList.id);
+			assert.ok(packed);
+			assert.deepStrictEqual(packed, { id: publicList.id, createdAt: publicList.createdAt, name: publicList.name, userIds: [other.id, owner.id], isPublic: true });
+			assert.deepStrictEqual(mine.find(list => list.id === privateList.id), privateList);
+			const explicit = await successfulApiCall({ endpoint: 'users/lists/list', parameters: { userId: owner.id }, user: owner });
+			const anonymous = await api('users/lists/list', { userId: owner.id });
+			assert.strictEqual(anonymous.status, 200);
+			assert.deepStrictEqual(explicit, [packed]);
+			assert.deepStrictEqual(anonymous.body, [packed]);
+			const allowed = await api('miauth/gen-token', { session: randomUUID(), permission: ['read:account'] }, owner);
+			const denied = await api('miauth/gen-token', { session: randomUUID(), permission: ['read:notifications'] }, owner);
+			const scoped = await api('users/lists/list', {}, { token: allowed.body.token });
+			assert.strictEqual(scoped.status, 200);
+			assert.deepStrictEqual(scoped.body, mine);
+			assert.strictEqual((await api('users/lists/list', { userId: owner.id }, { token: denied.body.token })).status, 403);
+		} finally {
+			for (const listId of ids) await api('users/lists/delete', { listId }, owner);
+		}
+		assert.deepStrictEqual((await api('users/lists/list', {}, owner)).body, []);
+	});
+
+	test('shows own private lists and includes favorite fields only forPublic', async () => {
+		const ids: string[] = [];
+		try {
+			const privateList = await successfulApiCall({ endpoint: 'users/lists/create', parameters: { name: 'private detail' }, user: owner });
+			ids.push(privateList.id);
+			const publicList = await successfulApiCall({ endpoint: 'users/lists/create', parameters: { name: 'public detail 😀' }, user: owner });
+			ids.push(publicList.id);
+			const base = await successfulApiCall({ endpoint: 'users/lists/update', parameters: { listId: publicList.id, isPublic: true }, user: owner });
+			assert.deepStrictEqual(await successfulApiCall({ endpoint: 'users/lists/show', parameters: { listId: privateList.id }, user: owner }), privateList);
+			const anonymousDefault = await api('users/lists/show', { listId: publicList.id });
+			assert.strictEqual(anonymousDefault.status, 200);
+			assert.deepStrictEqual(anonymousDefault.body, base);
+			const zero = await api('users/lists/show', { listId: publicList.id, forPublic: true });
+			assert.strictEqual(zero.status, 200);
+			assert.deepStrictEqual(zero.body, { ...base, likedCount: 0, isLiked: false });
+			await successfulApiCall({ endpoint: 'users/lists/favorite', parameters: { listId: publicList.id }, user: other });
+			const liked = await successfulApiCall({ endpoint: 'users/lists/show', parameters: { listId: publicList.id, forPublic: true }, user: other });
+			assert.deepStrictEqual(liked, { ...base, likedCount: 1, isLiked: true });
+			assert.deepStrictEqual(await successfulApiCall({ endpoint: 'users/lists/show', parameters: { listId: publicList.id }, user: owner }), base);
+			const allowed = await api('miauth/gen-token', { session: randomUUID(), permission: ['read:account'] }, other);
+			const denied = await api('miauth/gen-token', { session: randomUUID(), permission: ['read:notifications'] }, other);
+			const scoped = await api('users/lists/show', { listId: publicList.id, forPublic: true }, { token: allowed.body.token });
+			assert.strictEqual(scoped.status, 200);
+			assert.deepStrictEqual(scoped.body, liked);
+			assert.strictEqual((await api('users/lists/show', { listId: publicList.id, forPublic: true }, { token: denied.body.token })).status, 403);
+		} finally {
+			for (const listId of ids) await api('users/lists/delete', { listId }, owner);
+		}
+	});
+
+	test('uses the same missing-list error for inaccessible lists and missing IDs', async () => {
+		const privateList = await successfulApiCall({ endpoint: 'users/lists/create', parameters: { name: 'hidden detail' }, user: owner });
+		const publicList = await successfulApiCall({ endpoint: 'users/lists/create', parameters: { name: 'other public detail' }, user: owner });
+		try {
+			await successfulApiCall({ endpoint: 'users/lists/update', parameters: { listId: publicList.id, isPublic: true }, user: owner });
+			for (const [params, viewer] of [
+				[{ listId: privateList.id }, null],
+				[{ listId: privateList.id }, other],
+				[{ listId: privateList.id, forPublic: true }, owner],
+				[{ listId: publicList.id }, other],
+				[{ listId: '0000000000000000' }, owner],
+			] as const) {
+				const response = await api('users/lists/show', params, viewer ?? undefined);
+				assert.strictEqual(response.status, 400);
+				assert.deepStrictEqual(errorBody(response.body), { code: 'NO_SUCH_LIST', id: '7bc05c21-1d7a-41ae-88f1-66820f4dc686' });
+			}
+		} finally {
+			for (const listId of [privateList.id, publicList.id]) await api('users/lists/delete', { listId }, owner);
+		}
+	});
+
+	test('keeps anonymous, missing-user and remote-user errors distinct', async () => {
+		const remote = await signup({ username: 'listRemote', host: 'example.com' });
+		for (const [params, expected] of [
+			[{}, { code: 'INVALID_PARAM', id: 'ab36de0e-29e9-48cb-9732-d82f1281620d' }],
+			[{ userId: '0000000000000000' }, { code: 'NO_SUCH_USER', id: 'a8af4a82-0980-4cc4-a6af-8b0ffd54465e' }],
+			[{ userId: remote.id }, { code: 'REMOTE_USER_NOT_ALLOWED', id: '53858f1b-3315-4a01-81b7-db9b48d4b79a' }],
+		] as const) {
+			const response = await api('users/lists/list', params);
+			assert.strictEqual(response.status, 400);
+			assert.deepStrictEqual(errorBody(response.body), expected);
+		}
+	});
+});
+
+describe('users/relation response compatibility', () => {
+	let viewer: misskey.entities.SignupResponse;
+	let outgoing: misskey.entities.SignupResponse;
+	let incoming: misskey.entities.SignupResponse;
+	let unrelated: misskey.entities.SignupResponse;
+	const absent = {
+		isFollowing: false, isFollowed: false,
+		hasPendingFollowRequestFromYou: false, hasPendingFollowRequestToYou: false,
+		isBlocking: false, isBlocked: false, isMuted: false, isRenoteMuted: false,
+	};
+
+	beforeAll(async () => {
+		viewer = await signup({ username: 'relationViewer' });
+		outgoing = await signup({ username: 'relationOutgoing' });
+		incoming = await signup({ username: 'relationIncoming' });
+		unrelated = await signup({ username: 'relationUnrelated' });
+	});
+
+	function runtimeObject(value: unknown): asserts value is Record<string, unknown> {
+		assert.ok(value !== null && typeof value === 'object' && !Array.isArray(value));
+	}
+
+	test('preserves the raw following, all eight directions and an expired mute row', async () => {
+		const connection = await initTestDb(true);
+		const followings = connection.getRepository(MiFollowing);
+		const requests = connection.getRepository(MiFollowRequest);
+		const blocks = connection.getRepository(MiBlocking);
+		const mutes = connection.getRepository(MiMuting);
+		const renoteMutes = connection.getRepository(MiRenoteMuting);
+		const ids = Array.from({ length: 8 }, () => randomUUID().replaceAll('-', ''));
+		const following = {
+			id: ids[0], followeeId: outgoing.id, followerId: viewer.id,
+			isFollowerHibernated: false, withReplies: true, notify: null,
+			followerHost: null, followerInbox: null, followerSharedInbox: null,
+			followeeHost: null, followeeInbox: null, followeeSharedInbox: null,
+		};
+		try {
+			// Insert isolated rows directly: API mutations would also start
+			// notifications and remove other edges when blocking these users.
+			await followings.insert([following, { ...following, id: ids[1], followerId: incoming.id, followeeId: viewer.id }]);
+			await requests.insert([
+				{ id: ids[2], followerId: viewer.id, followeeId: outgoing.id, requestId: null, withReplies: false },
+				{ id: ids[3], followerId: incoming.id, followeeId: viewer.id, requestId: null, withReplies: false },
+			]);
+			await blocks.insert([
+				{ id: ids[4], blockerId: viewer.id, blockeeId: outgoing.id },
+				{ id: ids[5], blockerId: incoming.id, blockeeId: viewer.id },
+			]);
+			await mutes.insert({ id: ids[6], muterId: viewer.id, muteeId: outgoing.id, expiresAt: new Date(0) });
+			await renoteMutes.insert({ id: ids[7], muterId: viewer.id, muteeId: outgoing.id });
+			const expectedOutgoing = {
+				id: outgoing.id, following, ...absent, isFollowing: true,
+				hasPendingFollowRequestFromYou: true, isBlocking: true, isMuted: true, isRenoteMuted: true,
+			};
+			const scalar = await api('users/relation', { userId: outgoing.id }, viewer);
+			assert.strictEqual(scalar.status, 200);
+			assert.ok(Array.isArray(scalar.body));
+			const raw: unknown = scalar.body[0];
+			runtimeObject(raw);
+			runtimeObject(raw.following);
+			assert.deepStrictEqual(raw.following, following);
+			assert.deepStrictEqual(scalar.body, [expectedOutgoing]);
+			const batch = await api('users/relation', { userId: [incoming.id, outgoing.id] }, viewer);
+			assert.strictEqual(batch.status, 200);
+			assert.ok(Array.isArray(batch.body));
+			assert.deepStrictEqual(batch.body, [{
+				id: incoming.id, following: null, ...absent, isFollowed: true,
+				hasPendingFollowRequestToYou: true, isBlocked: true,
+			}, expectedOutgoing]);
+			const isolated = await api('users/relation', { userId: outgoing.id }, unrelated);
+			assert.strictEqual(isolated.status, 200);
+			assert.deepStrictEqual(isolated.body, [{ id: outgoing.id, following: null, ...absent }]);
+		} finally {
+			try {
+				await renoteMutes.delete(ids[7]);
+				await mutes.delete(ids[6]);
+				await blocks.delete([ids[4], ids[5]]);
+				await requests.delete([ids[2], ids[3]]);
+				await followings.delete([ids[0], ids[1]]);
+			} finally { await connection.destroy(); }
+		}
+	});
+
+	test('keeps scalar responses as arrays and deduplicates IDs in first appearance order', async () => {
+		const missing = '0000000000000000';
+		for (const id of [viewer.id, missing]) {
+			const scalar = await api('users/relation', { userId: id }, viewer);
+			assert.strictEqual(scalar.status, 200);
+			assert.ok(Array.isArray(scalar.body));
+			assert.deepStrictEqual(scalar.body, [{ id, following: null, ...absent }]);
+		}
+		const empty = await api('users/relation', { userId: [] }, viewer);
+		assert.strictEqual(empty.status, 200);
+		assert.deepStrictEqual(empty.body, []);
+		const repeated = await api('users/relation', { userId: [missing, viewer.id, missing] }, viewer);
+		assert.strictEqual(repeated.status, 200);
+		assert.ok(Array.isArray(repeated.body));
+		assert.deepStrictEqual(repeated.body, [missing, viewer.id].map(id => ({ id, following: null, ...absent })));
+	});
+
+	test('requires credentials and read:account for scoped application tokens', async () => {
+		const allowed = await createAppToken(viewer, ['read:account']);
+		const denied = await createAppToken(viewer, ['read:notifications']);
+		const scoped = await api('users/relation', { userId: [] }, { token: allowed, bearer: true });
+		assert.strictEqual(scoped.status, 200);
+		assert.deepStrictEqual(scoped.body, []);
+		const anonymous = await api('users/relation', { userId: [] });
+		const forbidden = await api('users/relation', { userId: [] }, { token: denied, bearer: true });
+		for (const [response, status, code] of [[anonymous, 401, 'CREDENTIAL_REQUIRED'], [forbidden, 403, 'PERMISSION_DENIED']] as const) {
+			assert.strictEqual(response.status, status);
+			const body: unknown = response.body;
+			runtimeObject(body);
+			runtimeObject(body.error);
+			assert.strictEqual(body.error.code, code);
+		}
+	});
+});
+
+describe('users/achievements response compatibility', () => {
+	let viewer: misskey.entities.SignupResponse;
+	let target: misskey.entities.SignupResponse;
+
+	beforeAll(async () => {
+		viewer = await signup({ username: 'achievementViewer' });
+		target = await signup({ username: 'achievementTarget' });
+	});
+
+	function runtimeObject(value: unknown): asserts value is Record<string, unknown> {
+		assert.ok(value !== null && typeof value === 'object' && !Array.isArray(value));
+	}
+
+	test('returns the stored order and duplicates to anonymous, account and unrelated-scope viewers', async () => {
+		const connection = await initTestDb(true);
+		const profiles = connection.getRepository(MiUserProfile);
+		let original: MiUserProfile | undefined;
+		const achievements = [
+			{ name: 'login3', unlockedAt: 1700000000000 },
+			{ name: 'notes1', unlockedAt: 0 },
+			{ name: 'login3', unlockedAt: 1.5 },
+		] satisfies MiUserProfile['achievements'];
+		try {
+			original = await profiles.findOneByOrFail({ userId: target.id });
+			await profiles.update(target.id, { achievements });
+			const token = await createAppToken(viewer, ['read:notifications']);
+			for (const user of [undefined, viewer, { token, bearer: true }]) {
+				const response = await api('users/achievements', { userId: target.id }, user);
+				assert.strictEqual(response.status, 200);
+				const body: unknown = response.body;
+				assert.ok(Array.isArray(body));
+				assert.deepStrictEqual(body, achievements);
+			}
+		} finally {
+			try { if (original) await profiles.update(target.id, { achievements: original.achievements }); }
+			finally { await connection.destroy(); }
+		}
+	});
+
+	test('retains legacy JSON types and keeps JSON null distinct from a missing profile', async () => {
+		const connection = await initTestDb(true);
+		const profiles = connection.getRepository(MiUserProfile);
+		let original: MiUserProfile | undefined;
+		const legacy = [
+			{ name: 'unknown-achievement-😀', unlockedAt: '1700000000000', extra: { text: 'e\u0301' } },
+			{ name: 'notes1', unlockedAt: null },
+		];
+		try {
+			original = await profiles.findOneByOrFail({ userId: target.id });
+			await profiles.query('UPDATE user_profile SET achievements=$1::jsonb WHERE "userId"=$2', [JSON.stringify(legacy), target.id]);
+			const response = await api('users/achievements', { userId: target.id });
+			assert.strictEqual(response.status, 200);
+			const body: unknown = response.body;
+			assert.ok(Array.isArray(body));
+			runtimeObject(body[0]);
+			assert.strictEqual(body[0].unlockedAt, '1700000000000');
+			assert.deepStrictEqual(body, legacy);
+			const scalar = 'legacy scalar 😀';
+			await profiles.query('UPDATE user_profile SET achievements=$1::jsonb WHERE "userId"=$2', [JSON.stringify(scalar), target.id]);
+			const text = await relativeFetch('api/users/achievements', {
+				method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: target.id }),
+			});
+			assert.strictEqual(text.status, 200);
+			assert.strictEqual(text.headers.get('content-type'), 'text/plain; charset=utf-8');
+			assert.strictEqual(await text.text(), JSON.stringify(scalar));
+			await profiles.query('UPDATE user_profile SET achievements=$1::jsonb WHERE "userId"=$2', ['null', target.id]);
+			const empty = await relativeFetch('api/users/achievements', {
+				method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: target.id }),
+			});
+			assert.strictEqual(empty.status, 204);
+			assert.strictEqual(await empty.text(), '');
+		} finally {
+			try { if (original) await profiles.update(target.id, { achievements: original.achievements }); }
+			finally { await connection.destroy(); }
+		}
+	});
+
+	test('preserves the ordinary missing-profile error instead of returning an empty list', async () => {
+		const id = '0000000000000000';
+		const response = await api('users/achievements', { userId: id });
+		assert.strictEqual(response.status, 500);
+		const body: unknown = response.body;
+		runtimeObject(body);
+		runtimeObject(body.error);
+		const error = body.error;
+		assert.strictEqual(error.code, 'INTERNAL_ERROR');
+		assert.strictEqual(error.id, '5d37dbcb-891e-41ca-a3d6-e690c97775ac');
+		runtimeObject(error.info);
+		runtimeObject(error.info.e);
+		assert.strictEqual(error.info.e.code, 'EntityNotFoundError');
+		assert.strictEqual(error.info.e.message, `Could not find any entity of type "MiUserProfile" matching: {\n    "userId": "${id}"\n}`);
+		assert.ok(typeof error.info.e.id === 'string');
+		assert.match(error.info.e.id, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+	});
+});
+
+describe('followed-user birthday response compatibility', () => {
+	let viewer: misskey.entities.SignupResponse;
+	let january: misskey.entities.SignupResponse;
+	let december: misskey.entities.SignupResponse;
+	let unrelated: misskey.entities.SignupResponse;
+
+	beforeAll(async () => {
+		viewer = await signup({ username: 'birthdayViewer' });
+		january = await signup({ username: 'birthdayJanuary' });
+		december = await signup({ username: 'birthdayDecember' });
+		unrelated = await signup({ username: 'birthdayUnrelated' });
+	});
+
+	function runtimeObject(value: unknown): asserts value is Record<string, unknown> {
+		assert.ok(value !== null && typeof value === 'object' && !Array.isArray(value));
+	}
+
+	async function withBirthdays(check: () => Promise<void>) {
+		const connection = await initTestDb(true);
+		const profiles = connection.getRepository(MiUserProfile);
+		const followings = connection.getRepository(MiFollowing);
+		const ids = [randomUUID().replaceAll('-', ''), randomUUID().replaceAll('-', '')];
+		let originals: MiUserProfile[] = [];
+		try {
+			// Synchronization omits SQL functions. Provision only the existing
+			// migration's exact static definition in this dedicated test DB.
+			const migration = await readFile(new URL('../../migration/1767169026317-birthday-index.js', import.meta.url), 'utf8');
+			const definitions = [...migration.matchAll(/queryRunner\.query\(`(CREATE OR REPLACE FUNCTION get_birthday_date\(birthday TEXT\)[^`]+)`\)/g)];
+			assert.strictEqual(definitions.length, 1);
+			assert.ok(!definitions[0][1].includes('${'));
+			await connection.query(definitions[0][1]);
+			originals = await profiles.findBy([{ userId: january.id }, { userId: december.id }]);
+			assert.strictEqual(originals.length, 2);
+			await profiles.update(january.id, { birthday: '2000-01-01' });
+			await profiles.update(december.id, { birthday: '2000-12-31' });
+			// Direct isolated edges avoid follow notifications and queue activity.
+			await followings.insert([
+				{ id: ids[0], followerId: viewer.id, followeeId: december.id, isFollowerHibernated: false, withReplies: false, notify: null },
+				{ id: ids[1], followerId: viewer.id, followeeId: january.id, isFollowerHibernated: false, withReplies: false, notify: null },
+			]);
+			await check();
+		} finally {
+			try {
+				const cleanup = await Promise.allSettled([
+					followings.delete(ids),
+					...originals.map(profile => profiles.update(profile.userId, { birthday: profile.birthday })),
+				]);
+				for (const result of cleanup) assert.strictEqual(result.status, 'fulfilled', 'birthday fixture cleanup failed');
+			} finally { await connection.destroy(); }
+		}
+	}
+
+	test('keeps wrapped month/day ordering, single-day selection and offset pages', async () => {
+		await withBirthdays(async () => {
+			const birthday = { begin: { month: 12, day: 31 }, end: { month: 1, day: 1 } };
+			const result = await api('users/get-following-users-by-birthday', { birthday }, viewer);
+			assert.strictEqual(result.status, 200);
+			assert.ok(Array.isArray(result.body));
+			assert.deepStrictEqual(result.body.map(row => row.id), [january.id, december.id]);
+			for (const row of result.body) {
+				assert.match(row.birthday, /^\d{4}-\d{2}-\d{2}$/);
+				assert.strictEqual(row.user.id, row.id);
+				assert.strictEqual(row.user.username, row.id === january.id ? january.username : december.username);
+			}
+			const explicitDefaults = await api('users/get-following-users-by-birthday', { birthday, limit: 10, offset: 0 }, viewer);
+			assert.strictEqual(explicitDefaults.status, 200);
+			assert.deepStrictEqual(explicitDefaults.body, result.body);
+			for (const [offset, expected] of [[0, [january.id]], [1, [december.id]], [2, []]] as const) {
+				const page = await api('users/get-following-users-by-birthday', { birthday, limit: 1, offset }, viewer);
+				assert.strictEqual(page.status, 200);
+				assert.deepStrictEqual(page.body.map(row => row.id), expected);
+			}
+			const single = await api('users/get-following-users-by-birthday', { birthday: { month: 1, day: 1 } }, viewer);
+			assert.strictEqual(single.status, 200);
+			assert.deepStrictEqual(single.body.map(row => row.id), [january.id]);
+			// These extra fields pass the single-day schema branch, but the TS
+			// handler selects a range whenever both own keys exist. Keep this
+			// regression check before considering native activation again.
+			for (const begin of [{ month: '1', day: 1 }, { month: 1, day: 0 }]) {
+				const acceptedExtraRange = await api('users/get-following-users-by-birthday', {
+					birthday: { month: 10, day: 24, begin, end: { month: 12, day: 31 } },
+				}, viewer);
+				assert.strictEqual(acceptedExtraRange.status, 200);
+				assert.deepStrictEqual(acceptedExtraRange.body.map(row => row.id), [january.id, december.id]);
+			}
+		});
+	});
+
+	test('uses the authenticated following graph and preserves credential and app-scope gates', async () => {
+		await withBirthdays(async () => {
+			const params = { birthday: { month: 1, day: 1 } };
+			const allowed = await createAppToken(viewer, ['read:account']);
+			const denied = await createAppToken(viewer, ['read:notifications']);
+			const account = await api('users/get-following-users-by-birthday', params, viewer);
+			const scoped = await api('users/get-following-users-by-birthday', params, { token: allowed, bearer: true });
+			assert.strictEqual(account.status, 200);
+			assert.strictEqual(scoped.status, 200);
+			assert.deepStrictEqual(scoped.body, account.body);
+			assert.deepStrictEqual(account.body.map(row => row.id), [january.id]);
+			const other = await api('users/get-following-users-by-birthday', params, unrelated);
+			assert.strictEqual(other.status, 200);
+			assert.deepStrictEqual(other.body, []);
+			const anonymous = await api('users/get-following-users-by-birthday', params);
+			const forbidden = await api('users/get-following-users-by-birthday', params, { token: denied, bearer: true });
+			for (const [response, status, code] of [[anonymous, 401, 'CREDENTIAL_REQUIRED'], [forbidden, 403, 'PERMISSION_DENIED']] as const) {
+				assert.strictEqual(response.status, status);
+				const body: unknown = response.body;
+				runtimeObject(body);
+				runtimeObject(body.error);
+				assert.strictEqual(body.error.code, code);
+			}
+		});
+	});
 });

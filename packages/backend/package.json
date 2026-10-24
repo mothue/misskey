@@ -16,11 +16,11 @@
 		"check:connect": "bun run compile-config && bun ./scripts/check_connect.js",
 		"compile-config": "bun ./scripts/compile_config.js",
 		"build:slacc": "bun run --filter slacc build",
-		"build": "bun run build:slacc && bun run --bun rolldown -c",
-		"build:unit": "bun run build:slacc && bun run --bun rolldown -c --sourcemap",
-		"build:e2e": "bun run build:slacc && bun run --bun rolldown -c --e2e",
-		"build:tsc": "bun run build:slacc && bun run --bun tsc -p tsconfig.json && bun run --bun tsc-alias -p tsconfig.json",
-		"watch": "bun run build:slacc && bun run compile-config && bun ./scripts/watch.mjs",
+		"build": "bun run build:slacc && bun run build:rust && bun run --bun rolldown -c",
+		"build:unit": "bun run build:slacc && bun run build:rust && bun run --bun rolldown -c --sourcemap",
+		"build:e2e": "bun run build:slacc && bun run build:rust && bun run --bun rolldown -c --e2e",
+		"build:tsc": "bun run build:slacc && bun run build:rust && bun run --bun tsc -p tsconfig.json && bun run --bun tsc-alias -p tsconfig.json",
+		"watch": "bun run build:slacc && bun run build:rust && bun run compile-config && bun ./scripts/watch.mjs",
 		"restart": "bun run build && bun run start",
 		"dev": "bun run build:slacc && bun run compile-config && bun run --bun rolldown -c --watch",
 		"typecheck": "bun run --bun tsc --noEmit && bun run --bun tsc -p test --noEmit && bun run --bun tsc -p test-federation --noEmit",
@@ -32,7 +32,8 @@
 		"test-and-coverage": "bun run build:unit && NODE_ENV=test bun run compile-config && NODE_ENV=test bun run --bun vitest --coverage --config vitest.config.unit.ts",
 		"test-and-coverage:e2e": "bun run build:e2e && NODE_ENV=test bun run compile-config && NODE_ENV=test bun run --bun vitest --coverage --config vitest.config.e2e.ts",
 		"check-migrations": "bun scripts/check_migrations_clean.js",
-		"generate-api-json": "bun run compile-config && bun ./scripts/generate_api_json.js"
+		"generate-api-json": "bun run compile-config && bun ./scripts/generate_api_json.js",
+		"build:rust": "bun run --filter backend-rust build:native"
 	},
 	"optionalDependencies": {
 		"bufferutil": "4.1.0",

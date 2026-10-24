@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "holds": [
+    {
+      "endpoint": "admin/get-index-stats",
+      "kind": "performance",
+      "reason": "The complete native candidate failed its paired measurement gate; continue using the TS body.",
+      "evidence": "native-read-activation.md"
+    },
+    {
+      "endpoint": "admin/get-table-stats",
+      "kind": "performance",
+      "reason": "The complete native candidate failed its paired measurement gate; continue using the TS body.",
+      "evidence": "native-read-activation.md"
+    },
+    {
+      "endpoint": "admin/emoji/list",
+      "kind": "compatibility",
+      "reason": "Separate TS/Rust ID generator state can change date-pagination bounds within the same millisecond.",
+      "evidence": "db-read-validation.md#candidate-and-separate-date-pagination-hold"
+    },
+    {
+      "endpoint": "admin/emoji/list-remote",
+      "kind": "compatibility",
+      "reason": "Separate TS/Rust ID generator state can change date-pagination bounds within the same millisecond.",
+      "evidence": "db-read-validation.md#candidate-and-separate-date-pagination-hold"
+    },
+    {
+      "endpoint": "admin/ad/list",
+      "kind": "compatibility",
+      "reason": "Separate TS/Rust ID generator state can change date-pagination bounds within the same millisecond.",
+      "evidence": "db-read-validation.md#candidate-and-separate-date-pagination-hold"
+    },
+    {
+      "endpoint": "admin/announcements/list",
+      "kind": "compatibility",
+      "reason": "Separate TS/Rust ID generator state can change date-pagination bounds within the same millisecond.",
+      "evidence": "db-read-validation.md#candidate-and-separate-date-pagination-hold"
+    },
+    {
+      "endpoint": "notes/state",
+      "kind": "performance",
+      "reason": "Native candidate failed the paired throughput/p95 gate for the scoped application-token reply scenario; keep the complete operation on TS. Cause not yet established.",
+      "evidence": "notes-state-validation.md"
+    },
+    {
+      "endpoint": "notes/clips",
+      "kind": "performance",
+      "reason": "Paired scoped application-token large-clip scenario remains slower after bounded compatible-session reuse: throughput -16.53%, p95 +39.42%; keep the complete TS body.",
+      "evidence": "notes-clips-validation.md"
+    },
+    {
+      "endpoint": "notes/drafts/count",
+      "kind": "performance",
+      "reason": "Paired nine-draft account scenario improved throughput by 19.52% but p95 increased 3.71%; all-scenario throughput/p95 gate failed, so keep the complete TS body.",
+      "evidence": "notes-drafts-count-validation.md"
+    },
+    {
+      "endpoint": "users/relation",
+      "kind": "performance",
+      "reason": "Eight-query complete native candidate failed five of six paired throughput/p95 scenarios; scoped 20-ID request throughput -30.46%, p95 +29.12%. Keep the complete TS body.",
+      "evidence": "users-relation-validation.md"
+    },
+    {
+      "endpoint": "users/get-following-users-by-birthday",
+      "kind": "compatibility",
+      "reason": "Accepted single-day inputs can carry extra begin/end fields that the TS handler coerces as a range; the strict native candidate rejects them. HTTP differential fails, so retain the TS body. Effective local-time-zone bootstrap and a paired measured gate are also pending.",
+      "evidence": "users-birthdays-validation.md"
+    }
+  ]
+}

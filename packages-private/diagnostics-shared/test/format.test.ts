@@ -12,6 +12,8 @@ import {
 	escapeMdTableCell,
 	formatBytes,
 	formatColoredDelta,
+	formatDeltaPercent,
+	formatDeltaPercentInMdTable,
 	formatKiBAsMb,
 	formatMs,
 	formatNumber,
@@ -78,13 +80,34 @@ describe('percent helpers', () => {
 
 	// 0になったのは「消えた」という有効な結果なので、隠さず -100% として出す
 	test('formats a drop to zero as -100%', () => {
-		expect(calcAndFormatDeltaPercent(10, 0)).toBe('$\\color{green}{\\text{-100\\%}}$');
+		expect(calcAndFormatDeltaPercent(10, 0)).toBe('$\\color{green}{\\text{-100}}$%');
 	});
 
-	// Markdownのテーブルセル内ではLaTeXの \% がさらに食われるため二重にする
-	test('doubles the percent escape for markdown table cells', () => {
-		expect(calcAndFormatDeltaPercentInMdTable(100, 110)).toContain('\\\\%');
-		expect(calcAndFormatDeltaPercent(100, 110)).not.toContain('\\\\%');
+	test.each([
+		[5, 0, '$\\color{orange}{\\text{+5}}$%'],
+		[-5, 0, '$\\color{green}{\\text{-5}}$%'],
+		[5, 10, '$\\text{+5}$%'],
+		[-5, 10, '$\\text{-5}$%'],
+		[5, 5, '$\\color{orange}{\\text{+5}}$%'],
+		[0, 0, '0%'],
+		[-0, 10, '0%'],
+	])('keeps the percent outside every math span for delta %s and threshold %s', (delta, threshold, expected) => {
+		for (const formatter of [formatDeltaPercent, formatDeltaPercentInMdTable]) {
+			const value = formatter(delta, threshold);
+			expect(value).toBe(expected);
+			expect(value).toMatch(/%$/);
+			expect(value.match(/%/g)).toHaveLength(1);
+			for (const math of value.match(/\$[^$]*\$/g) ?? []) {
+				expect(math).not.toContain('%');
+			}
+			expect(`| ${escapeMdTableCell(value)} |`).toBe(`| ${expected} |`);
+		}
+	});
+
+	test('calculated table percentages use the same literal unit without double escapes', () => {
+		expect(calcAndFormatDeltaPercentInMdTable(100, 110)).toBe('$\\color{orange}{\\text{+10}}$%');
+		expect(calcAndFormatDeltaPercentInMdTable(100, 110)).toBe(calcAndFormatDeltaPercent(100, 110));
+		expect(calcAndFormatDeltaPercentInMdTable(0, 10)).toBe('-');
 	});
 });
 

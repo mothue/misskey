@@ -2,11 +2,11 @@
 
 | Metric | @&nbsp;Base | @&nbsp;Head | Δ | MAD |
 | --- | ---: | ---: | ---: | ---: |
-| **Encoded network** | 1 MB <br> ± 10 KB | 1.1 MB <br> ± 11 KB | $\color{orange}{\text{+83 KB}}$<br>$\color{orange}{\text{+8\\%}}$ | 15 KB |
-| **Decoded body** | 3.5 MB <br> ± 34 KB | 3.7 MB <br> ± 37 KB | $\color{orange}{\text{+277 KB}}$<br>$\color{orange}{\text{+8\\%}}$ | 50 KB |
-| **Same-origin encoded** | 1 MB <br> ± 10 KB | 1.1 MB <br> ± 11 KB | $\color{orange}{\text{+82 KB}}$<br>$\color{orange}{\text{+8\\%}}$ | 15 KB |
-| **Script encoded** | 918 KB <br> ± 9 KB | 991 KB <br> ± 9.7 KB | $\color{orange}{\text{+73 KB}}$<br>$\color{orange}{\text{+8\\%}}$ | 13 KB |
-| **Page-attributed memory** | 92 MB <br> ± 900 KB | 99 MB <br> ± 972 KB | $\color{orange}{\text{+7.3 MB}}$<br>$\color{orange}{\text{+8\\%}}$ | 1.3 MB |
+| **Encoded network** | 1 MB <br> ± 10 KB | 1.1 MB <br> ± 11 KB | $\color{orange}{\text{+83 KB}}$<br>$\color{orange}{\text{+8}}$% | 15 KB |
+| **Decoded body** | 3.5 MB <br> ± 34 KB | 3.7 MB <br> ± 37 KB | $\color{orange}{\text{+277 KB}}$<br>$\color{orange}{\text{+8}}$% | 50 KB |
+| **Same-origin encoded** | 1 MB <br> ± 10 KB | 1.1 MB <br> ± 11 KB | $\color{orange}{\text{+82 KB}}$<br>$\color{orange}{\text{+8}}$% | 15 KB |
+| **Script encoded** | 918 KB <br> ± 9 KB | 991 KB <br> ± 9.7 KB | $\color{orange}{\text{+73 KB}}$<br>$\color{orange}{\text{+8}}$% | 13 KB |
+| **Page-attributed memory** | 92 MB <br> ± 900 KB | 99 MB <br> ± 972 KB | $\color{orange}{\text{+7.3 MB}}$<br>$\color{orange}{\text{+8}}$% | 1.3 MB |
 
 <small><i>Only metrics showing significant changes are displayed.</i></small>
 
@@ -69,7 +69,7 @@
 
 | Metric | @&nbsp;Base | @&nbsp;Head | Δ | MAD |
 | --- | ---: | ---: | ---: | ---: |
-| $\color{gray}{\rule{8pt}{8pt}}$ **Total** | 1 MB <br> ± 10 KB | 1.1 MB <br> ± 11 KB | $\text{+82 KB}$<br>$\text{+8\\%}$ | 15 KB |
+| $\color{gray}{\rule{8pt}{8pt}}$ **Total** | 1 MB <br> ± 10 KB | 1.1 MB <br> ± 11 KB | $\text{+82 KB}$<br>$\text{+8}$% | 15 KB |
 | | | | | |
 | $\color{orange}{\rule{8pt}{8pt}}$ **Code** | 2 MB | 2.2 MB | $\color{orange}{\text{+163 KB}}$ | 29 KB |
 | $\color{red}{\rule{8pt}{8pt}}$ **Strings** | 3.1 MB | 3.3 MB | $\color{orange}{\text{+245 KB}}$ | 44 KB |
@@ -89,11 +89,11 @@ Download representative heap snapshot: [base](https://example.invalid/base) / [h
 
 | Chunk | Base | Head | Δ | Δ (%) |
 | --- | ---: | ---: | ---: | ---: |
-| (total) | 120 KB | 127 KB | $\color{orange}{\text{+6.3 KB}}$ | $\color{orange}{\text{+5.2\\%}}$ |
+| (total) | 120 KB | 127 KB | $\color{orange}{\text{+6.3 KB}}$ | $\color{orange}{\text{+5.2}}$% |
 | | | | | |
-| <details><summary>`vue`</summary> `assets/vue-b2.js` </details> | 90 KB | 96 KB | $\color{orange}{\text{+6 KB}}$ | $\color{orange}{\text{+6.7\\%}}$ |
-| (other generated chunks) | 1.2 KB | 1.5 KB | $\text{+300 B}$ | $\color{orange}{\text{+25\\%}}$ |
-| (other) | 20 KB | 20 KB | $\text{+3 B}$ | $\text{+0\\%}$ |
+| <details><summary>`vue`</summary> `assets/vue-b2.js` </details> | 90 KB | 96 KB | $\color{orange}{\text{+6 KB}}$ | $\color{orange}{\text{+6.7}}$% |
+| (other generated chunks) | 1.2 KB | 1.5 KB | $\text{+300 B}$ | $\color{orange}{\text{+25}}$% |
+| (other) | 20 KB | 20 KB | $\text{+3 B}$ | $\text{+0}$% |
 
 </details>
 
@@ -102,10 +102,10 @@ Download representative heap snapshot: [base](https://example.invalid/base) / [h
 
 | Chunk | Base | Head | Δ | Δ (%) |
 | --- | ---: | ---: | ---: | ---: |
-| (total) | 114 KB | 120 KB | $\color{orange}{\text{+6 KB}}$ | $\color{orange}{\text{+5.3\\%}}$ |
+| (total) | 114 KB | 120 KB | $\color{orange}{\text{+6 KB}}$ | $\color{orange}{\text{+5.3}}$% |
 | | | | | |
-| <details><summary>`vue`</summary> `assets/vue-b2.js` </details> | 90 KB | 96 KB | $\color{orange}{\text{+6 KB}}$ | $\color{orange}{\text{+6.7\\%}}$ |
-| (other) | 24 KB | 24 KB | $\text{+3 B}$ | $\text{+0\\%}$ |
+| <details><summary>`vue`</summary> `assets/vue-b2.js` </details> | 90 KB | 96 KB | $\color{orange}{\text{+6 KB}}$ | $\color{orange}{\text{+6.7}}$% |
+| (other) | 24 KB | 24 KB | $\text{+3 B}$ | $\text{+0}$% |
 
 _Startup chunks are the Vite entry for `src/_boot_.ts` and its static imports._
 
@@ -168,13 +168,13 @@ _Startup chunks are the Vite entry for `src/_boot_.ts` and its static imports._
 <tr>
 <th><b>Δ&nbsp;(%)</b></th>
 <td>0%</td>
-<td>$\color{orange}{\text{+16.7\%}}$</td>
+<td>$\color{orange}{\text{+16.7}}$%</td>
 <td>0%</td>
-<td>$\color{orange}{\text{+50\%}}$</td>
+<td>$\color{orange}{\text{+50}}$%</td>
 <td>0%</td>
-<td>$\color{orange}{\text{+46.7\%}}$</td>
-<td>$\color{orange}{\text{+33.3\%}}$</td>
-<td>$\color{orange}{\text{+33.3\%}}$</td>
+<td>$\color{orange}{\text{+46.7}}$%</td>
+<td>$\color{orange}{\text{+33.3}}$%</td>
+<td>$\color{orange}{\text{+33.3}}$%</td>
 </tr>
 </tbody>
 </table>

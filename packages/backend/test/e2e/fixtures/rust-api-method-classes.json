@@ -1,0 +1,618 @@
+{
+  "baselineCommit": "48783a1dedb2a97f8bb1323324c0b74e64cd8d0b",
+  "evidence": "Actual public HTTP capture of the existing TypeScript API: method-class-baseline.json; request matrix from probe-method-classes.py. A null body means neither Content-Length nor Transfer-Encoding is sent. Response bodies are retained byte-for-byte; only the four captured meaningful response headers are compared.",
+  "cases": [
+    {
+      "id": "TRACE/api/signup:no-length",
+      "path": "/api/signup",
+      "method": "TRACE",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": null,
+      "expected": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"message\":\"Route TRACE:/api/signup not found\",\"error\":\"Not Found\",\"statusCode\":404}"
+      }
+    },
+    {
+      "id": "TRACE/api/signup:bad-json",
+      "path": "/api/signup",
+      "method": "TRACE",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "{",
+      "expected": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"message\":\"Route TRACE:/api/signup not found\",\"error\":\"Not Found\",\"statusCode\":404}"
+      }
+    },
+    {
+      "id": "TRACE/api/signup:valid",
+      "path": "/api/signup",
+      "method": "TRACE",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "{}",
+      "expected": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"message\":\"Route TRACE:/api/signup not found\",\"error\":\"Not Found\",\"statusCode\":404}"
+      }
+    },
+    {
+      "id": "TRACE/api/test:no-length",
+      "path": "/api/test",
+      "method": "TRACE",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": null,
+      "expected": {
+        "status": 400,
+        "headers": {
+          "access-control-allow-origin": "*",
+          "cache-control": "private, max-age=0, must-revalidate",
+          "www-authenticate": "Bearer realm=\"Misskey\", error=\"invalid_request\", error_description=\"Invalid param.\"",
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"error\":{\"message\":\"Invalid param.\",\"code\":\"INVALID_PARAM\",\"id\":\"3d81ceae-475f-4600-b2a8-2bc116157532\",\"kind\":\"client\",\"info\":{\"param\":\"#/type\",\"reason\":\"must be object\"}}}"
+      }
+    },
+    {
+      "id": "TRACE/api/test:bad-json",
+      "path": "/api/test",
+      "method": "TRACE",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "{",
+      "expected": {
+        "status": 400,
+        "headers": {
+          "access-control-allow-origin": "*",
+          "cache-control": "private, max-age=0, must-revalidate",
+          "www-authenticate": "Bearer realm=\"Misskey\", error=\"invalid_request\", error_description=\"Invalid param.\"",
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"error\":{\"message\":\"Invalid param.\",\"code\":\"INVALID_PARAM\",\"id\":\"3d81ceae-475f-4600-b2a8-2bc116157532\",\"kind\":\"client\",\"info\":{\"param\":\"#/type\",\"reason\":\"must be object\"}}}"
+      }
+    },
+    {
+      "id": "TRACE/api/test:valid",
+      "path": "/api/test",
+      "method": "TRACE",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "{}",
+      "expected": {
+        "status": 400,
+        "headers": {
+          "access-control-allow-origin": "*",
+          "cache-control": "private, max-age=0, must-revalidate",
+          "www-authenticate": "Bearer realm=\"Misskey\", error=\"invalid_request\", error_description=\"Invalid param.\"",
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"error\":{\"message\":\"Invalid param.\",\"code\":\"INVALID_PARAM\",\"id\":\"3d81ceae-475f-4600-b2a8-2bc116157532\",\"kind\":\"client\",\"info\":{\"param\":\"#/type\",\"reason\":\"must be object\"}}}"
+      }
+    },
+    {
+      "id": "TRACE/api/clear-browser-cache:no-length",
+      "path": "/api/clear-browser-cache",
+      "method": "TRACE",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": null,
+      "expected": {
+        "status": 405,
+        "headers": {
+          "access-control-allow-origin": "*",
+          "cache-control": "private, max-age=0, must-revalidate"
+        },
+        "body": ""
+      }
+    },
+    {
+      "id": "TRACE/api/clear-browser-cache:bad-json",
+      "path": "/api/clear-browser-cache",
+      "method": "TRACE",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "{",
+      "expected": {
+        "status": 405,
+        "headers": {
+          "access-control-allow-origin": "*",
+          "cache-control": "private, max-age=0, must-revalidate"
+        },
+        "body": ""
+      }
+    },
+    {
+      "id": "TRACE/api/clear-browser-cache:valid",
+      "path": "/api/clear-browser-cache",
+      "method": "TRACE",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "{}",
+      "expected": {
+        "status": 405,
+        "headers": {
+          "access-control-allow-origin": "*",
+          "cache-control": "private, max-age=0, must-revalidate"
+        },
+        "body": ""
+      }
+    },
+    {
+      "id": "TRACE/api/not-a-route:no-length",
+      "path": "/api/not-a-route",
+      "method": "TRACE",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": null,
+      "expected": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"message\":\"Route TRACE:/api/not-a-route not found\",\"error\":\"Not Found\",\"statusCode\":404}"
+      }
+    },
+    {
+      "id": "TRACE/api/not-a-route:bad-json",
+      "path": "/api/not-a-route",
+      "method": "TRACE",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "{",
+      "expected": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"message\":\"Route TRACE:/api/not-a-route not found\",\"error\":\"Not Found\",\"statusCode\":404}"
+      }
+    },
+    {
+      "id": "TRACE/api/not-a-route:valid",
+      "path": "/api/not-a-route",
+      "method": "TRACE",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "{}",
+      "expected": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"message\":\"Route TRACE:/api/not-a-route not found\",\"error\":\"Not Found\",\"statusCode\":404}"
+      }
+    },
+    {
+      "id": "DELETE/api/signup:no-length",
+      "path": "/api/signup",
+      "method": "DELETE",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": null,
+      "expected": {
+        "status": 400,
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"statusCode\":400,\"code\":\"FST_ERR_CTP_EMPTY_JSON_BODY\",\"error\":\"Bad Request\",\"message\":\"Body cannot be empty when content-type is set to 'application/json'\"}"
+      }
+    },
+    {
+      "id": "DELETE/api/signup:bad-json",
+      "path": "/api/signup",
+      "method": "DELETE",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "{",
+      "expected": {
+        "status": 400,
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"statusCode\":400,\"code\":\"FST_ERR_CTP_INVALID_JSON_BODY\",\"error\":\"Bad Request\",\"message\":\"Body is not valid JSON but content-type is set to 'application/json'\"}"
+      }
+    },
+    {
+      "id": "DELETE/api/signup:valid",
+      "path": "/api/signup",
+      "method": "DELETE",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "{}",
+      "expected": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"message\":\"Route DELETE:/api/signup not found\",\"error\":\"Not Found\",\"statusCode\":404}"
+      }
+    },
+    {
+      "id": "DELETE/api/test:no-length",
+      "path": "/api/test",
+      "method": "DELETE",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": null,
+      "expected": {
+        "status": 400,
+        "headers": {
+          "access-control-allow-origin": "*",
+          "cache-control": "private, max-age=0, must-revalidate",
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"statusCode\":400,\"code\":\"FST_ERR_CTP_EMPTY_JSON_BODY\",\"error\":\"Bad Request\",\"message\":\"Body cannot be empty when content-type is set to 'application/json'\"}"
+      }
+    },
+    {
+      "id": "DELETE/api/test:bad-json",
+      "path": "/api/test",
+      "method": "DELETE",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "{",
+      "expected": {
+        "status": 400,
+        "headers": {
+          "access-control-allow-origin": "*",
+          "cache-control": "private, max-age=0, must-revalidate",
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"statusCode\":400,\"code\":\"FST_ERR_CTP_INVALID_JSON_BODY\",\"error\":\"Bad Request\",\"message\":\"Body is not valid JSON but content-type is set to 'application/json'\"}"
+      }
+    },
+    {
+      "id": "DELETE/api/test:valid",
+      "path": "/api/test",
+      "method": "DELETE",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "{}",
+      "expected": {
+        "status": 400,
+        "headers": {
+          "access-control-allow-origin": "*",
+          "cache-control": "private, max-age=0, must-revalidate",
+          "www-authenticate": "Bearer realm=\"Misskey\", error=\"invalid_request\", error_description=\"Invalid param.\"",
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"error\":{\"message\":\"Invalid param.\",\"code\":\"INVALID_PARAM\",\"id\":\"3d81ceae-475f-4600-b2a8-2bc116157532\",\"kind\":\"client\",\"info\":{\"param\":\"#/required\",\"reason\":\"must have required property 'required'\"}}}"
+      }
+    },
+    {
+      "id": "DELETE/api/clear-browser-cache:no-length",
+      "path": "/api/clear-browser-cache",
+      "method": "DELETE",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": null,
+      "expected": {
+        "status": 400,
+        "headers": {
+          "access-control-allow-origin": "*",
+          "cache-control": "private, max-age=0, must-revalidate",
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"statusCode\":400,\"code\":\"FST_ERR_CTP_EMPTY_JSON_BODY\",\"error\":\"Bad Request\",\"message\":\"Body cannot be empty when content-type is set to 'application/json'\"}"
+      }
+    },
+    {
+      "id": "DELETE/api/clear-browser-cache:bad-json",
+      "path": "/api/clear-browser-cache",
+      "method": "DELETE",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "{",
+      "expected": {
+        "status": 400,
+        "headers": {
+          "access-control-allow-origin": "*",
+          "cache-control": "private, max-age=0, must-revalidate",
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"statusCode\":400,\"code\":\"FST_ERR_CTP_INVALID_JSON_BODY\",\"error\":\"Bad Request\",\"message\":\"Body is not valid JSON but content-type is set to 'application/json'\"}"
+      }
+    },
+    {
+      "id": "DELETE/api/clear-browser-cache:valid",
+      "path": "/api/clear-browser-cache",
+      "method": "DELETE",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "{}",
+      "expected": {
+        "status": 405,
+        "headers": {
+          "access-control-allow-origin": "*",
+          "cache-control": "private, max-age=0, must-revalidate"
+        },
+        "body": ""
+      }
+    },
+    {
+      "id": "DELETE/api/not-a-route:no-length",
+      "path": "/api/not-a-route",
+      "method": "DELETE",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": null,
+      "expected": {
+        "status": 400,
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"statusCode\":400,\"code\":\"FST_ERR_CTP_EMPTY_JSON_BODY\",\"error\":\"Bad Request\",\"message\":\"Body cannot be empty when content-type is set to 'application/json'\"}"
+      }
+    },
+    {
+      "id": "DELETE/api/not-a-route:bad-json",
+      "path": "/api/not-a-route",
+      "method": "DELETE",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "{",
+      "expected": {
+        "status": 400,
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"statusCode\":400,\"code\":\"FST_ERR_CTP_INVALID_JSON_BODY\",\"error\":\"Bad Request\",\"message\":\"Body is not valid JSON but content-type is set to 'application/json'\"}"
+      }
+    },
+    {
+      "id": "DELETE/api/not-a-route:valid",
+      "path": "/api/not-a-route",
+      "method": "DELETE",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "{}",
+      "expected": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"message\":\"Route DELETE:/api/not-a-route not found\",\"error\":\"Not Found\",\"statusCode\":404}"
+      }
+    },
+    {
+      "id": "QUERY/api/signup:no-length",
+      "path": "/api/signup",
+      "method": "QUERY",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": null,
+      "expected": {
+        "status": 400,
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"statusCode\":400,\"code\":\"FST_ERR_ROUTE_MISSING_CONTENT\",\"error\":\"Bad Request\",\"message\":\"Method 'QUERY' must provide a request body.\"}"
+      }
+    },
+    {
+      "id": "QUERY/api/signup:bad-json",
+      "path": "/api/signup",
+      "method": "QUERY",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "{",
+      "expected": {
+        "status": 400,
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"statusCode\":400,\"code\":\"FST_ERR_CTP_INVALID_JSON_BODY\",\"error\":\"Bad Request\",\"message\":\"Body is not valid JSON but content-type is set to 'application/json'\"}"
+      }
+    },
+    {
+      "id": "QUERY/api/signup:valid",
+      "path": "/api/signup",
+      "method": "QUERY",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "{}",
+      "expected": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"message\":\"Route QUERY:/api/signup not found\",\"error\":\"Not Found\",\"statusCode\":404}"
+      }
+    },
+    {
+      "id": "QUERY/api/test:no-length",
+      "path": "/api/test",
+      "method": "QUERY",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": null,
+      "expected": {
+        "status": 400,
+        "headers": {
+          "access-control-allow-origin": "*",
+          "cache-control": "private, max-age=0, must-revalidate",
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"statusCode\":400,\"code\":\"FST_ERR_ROUTE_MISSING_CONTENT\",\"error\":\"Bad Request\",\"message\":\"Method 'QUERY' must provide a request body.\"}"
+      }
+    },
+    {
+      "id": "QUERY/api/test:bad-json",
+      "path": "/api/test",
+      "method": "QUERY",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "{",
+      "expected": {
+        "status": 400,
+        "headers": {
+          "access-control-allow-origin": "*",
+          "cache-control": "private, max-age=0, must-revalidate",
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"statusCode\":400,\"code\":\"FST_ERR_CTP_INVALID_JSON_BODY\",\"error\":\"Bad Request\",\"message\":\"Body is not valid JSON but content-type is set to 'application/json'\"}"
+      }
+    },
+    {
+      "id": "QUERY/api/test:valid",
+      "path": "/api/test",
+      "method": "QUERY",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "{}",
+      "expected": {
+        "status": 400,
+        "headers": {
+          "access-control-allow-origin": "*",
+          "cache-control": "private, max-age=0, must-revalidate",
+          "www-authenticate": "Bearer realm=\"Misskey\", error=\"invalid_request\", error_description=\"Invalid param.\"",
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"error\":{\"message\":\"Invalid param.\",\"code\":\"INVALID_PARAM\",\"id\":\"3d81ceae-475f-4600-b2a8-2bc116157532\",\"kind\":\"client\",\"info\":{\"param\":\"#/required\",\"reason\":\"must have required property 'required'\"}}}"
+      }
+    },
+    {
+      "id": "QUERY/api/clear-browser-cache:no-length",
+      "path": "/api/clear-browser-cache",
+      "method": "QUERY",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": null,
+      "expected": {
+        "status": 400,
+        "headers": {
+          "access-control-allow-origin": "*",
+          "cache-control": "private, max-age=0, must-revalidate",
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"statusCode\":400,\"code\":\"FST_ERR_ROUTE_MISSING_CONTENT\",\"error\":\"Bad Request\",\"message\":\"Method 'QUERY' must provide a request body.\"}"
+      }
+    },
+    {
+      "id": "QUERY/api/clear-browser-cache:bad-json",
+      "path": "/api/clear-browser-cache",
+      "method": "QUERY",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "{",
+      "expected": {
+        "status": 400,
+        "headers": {
+          "access-control-allow-origin": "*",
+          "cache-control": "private, max-age=0, must-revalidate",
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"statusCode\":400,\"code\":\"FST_ERR_CTP_INVALID_JSON_BODY\",\"error\":\"Bad Request\",\"message\":\"Body is not valid JSON but content-type is set to 'application/json'\"}"
+      }
+    },
+    {
+      "id": "QUERY/api/clear-browser-cache:valid",
+      "path": "/api/clear-browser-cache",
+      "method": "QUERY",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "{}",
+      "expected": {
+        "status": 405,
+        "headers": {
+          "access-control-allow-origin": "*",
+          "cache-control": "private, max-age=0, must-revalidate"
+        },
+        "body": ""
+      }
+    },
+    {
+      "id": "QUERY/api/not-a-route:no-length",
+      "path": "/api/not-a-route",
+      "method": "QUERY",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": null,
+      "expected": {
+        "status": 400,
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"statusCode\":400,\"code\":\"FST_ERR_ROUTE_MISSING_CONTENT\",\"error\":\"Bad Request\",\"message\":\"Method 'QUERY' must provide a request body.\"}"
+      }
+    },
+    {
+      "id": "QUERY/api/not-a-route:bad-json",
+      "path": "/api/not-a-route",
+      "method": "QUERY",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "{",
+      "expected": {
+        "status": 400,
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"statusCode\":400,\"code\":\"FST_ERR_CTP_INVALID_JSON_BODY\",\"error\":\"Bad Request\",\"message\":\"Body is not valid JSON but content-type is set to 'application/json'\"}"
+      }
+    },
+    {
+      "id": "QUERY/api/not-a-route:valid",
+      "path": "/api/not-a-route",
+      "method": "QUERY",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "{}",
+      "expected": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"message\":\"Route QUERY:/api/not-a-route not found\",\"error\":\"Not Found\",\"statusCode\":404}"
+      }
+    }
+  ]
+}

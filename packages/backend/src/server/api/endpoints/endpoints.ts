@@ -5,13 +5,7 @@
 
 import { Injectable } from '@nestjs/common';
 import { Endpoint } from '@/server/api/endpoint-base.js';
-
-// 循環参照を回避
-let endpointsPromise: Promise<typeof import('../endpoints.js').default> | undefined;
-
-function getEndpoints() {
-	return endpointsPromise ??= import('../endpoints.js').then(module => module.default);
-}
+import { RustBackendService } from '@/server/rust/RustBackendService.js';
 
 export const meta = {
 	requireCredential: false,
@@ -43,10 +37,8 @@ export const paramDef = {
 @Injectable()
 export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-disable-line import/no-default-export
 	constructor(
+		private rustBackendService: RustBackendService,
 	) {
-		super(meta, paramDef, async () => {
-			const endpoints = await getEndpoints();
-			return endpoints.map(x => x.name);
-		});
+		super(meta, paramDef, async () => this.rustBackendService.endpoints());
 	}
 }
