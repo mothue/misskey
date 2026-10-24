@@ -1,6 +1,7 @@
 //! Direct Redis ownership for auth invalidations and the existing limiter.
 //! Responses retain the legacy MULTI command errors: fractional rank/TTL
 //! arguments fail per command while the other commands still execute.
+use crate::meta::RateLimit;
 use futures_util::{FutureExt, StreamExt};
 use misskey_backend_api_auth::{AuthService, SafeJson, Store, postgres::PostgresAuthStore};
 use redis::{
@@ -9,7 +10,7 @@ use redis::{
     aio::{ConnectionLike, MultiplexedConnection, PubSub},
 };
 use serde::Deserialize;
-use serde_json::{Value, json};
+use serde_json::{Value, json, value::RawValue};
 use std::{
     fmt,
     path::PathBuf,
@@ -47,14 +48,65 @@ pub struct RedisTls {
     pub insecure: bool,
 }
 
-#[derive(Clone, Copy, Debug)]
-pub struct Failure;
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum FailureStage {
+    Configuration,
+    Client,
+    SubscriptionConnect,
+    SubscriptionSubscribe,
+    SubscriptionTimeout,
+    SubscriptionClosed,
+    AuthRefresh,
+    EventDecode,
+    EventEnvelope,
+    EventApply,
+    Unavailable,
+    ConnectionTimeout,
+    Connection,
+    Command,
+    CommandResponse,
+    Shutdown,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct Failure {
+    stage: FailureStage,
+}
+impl Failure {
+    const fn new(stage: FailureStage) -> Self {
+        Self { stage }
+    }
+}
 impl fmt::Display for Failure {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("Rust backend unavailable")
+        write!(f, "Rust Redis unavailable at {:?}", self.stage)
     }
 }
 impl std::error::Error for Failure {}
+
+fn report(failure: &Failure) {
+    eprintln!("Native API Redis failure: {failure}");
+}
+
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct LimitInfo {
+    remaining: f64,
+    reset: f64,
+    reset_ms: f64,
+    total: f64,
+}
+impl LimitInfo {
+    pub(crate) fn to_json(self) -> Value {
+        // Keep the Node limiter's JSON projection: nonfinite values become
+        // null, including resetMs (which must then omit Retry-After).
+        json!({
+            "remaining": self.remaining,
+            "reset": self.reset,
+            "resetMs": self.reset_ms,
+            "total": self.total,
+        })
+    }
+}
 
 pub struct RedisState {
     client: Client,
@@ -94,16 +146,16 @@ fn client(config: &RedisConfig) -> Result<Client, Failure> {
         || config.connect_timeout_ms > u64::MAX / 2
         || config.path.as_ref().is_some_and(|path| path.is_empty())
     {
-        return Err(Failure);
+        return Err(Failure::new(FailureStage::Configuration));
     }
     let address = if let Some(path) = &config.path {
         if config.tls.is_some() {
-            return Err(Failure);
+            return Err(Failure::new(FailureStage::Configuration));
         }
         ConnectionAddr::Unix(PathBuf::from(path))
     } else {
         if config.host.is_empty() || config.port == 0 {
-            return Err(Failure);
+            return Err(Failure::new(FailureStage::Configuration));
         }
         if let Some(tls) = &config.tls {
             ConnectionAddr::TcpTls {
@@ -127,7 +179,7 @@ fn client(config: &RedisConfig) -> Result<Client, Failure> {
     };
     if let Some(tls) = &config.tls {
         if tls.cert.is_some() != tls.key.is_some() {
-            return Err(Failure);
+            return Err(Failure::new(FailureStage::Configuration));
         }
         let client_tls = match (&tls.cert, &tls.key) {
             (Some(cert), Some(key)) => Some(redis::ClientTlsConfig {
@@ -145,9 +197,9 @@ fn client(config: &RedisConfig) -> Result<Client, Failure> {
                 root_cert: Some(tls.ca.join("\n").into_bytes()),
             },
         )
-        .map_err(|_| Failure)
+        .map_err(|_| Failure::new(FailureStage::Client))
     } else {
-        Client::open(info).map_err(|_| Failure)
+        Client::open(info).map_err(|_| Failure::new(FailureStage::Client))
     }
 }
 
@@ -165,12 +217,18 @@ async fn subscribe(
     channel: &str,
 ) -> Result<PubSub, Failure> {
     tokio::time::timeout(connect_deadline(config), async {
-        let mut subscription = client.get_async_pubsub().await.map_err(|_| Failure)?;
-        subscription.subscribe(channel).await.map_err(|_| Failure)?;
+        let mut subscription = client
+            .get_async_pubsub()
+            .await
+            .map_err(|_| Failure::new(FailureStage::SubscriptionConnect))?;
+        subscription
+            .subscribe(channel)
+            .await
+            .map_err(|_| Failure::new(FailureStage::SubscriptionSubscribe))?;
         Ok(subscription)
     })
     .await
-    .map_err(|_| Failure)?
+    .map_err(|_| Failure::new(FailureStage::SubscriptionTimeout))?
 }
 
 impl RedisState {
@@ -180,7 +238,9 @@ impl RedisState {
         host: String,
         auth: Arc<AuthService<PostgresAuthStore>>,
     ) -> Result<Self, Failure> {
-        Self::new_with_auth(config, pubsub_config, host, auth).await
+        Self::new_with_auth(config, pubsub_config, host, auth)
+            .await
+            .inspect_err(report)
     }
 
     async fn new_with_auth<S: Store>(
@@ -192,7 +252,9 @@ impl RedisState {
         let client = client(&config)?;
         let subscription_client = self::client(&pubsub_config)?;
         let subscription = subscribe(&subscription_client, &pubsub_config, &host).await?;
-        auth.invalidate_all().await.map_err(|_| Failure)?;
+        auth.invalidate_all()
+            .await
+            .map_err(|_| Failure::new(FailureStage::AuthRefresh))?;
         let (stop, _) = watch::channel(false);
         let ready = Arc::new(AtomicBool::new(true));
         let state = Self {
@@ -218,15 +280,22 @@ impl RedisState {
                         message = stream.next() => message,
                     };
                     let Some(message) = message else {
+                        report(&Failure::new(FailureStage::SubscriptionClosed));
                         break;
                     };
-                    let Ok(event) = decode_event(message.get_payload_bytes()) else {
-                        break;
+                    let event = match decode_event(message.get_payload_bytes()) {
+                        Ok(Some(event)) => event,
+                        Ok(None) => continue,
+                        Err(failure) => {
+                            report(&failure);
+                            break;
+                        }
                     };
                     let now = crate::now_ms();
                     if auth.apply_event(&event, now).await.is_err() {
                         // A missed refresh could retain revoked privileges.
                         // Re-enter subscription recovery with admission shut.
+                        report(&Failure::new(FailureStage::EventApply));
                         break;
                     }
                 }
@@ -252,18 +321,37 @@ impl RedisState {
                             result = auth.invalidate_all() => result,
                         };
                         if refreshed.is_err() {
+                            report(&Failure::new(FailureStage::AuthRefresh));
                             continue;
                         }
                         // Apply already-buffered events before reopening auth.
                         let mut buffered = replacement.on_message();
                         let mut failed = false;
-                        while let Some(Some(message)) = buffered.next().now_or_never() {
+                        loop {
+                            let message = match buffered.next().now_or_never() {
+                                Some(Some(message)) => message,
+                                Some(None) => {
+                                    report(&Failure::new(FailureStage::SubscriptionClosed));
+                                    failed = true;
+                                    break;
+                                }
+                                None => break,
+                            };
                             let event = decode_event(message.get_payload_bytes());
                             let failed_event = match event {
-                                Ok(event) => {
-                                    auth.apply_event(&event, crate::now_ms()).await.is_err()
+                                Ok(Some(event)) => {
+                                    if auth.apply_event(&event, crate::now_ms()).await.is_err() {
+                                        report(&Failure::new(FailureStage::EventApply));
+                                        true
+                                    } else {
+                                        false
+                                    }
                                 }
-                                Err(_) => true,
+                                Ok(None) => false,
+                                Err(failure) => {
+                                    report(&failure);
+                                    true
+                                }
                             };
                             if failed_event {
                                 failed = true;
@@ -277,6 +365,8 @@ impl RedisState {
                         subscription = replacement;
                         ready.store(true, Ordering::Release);
                         break;
+                    } else if let Err(failure) = replacement {
+                        report(&failure);
                     }
                 }
             }
@@ -304,50 +394,41 @@ impl RedisState {
         !self.stopped.load(Ordering::Acquire) && self.ready.load(Ordering::Acquire)
     }
 
-    pub async fn limit(
+    pub(crate) async fn limit(
         &self,
-        limitation: &Value,
+        limitation: &RateLimit,
+        endpoint: &str,
         actor: &str,
         factor: f64,
-    ) -> Result<Option<Value>, Failure> {
+    ) -> Result<Option<LimitInfo>, Failure> {
         if !self.ready() {
-            return Err(Failure);
+            return Err(Failure::new(FailureStage::Unavailable));
         }
-        let key = limitation
-            .get("key")
-            .and_then(Value::as_str)
-            .ok_or(Failure)?;
-        if let Some(interval) = limitation.get("minInterval").filter(|v| !v.is_null()) {
-            let duration = interval.as_f64().ok_or(Failure)? * factor;
+        let key = limitation.key.as_deref().unwrap_or(endpoint);
+        if let Some(interval) = limitation.min_interval {
+            let duration = interval * factor;
             let info = self
                 .check(&format!("{actor}:{key}:min"), duration, 1.0)
                 .await?;
-            if info["remaining"].as_f64() == Some(0.0) {
+            if info.remaining == 0.0 {
                 return Ok(Some(info));
             }
         }
-        if let (Some(duration), Some(max)) = (
-            limitation.get("duration").filter(|v| !v.is_null()),
-            limitation.get("max").filter(|v| !v.is_null()),
-        ) {
+        if let (Some(duration), Some(max)) = (limitation.duration, limitation.max) {
             let info = self
-                .check(
-                    &format!("{actor}:{key}"),
-                    duration.as_f64().ok_or(Failure)?,
-                    max.as_f64().ok_or(Failure)? / factor,
-                )
+                .check(&format!("{actor}:{key}"), duration, max / factor)
                 .await?;
-            if info["remaining"].as_f64() == Some(0.0) {
+            if info.remaining == 0.0 {
                 return Ok(Some(info));
             }
         }
         Ok(None)
     }
 
-    async fn check(&self, id: &str, duration: f64, max: f64) -> Result<Value, Failure> {
+    async fn check(&self, id: &str, duration: f64, max: f64) -> Result<LimitInfo, Failure> {
         let mut stop = self.stop.subscribe();
         if self.stopped.load(Ordering::Acquire) {
-            return Err(Failure);
+            return Err(Failure::new(FailureStage::Shutdown));
         }
         let operation = async {
             let mut connection = self.connection.lock().await;
@@ -358,12 +439,14 @@ impl RedisState {
                         self.client.get_multiplexed_async_connection(),
                     )
                     .await
-                    .map_err(|_| Failure)?
-                    .map_err(|_| Failure)?,
+                    .map_err(|_| Failure::new(FailureStage::ConnectionTimeout))?
+                    .map_err(|_| Failure::new(FailureStage::Connection))?,
                 );
             }
             let result = check_at(
-                connection.as_mut().ok_or(Failure)?,
+                connection
+                    .as_mut()
+                    .ok_or_else(|| Failure::new(FailureStage::Connection))?,
                 &format!("{}limit:{id}", self.config.key_prefix),
                 duration,
                 max,
@@ -375,11 +458,12 @@ impl RedisState {
             }
             result
         };
-        tokio::select! {
+        let result = tokio::select! {
             biased;
-            _ = stop.changed() => Err(Failure),
+            _ = stop.changed() => Err(Failure::new(FailureStage::Shutdown)),
             result = operation => result,
-        }
+        };
+        result.inspect_err(report)
     }
 
     pub async fn shutdown(&self) {
@@ -396,25 +480,90 @@ impl RedisState {
     }
 }
 
-fn decode_event(bytes: &[u8]) -> Result<SafeJson, Failure> {
+struct EventEnvelope<'a> {
+    channel: Option<&'a RawValue>,
+    message: Option<&'a RawValue>,
+}
+
+impl<'de> Deserialize<'de> for EventEnvelope<'de> {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct EnvelopeVisitor;
+        impl<'de> serde::de::Visitor<'de> for EnvelopeVisitor {
+            type Value = EventEnvelope<'de>;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+                formatter.write_str("a host event object")
+            }
+
+            fn visit_map<M: serde::de::MapAccess<'de>>(
+                self,
+                mut map: M,
+            ) -> Result<Self::Value, M::Error> {
+                let mut envelope = EventEnvelope {
+                    channel: None,
+                    message: None,
+                };
+                // Raw values validate all JSON syntax without decoding an
+                // unrelated business payload into Rust's UTF-8 value tree.
+                // Retaining the last occurrence matches JSON.parse duplicates.
+                while let Some(key) = map.next_key::<&'de RawValue>()? {
+                    let value = map.next_value::<&'de RawValue>()?;
+                    match serde_json::from_str::<String>(key.get()).as_deref() {
+                        Ok("channel") => envelope.channel = Some(value),
+                        Ok("message") => envelope.message = Some(value),
+                        // A valid JS key containing a lone surrogate cannot
+                        // equal either ASCII envelope key and is irrelevant.
+                        _ => {}
+                    }
+                }
+                Ok(envelope)
+            }
+        }
+        deserializer.deserialize_map(EnvelopeVisitor)
+    }
+}
+
+fn decode_event(bytes: &[u8]) -> Result<Option<SafeJson>, Failure> {
     let mut decoder = serde_json::Deserializer::from_slice(bytes);
     decoder.disable_recursion_limit();
-    let event = SafeJson::new(
-        Value::deserialize(serde_stacker::Deserializer::new(&mut decoder)).map_err(|_| Failure)?,
-    );
-    decoder.end().map_err(|_| Failure)?;
-    if !event.get("channel").is_some_and(Value::is_string) {
-        return Err(Failure);
+    let envelope = EventEnvelope::deserialize(&mut decoder)
+        .map_err(|_| Failure::new(FailureStage::EventDecode))?;
+    decoder
+        .end()
+        .map_err(|_| Failure::new(FailureStage::EventDecode))?;
+    let channel = envelope
+        .channel
+        .ok_or_else(|| Failure::new(FailureStage::EventEnvelope))?;
+    if !channel.get().starts_with('"') {
+        return Err(Failure::new(FailureStage::EventEnvelope));
     }
     // This host subscription also carries raw notesStream and other business
-    // payloads. Only the internal channel has the auth invalidation envelope.
-    if event["channel"] == "internal"
-        && (!event.get("message").is_some_and(Value::is_object)
-            || !event["message"].get("type").is_some_and(Value::is_string))
-    {
-        return Err(Failure);
+    // payloads. A JS channel with a lone surrogate is still a string and cannot
+    // equal "internal". Its business message need never enter auth decoding.
+    if !serde_json::from_str::<String>(channel.get()).is_ok_and(|channel| channel == "internal") {
+        return Ok(None);
     }
-    Ok(event)
+    let message = envelope
+        .message
+        .ok_or_else(|| Failure::new(FailureStage::EventEnvelope))?;
+    let mut decoder = serde_json::Deserializer::from_str(message.get());
+    decoder.disable_recursion_limit();
+    let mut fields = serde_json::Map::new();
+    fields.insert("channel".into(), Value::String("internal".into()));
+    fields.insert(
+        "message".into(),
+        Value::deserialize(serde_stacker::Deserializer::new(&mut decoder))
+            .map_err(|_| Failure::new(FailureStage::EventDecode))?,
+    );
+    let event = SafeJson::new(Value::Object(fields));
+    decoder
+        .end()
+        .map_err(|_| Failure::new(FailureStage::EventDecode))?;
+    if !event["message"].is_object() || !event["message"].get("type").is_some_and(Value::is_string)
+    {
+        return Err(Failure::new(FailureStage::EventEnvelope));
+    }
+    Ok(Some(event))
 }
 
 async fn check_at(
@@ -423,7 +572,7 @@ async fn check_at(
     duration: f64,
     max: f64,
     now_us: f64,
-) -> Result<Value, Failure> {
+) -> Result<LimitInfo, Failure> {
     // Limiter(opts) applies JavaScript's `||` defaults, including zero/NaN.
     let duration = if duration == 0.0 || duration.is_nan() {
         3_600_000.0
@@ -470,23 +619,26 @@ async fn check_at(
     let mut response = connection
         .req_packed_commands(&pipeline, 8, 1)
         .await
-        .map_err(|_| Failure)?;
-    let RedisValue::Array(values) = response.pop().ok_or(Failure)? else {
-        return Err(Failure);
+        .map_err(|_| Failure::new(FailureStage::Command))?;
+    let RedisValue::Array(values) = response
+        .pop()
+        .ok_or_else(|| Failure::new(FailureStage::CommandResponse))?
+    else {
+        return Err(Failure::new(FailureStage::CommandResponse));
     };
     if values.len() != 7 {
-        return Err(Failure);
+        return Err(Failure::new(FailureStage::CommandResponse));
     }
     let count = parse_int_reply(&values[1]);
     let oldest = parse_int_reply(&values[3]);
     let in_range = parse_int_reply(&values[4]);
     let reset_micro = if in_range.is_nan() { oldest } else { in_range } + duration * 1000.0;
-    Ok(json!({
-        "remaining": if count < max { max-count } else { 0.0 },
-        "reset": (reset_micro/1_000_000.0).floor(),
-        "resetMs": (reset_micro/1000.0).floor(),
-        "total":max,
-    }))
+    Ok(LimitInfo {
+        remaining: if count < max { max - count } else { 0.0 },
+        reset: (reset_micro / 1_000_000.0).floor(),
+        reset_ms: (reset_micro / 1000.0).floor(),
+        total: max,
+    })
 }
 
 fn js_number(value: f64) -> String {

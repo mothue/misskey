@@ -19,6 +19,15 @@ pub use safe_json::{SafeJson, clone_json, drop_json};
 /// One completed policy evaluation. JSON is only a projection: JSON.stringify
 /// turns nonfinite JS numbers into null, which cannot drive numeric decisions.
 /// Keep every numeric aggregation in binary64 form from the same evaluation.
+/// JSON access requires an explicit call to [`Self::as_json`].
+///
+/// ```compile_fail
+/// use misskey_backend_api_auth::PolicySnapshot;
+///
+/// fn policy_factor(policies: &PolicySnapshot) -> Option<f64> {
+///     policies["rateLimitFactor"].as_f64()
+/// }
+/// ```
 #[derive(Clone)]
 pub struct PolicySnapshot {
     json: SafeJson,
@@ -54,17 +63,15 @@ impl PolicySnapshot {
         }
     }
 
+    /// The JSON projection for serialization and reference comparisons.
+    /// Use [`Self::numeric_aggregate`] for numeric policy decisions: nonfinite
+    /// aggregates appear here as null and cannot be recovered from JSON.
+    pub fn as_json(&self) -> &Value {
+        &self.json
+    }
+
     pub fn into_json(self) -> Value {
         self.json.into_value()
-    }
-}
-
-// Preserve ordinary access to the JSON projection for serialization/reference
-// comparisons. Numeric decision consumers must use numeric_aggregate instead.
-impl std::ops::Deref for PolicySnapshot {
-    type Target = Value;
-    fn deref(&self) -> &Value {
-        &self.json
     }
 }
 

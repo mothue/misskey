@@ -1,6 +1,10 @@
 use serde_json::{Map, Value, json};
 use std::{borrow::Borrow, collections::HashMap};
 
+#[path = "policy_aggregation.rs"]
+mod policy_aggregation;
+use policy_aggregation::{Aggregation, policy_aggregation};
+
 /// Mirrors RoleService.evalCond, including false for unknown/malformed formulas.
 pub fn evaluate_condition<R: Borrow<Value>>(
     user: &Value,
@@ -239,7 +243,7 @@ pub(crate) fn aggregate_policies<R: Borrow<Value>>(
         };
         let value = match aggregation {
             Aggregation::Any => Value::Bool(values.iter().any(|v| *v == Some(&Value::Bool(true)))),
-            Aggregation::Max => {
+            Aggregation::Max | Aggregation::MaxFileSize => {
                 let mut maximum = f64::NEG_INFINITY;
                 for value in values {
                     let next = value.map(policy_number).transpose()?.unwrap_or(f64::NAN);
@@ -256,7 +260,7 @@ pub(crate) fn aggregate_policies<R: Borrow<Value>>(
                         maximum = next;
                     }
                 }
-                if name == "maxFileSizeMb" && !maximum.is_nan() {
+                if matches!(aggregation, Aggregation::MaxFileSize) && !maximum.is_nan() {
                     let cap = (max_file_size / (1024 * 1024)) as f64;
                     // Math.min retains a -0 aggregate when the server cap is +0.
                     if cap < maximum {
@@ -311,57 +315,6 @@ pub(crate) fn aggregate_policies<R: Borrow<Value>>(
         Value::Object(result),
         numeric,
     ))
-}
-
-enum Aggregation {
-    Any,
-    Max,
-    Chat,
-    FileTypes,
-}
-fn policy_aggregation(name: &str) -> Option<Aggregation> {
-    Some(match name {
-        "gtlAvailable"
-        | "ltlAvailable"
-        | "canPublicNote"
-        | "canInvite"
-        | "canManageCustomEmojis"
-        | "canManageAvatarDecorations"
-        | "canSearchNotes"
-        | "canSearchUsers"
-        | "canUseTranslator"
-        | "canHideAds"
-        | "canCreateChannel"
-        | "alwaysMarkNsfw"
-        | "canUpdateBioMedia"
-        | "canImportAntennas"
-        | "canImportBlocking"
-        | "canImportFollowing"
-        | "canImportMuting"
-        | "canImportUserLists"
-        | "watermarkAvailable" => Aggregation::Any,
-        "mentionLimit"
-        | "inviteLimit"
-        | "inviteLimitCycle"
-        | "inviteExpirationTime"
-        | "driveCapacityMb"
-        | "maxFileSizeMb"
-        | "pinLimit"
-        | "antennaLimit"
-        | "wordMuteLimit"
-        | "webhookLimit"
-        | "clipLimit"
-        | "noteEachClipsLimit"
-        | "userListLimit"
-        | "userEachUserListsLimit"
-        | "rateLimitFactor"
-        | "avatarDecorationLimit"
-        | "noteDraftLimit"
-        | "scheduledNoteLimit" => Aggregation::Max,
-        "chatAvailability" => Aggregation::Chat,
-        "uploadableFileTypes" => Aggregation::FileTypes,
-        _ => return None,
-    })
 }
 
 pub(crate) fn truthy(value: &Value) -> bool {

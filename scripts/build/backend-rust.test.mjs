@@ -17,9 +17,13 @@ test('publishes a completed build atomically and preserves the last executable o
   await mkdir(join(root, 'built/bin'), { recursive: true });
   await writeFile(executable, 'previous');
   let invocation;
-  await expect(buildNative({ root, run: async (command, args) => { invocation = { command, args }; throw new Error('compile failed'); } })).rejects.toThrow('compile failed');
+  await expect(buildNative({ root, run: async (command, args) => {
+   if (command === process.execPath) return;
+   invocation = { command, args }; throw new Error('compile failed');
+  } })).rejects.toThrow('compile failed');
   expect(await readFile(executable, 'utf8')).toBe('previous');
-  await buildNative({ root, run: async () => {
+  await buildNative({ root, run: async (command) => {
+   if (command === process.execPath) return;
    await mkdir(join(root, 'built/target/release'), { recursive: true });
    await writeFile(join(root, 'built/target/release', binaryName), 'new');
   } });
@@ -37,5 +41,25 @@ test('does not publish when Cargo succeeds without producing the expected execut
  try {
   await expect(buildNative({ root, run: async () => {} })).rejects.toThrow();
   await expect(readFile(join(root, 'built/bin', binaryName))).rejects.toThrow();
+ } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('rejects policy drift before compiling or publishing', async () => {
+ const { buildNative } = await import('./backend-rust.mjs');
+ const root = await mkdtemp(join(tmpdir(), 'misskey-rust-policy-drift-'));
+ try {
+  const executable = join(root, 'built/bin', binaryName);
+  await mkdir(join(root, 'built/bin'), { recursive: true });
+  await writeFile(executable, 'previous');
+  const commands = [];
+  await expect(buildNative({ root, run: async (command, args) => {
+   commands.push(command);
+   expect(command).toBe(process.execPath);
+   expect(args[0]).toEndWith('/packages/backend-rust/scripts/generate-policy-aggregation.ts');
+   expect(args[1]).toBe('--check');
+   throw new Error('policy descriptor stale');
+  } })).rejects.toThrow('policy descriptor stale');
+  expect(commands).toHaveLength(1);
+  expect(await readFile(executable, 'utf8')).toBe('previous');
  } finally { await rm(root, { recursive: true, force: true }); }
 });

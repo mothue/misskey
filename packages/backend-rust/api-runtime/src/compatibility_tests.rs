@@ -36,7 +36,7 @@ async fn invalid_effective_tokens_finish_with_empty_400_and_header_precedence() 
         }
         for header in ["Bearer valid", "Bearer "] {
             let value = effective_token(&context(Some(header)), &params).unwrap();
-            assert_eq!(value.as_str().as_deref(), Some(&header[7..]));
+            assert_eq!(value.to_utf8().as_deref(), Some(&header[7..]));
         }
     }
     for token in [
@@ -56,14 +56,16 @@ async fn invalid_effective_tokens_finish_with_empty_400_and_header_precedence() 
 
 #[test]
 fn anonymous_policy_checks_require_live_invalidation_and_never_count_as_root() {
+    let public_meta = EndpointMeta::default();
+    let policy_meta = EndpointMeta {
+        required_role_policy: Some("canSearchUsers".into()),
+        ..Default::default()
+    };
     for token in [Value::Undefined, Value::Null, Value::string("")] {
-        assert!(!requires_auth_cache(&token, &json!({})));
-        assert!(requires_auth_cache(
-            &token,
-            &json!({"requiredRolePolicy":"canSearchUsers"})
-        ));
+        assert!(!requires_auth_cache(&token, &public_meta));
+        assert!(requires_auth_cache(&token, &policy_meta));
     }
-    assert!(requires_auth_cache(&Value::string("token"), &json!({})));
+    assert!(requires_auth_cache(&Value::string("token"), &public_meta));
     assert!(!is_root_user(None, None));
     assert!(!is_root_user(None, Some("root")));
     assert!(!is_root_user(Some("regular"), None));

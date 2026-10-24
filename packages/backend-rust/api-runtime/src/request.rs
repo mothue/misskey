@@ -488,7 +488,7 @@ mod tests {
         let parsed = query("x=1&x=2&__proto__=own&a=%F0%9F%90%88");
         assert!(matches!(parsed.get("x"),Some(Value::Array(v)) if v.len()==2));
         assert_eq!(
-            parsed.get("__proto__").and_then(Value::as_str).as_deref(),
+            parsed.get("__proto__").and_then(Value::to_utf8).as_deref(),
             Some("own")
         );
     }

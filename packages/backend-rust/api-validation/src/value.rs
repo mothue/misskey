@@ -325,11 +325,19 @@ impl Value {
         }
     }
 
-    pub fn as_str(&self) -> Option<String> {
+    /// Borrow the JavaScript UTF-16 code units without allocating or replacing
+    /// unpaired surrogates. A non-string value has no string representation.
+    pub fn as_utf16(&self) -> Option<&[u16]> {
         match self {
-            Self::String(value) => String::from_utf16(value).ok(),
+            Self::String(value) => Some(value),
             _ => None,
         }
+    }
+
+    /// Allocate an exact UTF-8 string when the UTF-16 is well formed.
+    /// Unpaired surrogates return None; this conversion is never lossy.
+    pub fn to_utf8(&self) -> Option<String> {
+        String::from_utf16(self.as_utf16()?).ok()
     }
 
     pub fn as_number(&self) -> Option<f64> {
@@ -517,5 +525,28 @@ mod number {
     use serde::Serializer;
     pub fn serialize<S: Serializer>(value: &f64, serializer: S) -> Result<S::Ok, S::Error> {
         serializer.serialize_str(&super::number_string(*value))
+    }
+}
+
+#[cfg(test)]
+mod string_conversion_tests {
+    use super::Value;
+
+    #[test]
+    fn exact_utf8_conversion_keeps_utf16_boundary_explicit() {
+        let units = vec![0x41, 0xd83d, 0xde00];
+        let value = Value::String(units.clone());
+        assert_eq!(value.as_utf16(), Some(units.as_slice()));
+        assert_eq!(value.to_utf8().as_deref(), Some("A😀"));
+        for units in [vec![0xd800], vec![0xdc00], vec![0xd800, 0x41]] {
+            let value = Value::String(units.clone());
+            assert_eq!(value.as_utf16(), Some(units.as_slice()));
+            assert!(value.to_utf8().is_none());
+        }
+        assert_eq!(Value::string("").as_utf16(), Some([].as_slice()));
+        for value in [Value::Null, Value::Undefined, Value::Number(0.)] {
+            assert!(value.as_utf16().is_none());
+            assert!(value.to_utf8().is_none());
+        }
     }
 }

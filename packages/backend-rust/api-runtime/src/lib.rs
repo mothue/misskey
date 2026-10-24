@@ -18,9 +18,12 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+mod meta;
 pub mod redis;
 pub mod request;
 mod response;
+use meta::EndpointMeta;
+use response::ApiFailure;
 
 pub fn now_ms() -> i64 {
     SystemTime::now()
@@ -29,16 +32,56 @@ pub fn now_ms() -> i64 {
         .unwrap_or(0)
 }
 
-#[derive(Debug)]
-pub struct Failure;
-impl From<()> for Failure {
-    fn from(_: ()) -> Self {
-        Self
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum FailureStage {
+    CallbackConfig,
+    EndpointRegistry,
+    EndpointMetadata,
+    EndpointSchema,
+    AuthStore,
+    AuthService,
+    Redis,
+    HttpClient,
+    InvocationEncode,
+    CallbackTransport,
+    CallbackStatus,
+    CallbackBody,
+    CallbackDecode,
+    CallbackResult,
+    CallbackHeaders,
+    Authentication,
+    IpLog,
+    RateLimitPolicy,
+    RateLimit,
+    RoleLookup,
+    RequiredPolicy,
+}
+
+/// Retain a useful failure location without retaining credentials, request data
+/// or transport errors that may embed the authenticated callback URL.
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub struct Failure {
+    stage: FailureStage,
+}
+impl Failure {
+    pub const fn new(stage: FailureStage) -> Self {
+        Self { stage }
+    }
+
+    pub const fn stage(&self) -> FailureStage {
+        self.stage
+    }
+}
+impl std::fmt::Debug for Failure {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Failure")
+            .field("stage", &self.stage)
+            .finish()
     }
 }
 impl std::fmt::Display for Failure {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("Rust backend unavailable")
+        write!(f, "Rust backend unavailable at {:?}", self.stage)
     }
 }
 impl std::error::Error for Failure {}
@@ -73,8 +116,25 @@ struct EndpointDefinition {
 }
 struct Endpoint {
     name: String,
-    meta: Json,
+    meta: EndpointMeta,
     schema: Schema,
+}
+
+struct Route<'a> {
+    name: String,
+    endpoint: Option<&'a Endpoint>,
+    special: bool,
+    session: Option<String>,
+}
+impl Route<'_> {
+    fn file_required(&self) -> bool {
+        self.endpoint
+            .is_some_and(|endpoint| endpoint.meta.require_file)
+    }
+
+    fn is_known(&self, method: &str) -> bool {
+        route_is_known(self.endpoint.is_some(), self.special, &self.name, method)
+    }
 }
 
 #[derive(Deserialize)]
@@ -165,7 +225,8 @@ impl Runtime {
         reads: Option<PostgresConfig>,
         online_users: Arc<OnlineUsers>,
     ) -> Result<Self, Failure> {
-        let callback_url = reqwest::Url::parse(&config.callback.url).map_err(|_| ())?;
+        let callback_url = reqwest::Url::parse(&config.callback.url)
+            .map_err(|_| Failure::new(FailureStage::CallbackConfig))?;
         if callback_url.scheme() != "http"
             || callback_url.host_str() != Some("127.0.0.1")
             || callback_url.port().is_none()
@@ -177,15 +238,17 @@ impl Runtime {
             || config.callback.token.len() != 64
             || !config.callback.token.bytes().all(|b| b.is_ascii_hexdigit())
         {
-            return Err(Failure);
+            return Err(Failure::new(FailureStage::CallbackConfig));
         }
         let mut endpoints = Vec::new();
         let mut definitions = Vec::new();
         let mut names = std::collections::HashSet::new();
         for definition in config.endpoints {
             if !names.insert(definition.name.clone()) || !definition.meta.is_object() {
-                return Err(Failure);
+                return Err(Failure::new(FailureStage::EndpointRegistry));
             }
+            let meta = serde_json::from_value(definition.meta)
+                .map_err(|_| Failure::new(FailureStage::EndpointMetadata))?;
             let properties = definition
                 .params
                 .get("properties")
@@ -205,20 +268,24 @@ impl Runtime {
             });
             endpoints.push(Endpoint {
                 name: definition.name,
-                meta: definition.meta,
-                schema: Schema::compile(definition.params).map_err(|_| ())?,
+                meta,
+                schema: Schema::compile(definition.params)
+                    .map_err(|_| Failure::new(FailureStage::EndpointSchema))?,
             });
         }
         let database = Arc::new(Database::new(reads, config.postgres_primary));
         let store = Arc::new(
             PostgresAuthStore::new(database.clone(), config.auth.entity_layouts.clone())
-                .map_err(|_| ())?,
+                .map_err(|_| Failure::new(FailureStage::AuthStore))?,
         );
-        let auth = Arc::new(AuthService::new(store, config.auth, now_ms()).map_err(|_| ())?);
+        let auth = Arc::new(
+            AuthService::new(store, config.auth, now_ms())
+                .map_err(|_| Failure::new(FailureStage::AuthService))?,
+        );
         let redis =
             redis::RedisState::new(config.redis, config.redis_pubsub, config.host, auth.clone())
                 .await
-                .map_err(|_| ())?;
+                .map_err(|_| Failure::new(FailureStage::Redis))?;
         Ok(Self {
             endpoints,
             catalog: Catalog::new(definitions),
@@ -227,7 +294,7 @@ impl Runtime {
                 .no_proxy()
                 .redirect(reqwest::redirect::Policy::none())
                 .build()
-                .map_err(|_| ())?,
+                .map_err(|_| Failure::new(FailureStage::HttpClient))?,
             auth,
             database,
             redis,
@@ -263,6 +330,40 @@ impl Runtime {
         reply
     }
     async fn process(&self, context: &RequestContext, body: Body) -> Response<Body> {
+        let route = self.resolve_route(context);
+        // The old wildcard is GET/HEAD only. Other unknown methods use Fastify's
+        // global not-found response and do not inherit the /api CORS/cache hooks.
+        if !route.is_known(&context.method)
+            && !matches!(context.method.as_str(), "GET" | "HEAD" | "OPTIONS")
+        {
+            return unmatched_route(context, body, self.max_file_size, &self.upload_directory)
+                .await;
+        }
+        if context.method == "OPTIONS" {
+            return request::preflight(context);
+        }
+        if route
+            .endpoint
+            .is_some_and(|endpoint| context.method == "GET" && !endpoint.meta.allow_get)
+        {
+            return api_response_headers(response::plain(405, None, Body::empty()));
+        }
+        let reply = match request::parse(
+            context,
+            body,
+            route.file_required(),
+            self.max_file_size,
+            &self.upload_directory,
+        )
+        .await
+        {
+            Err(reply) => *reply,
+            Ok(mut input) => self.dispatch_route(context, route, &mut input).await,
+        };
+        api_response_headers(reply)
+    }
+
+    fn resolve_route(&self, context: &RequestContext) -> Route<'_> {
         let path = context.path.split('?').next().unwrap_or("");
         let name = path.strip_prefix("/api/").unwrap_or("");
         let session = request::miauth_session_encoded(name);
@@ -277,98 +378,50 @@ impl Runtime {
                 | "v1/instance/peers"
                 | "clear-browser-cache"
         ) || session.is_some();
-        let known = route_is_known(endpoint.is_some(), special, &name, &context.method);
-        // The old wildcard is GET/HEAD only. Other unknown methods use Fastify's
-        // global not-found response and do not inherit the /api CORS/cache hooks.
-        if !known && !matches!(context.method.as_str(), "GET" | "HEAD" | "OPTIONS") {
-            return unmatched_route(context, body, self.max_file_size, &self.upload_directory)
+        Route {
+            name,
+            endpoint,
+            special,
+            session,
+        }
+    }
+
+    async fn dispatch_route(
+        &self,
+        context: &RequestContext,
+        route: Route<'_>,
+        input: &mut request::Input,
+    ) -> Response<Body> {
+        if let Some(endpoint) = route.endpoint {
+            return if route.file_required() && input.upload.is_none() {
+                response::plain(400, None, Body::empty())
+            } else {
+                self.execute(context, endpoint, input).await
+            };
+        }
+        if route.name == "clear-browser-cache" {
+            return clear_browser_cache(&context.method);
+        }
+        if route.special && request::special_method(&route.name, &context.method) {
+            return self
+                .callback(Invocation {
+                    v: 1,
+                    request_id: &context.request_id,
+                    kind: "special",
+                    endpoint: &route.name,
+                    params: &input.params,
+                    user: &None,
+                    token: &None,
+                    file: None,
+                    route_params: route.session.map(|session| json!({"session":session})),
+                })
                 .await;
         }
-        if context.method == "OPTIONS" {
-            return request::preflight(context);
+        if matches!(context.method.as_str(), "GET" | "HEAD") {
+            response::fixed(ApiFailure::UnknownEndpoint, None)
+        } else {
+            response::not_found(&context.method, &context.path)
         }
-        if endpoint.is_some_and(|e| context.method == "GET" && !flag(&e.meta, "allowGet")) {
-            let mut reply = response::plain(405, None, Body::empty());
-            reply
-                .headers_mut()
-                .insert("access-control-allow-origin", HeaderValue::from_static("*"));
-            reply.headers_mut().insert(
-                "cache-control",
-                HeaderValue::from_static("private, max-age=0, must-revalidate"),
-            );
-            return reply;
-        }
-        let file_required = endpoint.is_some_and(|e| flag(&e.meta, "requireFile"));
-        let parsed = request::parse(
-            context,
-            body,
-            file_required,
-            self.max_file_size,
-            &self.upload_directory,
-        )
-        .await;
-        let mut reply = match parsed {
-            Err(reply) => *reply,
-            Ok(mut input) => {
-                if let Some(endpoint) = endpoint {
-                    if context.method == "GET" && !flag(&endpoint.meta, "allowGet") {
-                        response::plain(405, None, Body::empty())
-                    } else if file_required && input.upload.is_none() {
-                        response::plain(400, None, Body::empty())
-                    } else {
-                        self.execute(context, endpoint, &mut input).await
-                    }
-                } else if name == "clear-browser-cache" {
-                    let mut reply = response::plain(
-                        if matches!(context.method.as_str(), "GET" | "POST") {
-                            204
-                        } else {
-                            405
-                        },
-                        None,
-                        Body::empty(),
-                    );
-                    if reply.status().as_u16() == 204 {
-                        reply.headers_mut().insert("clear-site-data",HeaderValue::from_static("\"cache\", \"prefetchCache\", \"prerenderCache\", \"executionContexts\""));
-                    }
-                    reply
-                } else if special && request::special_method(&name, &context.method) {
-                    self.callback(Invocation {
-                        v: 1,
-                        request_id: &context.request_id,
-                        kind: "special",
-                        endpoint: &name,
-                        params: &input.params,
-                        user: &None,
-                        token: &None,
-                        file: None,
-                        route_params: session.map(|session| json!({"session":session})),
-                    })
-                    .await
-                } else if matches!(context.method.as_str(), "GET" | "HEAD") {
-                    response::json(
-                        404,
-                        json!({"error":{"message":"Unknown API endpoint.","code":"UNKNOWN_API_ENDPOINT","id":"2ca3b769-540a-4f08-9dd5-b5a825b6d0f1","kind":"client"}}),
-                    )
-                } else {
-                    response::json(
-                        404,
-                        json!({"message":format!("Route {}:{} not found",context.method,context.path),"error":"Not Found","statusCode":404}),
-                    )
-                }
-            }
-        };
-        reply
-            .headers_mut()
-            .entry("access-control-allow-origin")
-            .or_insert(HeaderValue::from_static("*"));
-        reply
-            .headers_mut()
-            .entry("cache-control")
-            .or_insert(HeaderValue::from_static(
-                "private, max-age=0, must-revalidate",
-            ));
-        reply
     }
     async fn execute(
         &self,
@@ -376,24 +429,56 @@ impl Runtime {
         endpoint: &Endpoint,
         input: &mut request::Input,
     ) -> Response<Body> {
-        let token_value = match effective_token(context, &input.params) {
-            Ok(token) => token,
+        let (token_value, auth) = match self
+            .authenticate_request(context, endpoint, &input.params)
+            .await
+        {
+            Ok(auth) => auth,
             Err(reply) => return *reply,
         };
-        let token = token_value.as_str();
+        if let Err(reply) = self.authorize(context, endpoint, &auth).await {
+            return *reply;
+        }
+        if let Err(reply) = validate_input(context, endpoint, input) {
+            return *reply;
+        }
+        let mut reply = self
+            .dispatch_endpoint(context, endpoint, input, &auth)
+            .await;
+        cache_public_response(&mut reply, context, endpoint, &token_value, &auth);
+        reply
+    }
+
+    async fn authenticate_request(
+        &self,
+        context: &RequestContext,
+        endpoint: &Endpoint,
+        params: &Value,
+    ) -> Result<(Value, Context), Box<Response<Body>>> {
+        let token_value = effective_token(context, params)?;
+        let token = token_value.to_utf8();
         if matches!(&token_value, Value::String(_)) && token.is_none() {
-            return response::authentication();
+            return Err(Box::new(response::authentication()));
         }
         if requires_auth_cache(&token_value, &endpoint.meta) && !self.redis.ready() {
-            return response::unavailable();
+            return Err(Box::new(response::unavailable()));
         }
         let auth = match self.auth.authenticate(token.as_deref(), now_ms()).await {
             Ok(auth) => auth,
             Err(AuthError::UserNotFound | AuthError::InvalidSignature) => {
-                return response::authentication();
+                return Err(Box::new(response::authentication()));
             }
-            Err(AuthError::Storage) => return response::internal(),
+            Err(AuthError::Storage) => {
+                return Err(Box::new(failure_response(Failure::new(
+                    FailureStage::Authentication,
+                ))));
+            }
         };
+        self.record_ip(context, &auth);
+        Ok((token_value, auth))
+    }
+
+    fn record_ip(&self, context: &RequestContext, auth: &Context) {
         if let Some(user) = &auth.user
             && let Some(user_id) = user.get("id").and_then(Json::as_str)
         {
@@ -401,21 +486,21 @@ impl Runtime {
             let user_id = user_id.to_owned();
             let ip = context.ip.clone();
             tokio::spawn(async move {
-                let _ = auth.log_ip(&user_id, &ip, now_ms()).await;
+                if auth.log_ip(&user_id, &ip, now_ms()).await.is_err() {
+                    eprintln!("Native API failure: {}", Failure::new(FailureStage::IpLog));
+                }
             });
         }
-        if let Err(reply) = self.authorize(context, endpoint, &auth).await {
-            return *reply;
-        }
-        if (context.method == "GET" || flag(&endpoint.meta, "requireFile"))
-            && let Err(error) = endpoint.schema.cast_query(&mut input.params)
-        {
-            return response::invalid(&error.param, &error.reason, true);
-        }
-        if let Err(error) = endpoint.schema.validate(&mut input.params) {
-            return response::invalid(&error.schema_path, &error.message, false);
-        }
-        let mut reply = match endpoint.name.as_str() {
+    }
+
+    async fn dispatch_endpoint(
+        &self,
+        context: &RequestContext,
+        endpoint: &Endpoint,
+        input: &mut request::Input,
+        auth: &Context,
+    ) -> Response<Body> {
+        match endpoint.name.as_str() {
             "ping" => match ping_at(SystemTime::now()) {
                 Ok(pong) => response::json(200, json!({"pong":pong})),
                 Err(_) => response::internal(),
@@ -476,21 +561,7 @@ impl Runtime {
                 })
                 .await
             }
-        };
-        if reply.status().is_success()
-            && context.method == "GET"
-            && !token_value.truthy()
-            && auth.user.is_none()
-            && let Some(seconds) = endpoint
-                .meta
-                .get("cacheSec")
-                .and_then(Json::as_f64)
-                .filter(|s| *s != 0.)
-            && let Ok(value) = HeaderValue::from_str(&format!("public, max-age={seconds}"))
-        {
-            reply.headers_mut().insert("cache-control", value);
         }
-        reply
     }
     async fn authorize(
         &self,
@@ -502,19 +573,55 @@ impl Runtime {
         let user = auth.user.as_ref();
         let token = auth.token.as_ref();
         let user_id = user.and_then(|u| u.get("id")).and_then(Json::as_str);
-        let fail = |message: &str, code: &str, id: &str, kind: &str, status: Option<u16>| {
-            Box::new(response::api_error(message, code, id, kind, status, None))
-        };
-        if flag(meta, "secure") && !(user.is_some() && token.is_none()) {
-            return Err(fail(
-                "Access denied.",
-                "ACCESS_DENIED",
-                "56f35758-7dd5-468b-8439-5d6fb8ec9b8e",
-                "client",
-                None,
-            ));
+        let fail = |error| Box::new(response::fixed(error, None));
+        if meta.secure && !(user.is_some() && token.is_none()) {
+            return Err(fail(ApiFailure::AccessDenied));
         }
-        if let Some(limit) = meta.get("limit") {
+        self.enforce_rate_limit(context, endpoint, user_id).await?;
+        let required = meta.credential_required();
+        if required {
+            if user.is_none() {
+                return Err(fail(ApiFailure::CredentialRequired));
+            }
+            if user.is_some_and(|u| u.get("isSuspended").and_then(Json::as_bool) == Some(true)) {
+                return Err(fail(ApiFailure::AccountSuspended));
+            }
+        }
+        if meta.prohibit_moved
+            && user
+                .and_then(|u| u.get("movedToUri"))
+                .is_some_and(json_truthy)
+        {
+            return Err(fail(ApiFailure::AccountMoved));
+        }
+        let root = self.auth.root_user_id().await;
+        self.enforce_role_requirements(meta, user_id, root.as_deref())
+            .await?;
+        if let Some(policy) = meta.required_role_policy.as_deref() {
+            authorize_required_policy(&self.auth, user_id, root.as_deref(), policy).await?;
+        }
+        if let Some(token) = token {
+            let kind = meta.kind.as_deref();
+            if (kind.is_some()
+                && !token
+                    .get("permission")
+                    .and_then(Json::as_array)
+                    .is_some_and(|p| p.iter().any(|v| v.as_str() == kind)))
+                || (kind.is_none() && required)
+            {
+                return Err(fail(ApiFailure::AppPermissionDenied));
+            }
+        }
+        Ok(())
+    }
+
+    async fn enforce_rate_limit(
+        &self,
+        context: &RequestContext,
+        endpoint: &Endpoint,
+        user_id: Option<&str>,
+    ) -> Result<(), Box<Response<Body>>> {
+        if let Some(limit) = &endpoint.meta.limit {
             let actor = if let Some(id) = user_id {
                 Some(id.to_owned())
             } else if self.enable_ip_rate_limit {
@@ -526,7 +633,7 @@ impl Runtime {
                 self.auth
                     .policies_for(user_id, now_ms())
                     .await
-                    .map_err(|_| response::internal())?
+                    .map_err(|_| failure_response(Failure::new(FailureStage::RateLimitPolicy)))?
                     .numeric_aggregate("rateLimitFactor")
                     .unwrap_or(f64::NAN)
             } else {
@@ -535,149 +642,91 @@ impl Runtime {
             if let Some(actor) = actor
                 && factor > 0.
                 && self.production
-            {
-                let mut limit = limit.clone();
-                if limit.get("key").is_none_or(Json::is_null) {
-                    limit["key"] = json!(endpoint.name);
-                }
-                if let Some(info) = self
+                && let Some(info) = self
                     .redis
-                    .limit(&limit, &actor, factor)
+                    .limit(limit, &endpoint.name, &actor, factor)
                     .await
-                    .map_err(|_| response::internal())?
-                {
-                    return Err(Box::new(response::api_error(
-                        "Rate limit exceeded. Please try again later.",
-                        "RATE_LIMIT_EXCEEDED",
-                        "d5826d14-3982-4d2e-8011-b9e9f02499ef",
-                        "client",
-                        Some(429),
-                        Some(&Value::from_json(&info)),
-                    )));
-                }
-            }
-        }
-        let required = flag(meta, "requireCredential")
-            || flag(meta, "requireModerator")
-            || flag(meta, "requireAdmin");
-        if required {
-            if user.is_none() {
-                return Err(fail(
-                    "Credential required.",
-                    "CREDENTIAL_REQUIRED",
-                    "1384574d-a912-4b81-8601-c7b1c4085df1",
-                    "client",
-                    Some(401),
-                ));
-            }
-            if user.is_some_and(|u| u.get("isSuspended").and_then(Json::as_bool) == Some(true)) {
-                return Err(fail(
-                    "Your account has been suspended.",
-                    "YOUR_ACCOUNT_SUSPENDED",
-                    "a8c724b3-6e9c-4b46-b1a8-bc3ed6258370",
-                    "permission",
-                    None,
-                ));
-            }
-        }
-        if flag(meta, "prohibitMoved")
-            && user
-                .and_then(|u| u.get("movedToUri"))
-                .is_some_and(json_truthy)
-        {
-            return Err(fail(
-                "You have moved your account.",
-                "YOUR_ACCOUNT_MOVED",
-                "56f20ec9-fd06-4fa5-841b-edd6d7d4fa31",
-                "permission",
-                None,
-            ));
-        }
-        let root = self.auth.root_user_id().await;
-        if (flag(meta, "requireModerator") || flag(meta, "requireAdmin"))
-            && !is_root_user(user_id, root.as_deref())
-        {
-            let roles = self
-                .auth
-                .roles_for(user_id.ok_or_else(response::internal)?, now_ms())
-                .await
-                .map_err(|_| response::internal())?;
-            if flag(meta, "requireModerator")
-                && !roles
-                    .iter()
-                    .any(|r| flag(r, "isModerator") || flag(r, "isAdministrator"))
+                    .map_err(|_| failure_response(Failure::new(FailureStage::RateLimit)))?
             {
-                return Err(fail(
-                    "You are not assigned to a moderator role.",
-                    "ROLE_PERMISSION_DENIED",
-                    "d33d5333-db36-423d-a8f9-1a2b9549da41",
-                    "permission",
-                    None,
-                ));
-            }
-            if flag(meta, "requireAdmin") && !roles.iter().any(|r| flag(r, "isAdministrator")) {
-                return Err(fail(
-                    "You are not assigned to an administrator role.",
-                    "ROLE_PERMISSION_DENIED",
-                    "c3d38592-54c0-429d-be96-5636b0431a61",
-                    "permission",
-                    None,
-                ));
-            }
-        }
-        if let Some(policy) = meta.get("requiredRolePolicy").and_then(Json::as_str) {
-            authorize_required_policy(&self.auth, user_id, root.as_deref(), policy).await?;
-        }
-        if let Some(token) = token {
-            let kind = meta.get("kind").and_then(Json::as_str);
-            if (kind.is_some()
-                && !token
-                    .get("permission")
-                    .and_then(Json::as_array)
-                    .is_some_and(|p| p.iter().any(|v| v.as_str() == kind)))
-                || (kind.is_none() && required)
-            {
-                return Err(fail(
-                    "Your app does not have the necessary permissions to use this endpoint.",
-                    "PERMISSION_DENIED",
-                    "1370e5b7-d4eb-4566-bb1d-7748ee6a1838",
-                    "permission",
-                    None,
-                ));
+                return Err(Box::new(response::fixed(
+                    ApiFailure::RateLimitExceeded,
+                    Some(&Value::from_json(&info.to_json())),
+                )));
             }
         }
         Ok(())
     }
-    async fn callback(&self, frame: Invocation<'_>) -> Response<Body> {
-        let result = async {
-            let mut bytes = Vec::new();
-            let mut serializer = serde_json::Serializer::new(&mut bytes);
-            frame
-                .serialize(serde_stacker::Serializer::new(&mut serializer))
-                .map_err(|_| ())?;
-            let response = self
-                .client
-                .post(&self.callback.url)
-                .bearer_auth(&self.callback.token)
-                .header("content-type", "application/json")
-                .body(bytes)
-                .send()
+
+    async fn enforce_role_requirements(
+        &self,
+        meta: &EndpointMeta,
+        user_id: Option<&str>,
+        root: Option<&str>,
+    ) -> Result<(), Box<Response<Body>>> {
+        if (meta.require_moderator || meta.require_admin) && !is_root_user(user_id, root) {
+            let roles = self
+                .auth
+                .roles_for(
+                    user_id
+                        .ok_or_else(|| failure_response(Failure::new(FailureStage::RoleLookup)))?,
+                    now_ms(),
+                )
                 .await
-                .map_err(|_| ())?;
-            if !response.status().is_success() {
-                return Err(());
+                .map_err(|_| failure_response(Failure::new(FailureStage::RoleLookup)))?;
+            if meta.require_moderator
+                && !roles
+                    .iter()
+                    .any(|r| flag(r, "isModerator") || flag(r, "isAdministrator"))
+            {
+                return Err(Box::new(response::fixed(
+                    ApiFailure::ModeratorRequired,
+                    None,
+                )));
             }
-            let bytes = response.bytes().await.map_err(|_| ())?;
-            let mut deserializer = serde_json::Deserializer::from_slice(&bytes);
-            deserializer.disable_recursion_limit();
-            let result =
-                CallbackResult::deserialize(serde_stacker::Deserializer::new(&mut deserializer))
-                    .map_err(|_| ())?;
-            deserializer.end().map_err(|_| ())?;
-            Ok(result)
+            if meta.require_admin && !roles.iter().any(|r| flag(r, "isAdministrator")) {
+                return Err(Box::new(response::fixed(
+                    ApiFailure::AdministratorRequired,
+                    None,
+                )));
+            }
         }
-        .await;
-        match result {
+        Ok(())
+    }
+    async fn invoke_callback(&self, frame: Invocation<'_>) -> Result<CallbackResult, Failure> {
+        let mut bytes = Vec::new();
+        let mut serializer = serde_json::Serializer::new(&mut bytes);
+        frame
+            .serialize(serde_stacker::Serializer::new(&mut serializer))
+            .map_err(|_| Failure::new(FailureStage::InvocationEncode))?;
+        let response = self
+            .client
+            .post(&self.callback.url)
+            .bearer_auth(&self.callback.token)
+            .header("content-type", "application/json")
+            .body(bytes)
+            .send()
+            .await
+            .map_err(|_| Failure::new(FailureStage::CallbackTransport))?;
+        if !response.status().is_success() {
+            return Err(Failure::new(FailureStage::CallbackStatus));
+        }
+        let bytes = response
+            .bytes()
+            .await
+            .map_err(|_| Failure::new(FailureStage::CallbackBody))?;
+        let mut deserializer = serde_json::Deserializer::from_slice(&bytes);
+        deserializer.disable_recursion_limit();
+        let result =
+            CallbackResult::deserialize(serde_stacker::Deserializer::new(&mut deserializer))
+                .map_err(|_| Failure::new(FailureStage::CallbackDecode))?;
+        deserializer
+            .end()
+            .map_err(|_| Failure::new(FailureStage::CallbackDecode))?;
+        Ok(result)
+    }
+
+    async fn callback(&self, frame: Invocation<'_>) -> Response<Body> {
+        match self.invoke_callback(frame).await {
             Ok(CallbackResult::Value { v: 1, value }) => response::value(&value),
             Ok(CallbackResult::Json {
                 v: 1,
@@ -686,7 +735,7 @@ impl Runtime {
                 if Value::parse_json(&text).is_ok() {
                     response::plain(200, Some("application/json; charset=utf-8"), text)
                 } else {
-                    response::internal()
+                    failure_response(Failure::new(FailureStage::CallbackResult))
                 }
             }
             Ok(CallbackResult::Json {
@@ -695,7 +744,7 @@ impl Runtime {
             }) => response::plain(200, Some("application/json; charset=utf-8"), Body::empty()),
             Ok(CallbackResult::Bytes { v: 1, base64 }) => match STANDARD.decode(base64) {
                 Ok(bytes) => response::plain(200, Some("application/octet-stream"), bytes),
-                Err(_) => response::internal(),
+                Err(_) => failure_response(Failure::new(FailureStage::CallbackResult)),
             },
             Ok(CallbackResult::ApiError {
                 v: 1,
@@ -713,31 +762,19 @@ impl Runtime {
                 http_status_code,
                 Some(&info),
             ),
-            Ok(CallbackResult::Authentication { v: 1 }) => response::internal(),
+            Ok(CallbackResult::Authentication { v: 1 }) => {
+                failure_response(Failure::new(FailureStage::CallbackResult))
+            }
             Ok(CallbackResult::FrameworkError {
                 v: 1,
                 status,
                 headers,
                 message,
                 code,
-            }) if (400..600).contains(&status) => {
-                let mut value = serde_json::Map::new();
-                value.insert("statusCode".into(), json!(status));
-                if let Some(code) = code {
-                    value.insert("code".into(), json!(code));
-                }
-                value.insert(
-                    "error".into(),
-                    json!(
-                        axum::http::StatusCode::from_u16(status)
-                            .ok()
-                            .and_then(|v| v.canonical_reason())
-                            .unwrap_or("Error")
-                    ),
-                );
-                value.insert("message".into(), json!(message));
-                apply_headers(response::json(status, Json::Object(value)), headers)
-            }
+            }) if (400..600).contains(&status) => apply_headers(
+                response::framework_with_code(status, code.as_deref(), &message, "Error"),
+                headers,
+            ),
             Ok(CallbackResult::Http {
                 v: 1,
                 status,
@@ -751,7 +788,7 @@ impl Runtime {
                         .as_ref()
                         .is_some_and(|s| Value::parse_json(s).is_err())
                 {
-                    return response::internal();
+                    return failure_response(Failure::new(FailureStage::CallbackResult));
                 }
                 let mut reply = response::plain(
                     status,
@@ -765,10 +802,82 @@ impl Runtime {
                 }
                 apply_headers(reply, headers)
             }
-            _ => response::internal(),
+            Err(failure) => failure_response(failure),
+            _ => failure_response(Failure::new(FailureStage::CallbackResult)),
         }
     }
 }
+fn failure_response(failure: Failure) -> Response<Body> {
+    eprintln!("Native API failure: {failure}");
+    response::internal()
+}
+
+fn validate_input(
+    context: &RequestContext,
+    endpoint: &Endpoint,
+    input: &mut request::Input,
+) -> Result<(), Box<Response<Body>>> {
+    if (context.method == "GET" || endpoint.meta.require_file)
+        && let Err(error) = endpoint.schema.cast_query(&mut input.params)
+    {
+        return Err(Box::new(response::invalid(
+            &error.param,
+            &error.reason,
+            true,
+        )));
+    }
+    endpoint
+        .schema
+        .validate(&mut input.params)
+        .map_err(|error| Box::new(response::invalid(&error.schema_path, &error.message, false)))
+}
+
+fn cache_public_response(
+    reply: &mut Response<Body>,
+    context: &RequestContext,
+    endpoint: &Endpoint,
+    token: &Value,
+    auth: &Context,
+) {
+    if reply.status().is_success()
+        && context.method == "GET"
+        && !token.truthy()
+        && auth.user.is_none()
+        && let Some(seconds) = endpoint.meta.cache_sec.filter(|seconds| *seconds != 0.)
+        && let Ok(value) = HeaderValue::from_str(&format!("public, max-age={seconds}"))
+    {
+        reply.headers_mut().insert("cache-control", value);
+    }
+}
+
+fn api_response_headers(mut reply: Response<Body>) -> Response<Body> {
+    reply
+        .headers_mut()
+        .entry("access-control-allow-origin")
+        .or_insert(HeaderValue::from_static("*"));
+    reply
+        .headers_mut()
+        .entry("cache-control")
+        .or_insert(HeaderValue::from_static(
+            "private, max-age=0, must-revalidate",
+        ));
+    reply
+}
+
+fn clear_browser_cache(method: &str) -> Response<Body> {
+    let allowed = matches!(method, "GET" | "POST");
+    let mut reply = response::plain(if allowed { 204 } else { 405 }, None, Body::empty());
+    if allowed {
+        reply.headers_mut().insert(
+            "clear-site-data",
+            HeaderValue::from_static(
+                "\"cache\", \"prefetchCache\", \"prerenderCache\", \"executionContexts\"",
+            ),
+        );
+    }
+    reply
+}
+
 fn apply_headers(
     mut reply: Response<Body>,
     headers: std::collections::HashMap<String, String>,
@@ -778,20 +887,20 @@ fn apply_headers(
             axum::http::HeaderName::try_from(key),
             HeaderValue::from_str(&value),
         ) else {
-            return response::internal();
+            return failure_response(Failure::new(FailureStage::CallbackHeaders));
         };
         if matches!(
             key.as_str(),
             "connection" | "keep-alive" | "transfer-encoding" | "upgrade" | "content-length"
         ) {
-            return response::internal();
+            return failure_response(Failure::new(FailureStage::CallbackHeaders));
         }
         reply.headers_mut().insert(key, value);
     }
     reply
 }
-fn flag(meta: &Json, key: &str) -> bool {
-    meta.get(key).and_then(Json::as_bool) == Some(true)
+fn flag(record: &Json, key: &str) -> bool {
+    record.get(key).and_then(Json::as_bool) == Some(true)
 }
 fn json_truthy(value: &Json) -> bool {
     !value.is_null()
@@ -815,14 +924,10 @@ fn effective_token(context: &RequestContext, params: &Value) -> Result<Value, Bo
     }
 }
 
-fn requires_auth_cache(token: &Value, meta: &Json) -> bool {
+fn requires_auth_cache(token: &Value, meta: &EndpointMeta) -> bool {
     // Anonymous policy checks also depend on Meta invalidations. Do not use a
     // stale permissive base policy while the direct Redis subscription is down.
-    token.truthy()
-        || meta
-            .get("requiredRolePolicy")
-            .and_then(Json::as_str)
-            .is_some()
+    token.truthy() || meta.required_role_policy.is_some()
 }
 
 fn is_root_user(user_id: Option<&str>, root_id: Option<&str>) -> bool {
@@ -842,22 +947,15 @@ async fn authorize_required_policy<S: Store>(
         Some(id) => auth
             .roles_for(id, now_ms())
             .await
-            .map_err(|_| response::internal())?,
+            .map_err(|_| failure_response(Failure::new(FailureStage::RoleLookup)))?,
         None => Vec::new(),
     };
     let policies = auth
         .policies_for(user_id, now_ms())
         .await
-        .map_err(|_| response::internal())?;
+        .map_err(|_| failure_response(Failure::new(FailureStage::RequiredPolicy)))?;
     if !policies.is_truthy(policy) && !roles.iter().any(|role| flag(role, "isAdministrator")) {
-        return Err(Box::new(response::api_error(
-            "You are not assigned to a required role.",
-            "ROLE_PERMISSION_DENIED",
-            "7f86f06f-7e15-4057-8561-f4b6d4ac755a",
-            "permission",
-            None,
-            None,
-        )));
+        return Err(Box::new(response::fixed(ApiFailure::RequiredRole, None)));
     }
     Ok(())
 }
@@ -879,9 +977,6 @@ async fn unmatched_route(
     // Neither parser failures nor that handler inherit the API response hooks.
     match request::parse(context, body, false, max_file_size, upload_directory).await {
         Err(reply) => *reply,
-        Ok(_) => response::json(
-            404,
-            json!({"message":format!("Route {}:{} not found",context.method,context.path),"error":"Not Found","statusCode":404}),
-        ),
+        Ok(_) => response::not_found(&context.method, &context.path),
     }
 }

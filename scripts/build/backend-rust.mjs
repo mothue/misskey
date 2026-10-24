@@ -7,6 +7,9 @@ import { resolve, join } from 'node:path';
 import { execa } from 'execa';
 
 export async function buildNative({ root = resolve(import.meta.dirname, '../../packages/backend-rust'), run = (command, args, options) => execa(command, args, options) } = {}) {
+ // Fail before Cargo/publication when the authoritative TS policy contract
+ // no longer matches the generated Rust aggregation descriptor.
+ await run(process.execPath, [resolve(import.meta.dirname, '../../packages/backend-rust/scripts/generate-policy-aggregation.ts'), '--check'], { cwd: root, stdio: 'inherit' });
  const target = join(root, 'built/target');
  await run('cargo', ['build', '--locked', '--release', '--manifest-path', join(root, 'Cargo.toml'), '--target-dir', target], { cwd: root, stdio: 'inherit' });
  const name = `misskey-backend-rust${process.platform === 'win32' ? '.exe' : ''}`;

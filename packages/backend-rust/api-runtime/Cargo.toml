@@ -11,7 +11,7 @@ misskey-backend-api-auth = { path = "../api-auth" }
 misskey-backend-core = { path = "../core" }
 misskey-backend-postgres = { path = "../storage-postgres" }
 serde = { version = "1", features = ["derive"] }
-serde_json = { version = "1", features = ["preserve_order", "unbounded_depth"] }
+serde_json = { version = "1", features = ["preserve_order", "unbounded_depth", "raw_value"] }
 serde_stacker = "0.1"
 tokio = { version = "1", features = ["fs", "io-util", "sync", "rt", "time"] }
 tokio-util = { version = "0.7", features = ["io"] }

@@ -7,9 +7,79 @@ fn unrelated_host_stream_payloads_do_not_invalidate_auth_subscription() {
         br#"{"channel":"broadcast","message":null}"#.as_slice(),
         br#"{"channel":"userStream:x","message":[1,2]}"#.as_slice(),
     ] {
-        assert!(decode_event(payload).is_ok());
+        assert!(decode_event(payload).unwrap().is_none());
     }
     assert!(decode_event(br#"{"channel":"internal","message":null}"#).is_err());
+}
+
+#[test]
+fn irrelevant_channels_skip_surrogates_and_deep_business_values() {
+    for payload in [
+        br#"{"channel":"notesStream","message":"\ud800"}"#.as_slice(),
+        br#"{"channel":"notesStream","message":{"\ud800":"\udfff"}}"#.as_slice(),
+        br#"{"channel":"\ud800","message":{"type":false}}"#.as_slice(),
+        br#"{"channel":"notesStream","\ud800":"irrelevant","message":1e999}"#.as_slice(),
+    ] {
+        assert!(decode_event(payload).unwrap().is_none());
+    }
+    let depth = 20_000;
+    let mut payload = b"{\"channel\":\"notesStream\",\"message\":".to_vec();
+    payload.extend(std::iter::repeat_n(b'[', depth));
+    payload.extend_from_slice(br#""\ud800""#);
+    payload.extend(std::iter::repeat_n(b']', depth));
+    payload.push(b'}');
+    assert!(decode_event(&payload).unwrap().is_none());
+    payload.push(b'}');
+    assert!(decode_event(&payload).is_err());
+}
+
+#[test]
+fn host_envelopes_keep_last_duplicate_channel_and_message() {
+    for payload in [
+        br#"{"channel":"internal","message":null,"channel":"notesStream"}"#.as_slice(),
+        br#"{"channel":null,"channel":"notesStream","message":"\ud800"}"#.as_slice(),
+        br#"{"channel":"internal","chann\u0065l":"notesStream","message":[]}"#.as_slice(),
+    ] {
+        assert!(decode_event(payload).unwrap().is_none());
+    }
+    for payload in [
+        br#"{"channel":"notesStream","channel":"internal","message":{"type":"metaUpdated"}}"#.as_slice(),
+        br#"{"channel":"\ud800","message":null,"channel":"internal","message":{"type":"metaUpdated"}}"#.as_slice(),
+        br#"{"channel":null,"chann\u0065l":"internal","message":"\ud800","mess\u0061ge":{"type":"metaUpdated"},"\ud800":null}"#.as_slice(),
+    ] {
+        let event = decode_event(payload).unwrap().unwrap();
+        assert_eq!(event["channel"], "internal");
+        assert_eq!(event["message"]["type"], "metaUpdated");
+    }
+    assert!(
+        decode_event(br#"{"channel":"notesStream","channel":"internal","message":null}"#).is_err()
+    );
+    assert!(
+        decode_event(br#"{"channel":"internal","message":{"type":"metaUpdated"},"message":null}"#)
+            .is_err()
+    );
+}
+
+#[test]
+fn malformed_json_and_invalid_auth_envelopes_fail_closed() {
+    for payload in [
+        br#"{"channel":"notesStream","message":[1,]}"#.as_slice(),
+        br#"{"channel":"notesStream","message":"\uZZZZ"}"#.as_slice(),
+        br#"{"channel":"notesStream"} garbage"#.as_slice(),
+        br#"[]"#.as_slice(),
+        br#"{}"#.as_slice(),
+        br#"{"channel":null}"#.as_slice(),
+        br#"{"channel":false}"#.as_slice(),
+        br#"{"channel":42}"#.as_slice(),
+        br#"{"channel":[]}"#.as_slice(),
+        br#"{"channel":{}}"#.as_slice(),
+        br#"{"channel":"internal"}"#.as_slice(),
+        br#"{"channel":"internal","message":{}}"#.as_slice(),
+        br#"{"channel":"internal","message":{"type":null}}"#.as_slice(),
+        br#"{"channel":"internal","message":{"type":"metaUpdated","body":"\ud800"}}"#.as_slice(),
+    ] {
+        assert!(decode_event(payload).is_err());
+    }
 }
 use misskey_backend_api_auth::{AuthConfig, Failure as AuthFailure};
 use std::collections::HashMap;
@@ -55,6 +125,32 @@ fn javascript_number_and_parse_int_boundaries_are_preserved() {
 }
 
 #[test]
+fn limiter_projection_preserves_nonfinite_nulls_and_redacted_failure_stages() {
+    let info = LimitInfo {
+        remaining: 0.,
+        reset: f64::NAN,
+        reset_ms: f64::NEG_INFINITY,
+        total: f64::INFINITY,
+    };
+    assert_eq!(
+        info.to_json(),
+        json!({"remaining":0.,"reset":null,"resetMs":null,"total":null})
+    );
+    let mut config = config(0);
+    config.username = Some("sensitive-user".into());
+    config.password = Some("sensitive-password".into());
+    let Err(failure) = client(&config) else {
+        panic!("invalid Redis configuration accepted");
+    };
+    assert_eq!(failure.stage, FailureStage::Configuration);
+    assert_eq!(
+        format!("{failure}"),
+        "Rust Redis unavailable at Configuration"
+    );
+    assert_eq!(format!("{failure:?}"), "Failure { stage: Configuration }");
+}
+
+#[test]
 fn unsupported_or_partial_tls_configuration_is_rejected_without_downgrade() {
     let mut config = config(1);
     config.tls = Some(RedisTls {
@@ -91,11 +187,11 @@ async fn deep_event_deserialization_and_auth_refresh_do_not_silently_skip_privil
     bytes.extend_from_slice(b"true");
     bytes.extend(std::iter::repeat_n(b']', depth));
     bytes.extend_from_slice(b"}}}}}");
-    let event = decode_event(&bytes).unwrap();
+    let event = decode_event(&bytes).unwrap().unwrap();
     auth.apply_event(&event, 1).await.unwrap();
     assert_eq!(auth.root_user_id().await.as_deref(), Some("changed"));
     let policies = auth.policies_for(None, 1).await.unwrap();
-    let mut value = &policies["extra"];
+    let mut value = &policies.as_json()["extra"];
     for _ in 0..depth {
         value = &value[0];
     }
@@ -123,6 +219,77 @@ fn dedicated_client() -> Client {
     let address = std::env::var("MISSKEY_RUST_REDIS_TEST_URL")
         .expect("explicit dedicated Redis URL required");
     Client::open(address).unwrap_or_else(|_| panic!("invalid dedicated Redis fixture"))
+}
+
+#[tokio::test]
+#[ignore = "requires explicit dedicated Redis fixture; no FLUSHDB or shared keys"]
+async fn typed_limits_use_endpoint_fallback_and_preserve_empty_or_shared_keys() {
+    let client = dedicated_client();
+    let connection = client.get_multiplexed_async_connection().await.unwrap();
+    let unique = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let mut config = config(1);
+    config.key_prefix = format!("typed-limit:{unique}:");
+    let (stop, _) = watch::channel(false);
+    let state = RedisState {
+        client: client.clone(),
+        config,
+        connection: Mutex::new(Some(connection.clone())),
+        ready: Arc::new(AtomicBool::new(true)),
+        stopped: AtomicBool::new(false),
+        stop,
+        tasks: Mutex::new(Vec::new()),
+        clock: Clock::new(),
+    };
+    assert!(
+        state
+            .limit(&RateLimit::default(), "disabled", "actor", 1.)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    for (override_key, expected_key) in [
+        (None, "endpoint/name"),
+        (Some(""), ""),
+        (Some("shared"), "shared"),
+    ] {
+        let limit = RateLimit {
+            key: override_key.map(str::to_owned),
+            duration: Some(60_000.),
+            max: Some(1.),
+            min_interval: None,
+        };
+        assert!(
+            state
+                .limit(&limit, "endpoint/name", "actor", 1.)
+                .await
+                .unwrap()
+                .is_none()
+        );
+        let blocked = state
+            .limit(&limit, "endpoint/name", "actor", 1.)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(blocked.remaining, 0.);
+        assert_eq!(blocked.total, 1.);
+        let key = format!("{}limit:actor:{expected_key}", state.config.key_prefix);
+        let mut connection = connection.clone();
+        let count = redis::cmd("ZCARD")
+            .arg(&key)
+            .query_async::<i64>(&mut connection)
+            .await
+            .unwrap();
+        assert_eq!(count, 1);
+        redis::cmd("DEL")
+            .arg(&key)
+            .query_async::<i64>(&mut connection)
+            .await
+            .unwrap();
+    }
+    state.shutdown().await;
 }
 
 #[tokio::test]
@@ -165,8 +332,8 @@ async fn live_redis_matches_existing_ratelimiter_including_fractional_errors() {
             .await
             .unwrap();
             assert!(
-                equivalent(&actual, &step["info"]),
-                "scenario {}: actual{actual}, expected{}",
+                equivalent(&actual.to_json(), &step["info"]),
+                "scenario {}: actual{actual:?}, expected{}",
                 scenario["name"],
                 step["info"]
             );
@@ -242,7 +409,7 @@ async fn limiter_serializes_concurrent_requests_and_keeps_exact_window_expiry() 
     }
     let mut permitted = 0;
     for task in tasks {
-        if task.await.unwrap()["remaining"].as_f64().unwrap() > 0.0 {
+        if task.await.unwrap().remaining > 0.0 {
             permitted += 1;
         }
     }
@@ -258,7 +425,7 @@ async fn limiter_serializes_concurrent_requests_and_keeps_exact_window_expiry() 
     let expired = check_at(&mut connection, &key, 1000.0, 3.0, now)
         .await
         .unwrap();
-    assert_eq!(expired["remaining"].as_f64(), Some(3.0));
+    assert_eq!(expired.remaining, 3.0);
     redis::cmd("DEL")
         .arg(&key)
         .query_async::<i64>(&mut connection)
@@ -388,6 +555,33 @@ async fn pubsub_disconnect_closes_admission_then_refreshes_and_recovers() {
         tokio::time::sleep(Duration::from_millis(10)).await;
     }
     assert_eq!(auth.root_user_id().await.as_deref(), Some("event"));
+    // Valid unrelated host traffic must leave the same subscription able to
+    // process the next privilege event, including JS-only string payloads.
+    let mut deep = b"{\"channel\":\"notesStream\",\"message\":".to_vec();
+    deep.extend(std::iter::repeat_n(b'[', 1000));
+    deep.extend_from_slice(br#""\ud800""#);
+    deep.extend(std::iter::repeat_n(b']', 1000));
+    deep.push(b'}');
+    for payload in [
+        br#"{"channel":"notesStream","message":"\ud800"}"#.as_slice(),
+        br#"{"channel":"internal","channel":"notesStream","message":null}"#.as_slice(),
+        deep.as_slice(),
+        br#"{"channel":"internal","message":{"type":"metaUpdated","body":{"after":{"rootUserId":"after-irrelevant"}}}}"#.as_slice(),
+    ] {
+        redis::cmd("PUBLISH").arg(&channel).arg(payload)
+            .query_async::<i64>(&mut publisher).await.unwrap();
+    }
+    for _ in 0..100 {
+        if auth.root_user_id().await.as_deref() == Some("after-irrelevant") {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    assert_eq!(
+        auth.root_user_id().await.as_deref(),
+        Some("after-irrelevant")
+    );
+    assert!(state.ready());
     *store.meta.write().await =
         json!({"rootUserId":"after-gap","policies":{},"enableIpLogging":false});
     cut.send_replace(true);
@@ -436,7 +630,16 @@ async fn pubsub_disconnect_closes_admission_then_refreshes_and_recovers() {
     assert!(!state.ready());
     assert!(
         state
-            .limit(&json!({"key":"test","minInterval":1}), "actor", 1.0)
+            .limit(
+                &RateLimit {
+                    key: Some("test".into()),
+                    min_interval: Some(1.),
+                    ..Default::default()
+                },
+                "endpoint",
+                "actor",
+                1.0
+            )
             .await
             .is_err()
     );

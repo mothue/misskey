@@ -272,18 +272,18 @@ async fn policy_priority_defaults_boolean_and_file_constraints_match_typescript(
         json!({"id":"b","roleId":"b","expiresAt":null}),
     ];
     let policies = service.policies_for(Some(id), 0).await.unwrap();
-    assert_eq!(policies["rateLimitFactor"], 0.5);
-    assert_eq!(policies["canInvite"], false);
-    assert_eq!(policies["maxFileSizeMb"], 30.0);
-    assert_eq!(policies["chatAvailability"], "readonly");
+    assert_eq!(policies.as_json()["rateLimitFactor"], 0.5);
+    assert_eq!(policies.as_json()["canInvite"], false);
+    assert_eq!(policies.as_json()["maxFileSizeMb"], 30.0);
+    assert_eq!(policies.as_json()["chatAvailability"], "readonly");
     // Role b uses default file types, appended in first occurrence order.
     assert_eq!(
-        policies["uploadableFileTypes"],
+        policies.as_json()["uploadableFileTypes"],
         json!(["image/png", "text/plain", "image/*", "text/*"])
     );
     service.apply_event(&event("metaUpdated",json!({"after":{"policies":{"rateLimitFactor":0,"canInvite":true,"extra":"anonymous-only"}}})),1).await.unwrap();
     assert_eq!(
-        service.policies_for(None, 1).await.unwrap()["extra"],
+        service.policies_for(None, 1).await.unwrap().as_json()["extra"],
         "anonymous-only"
     );
     assert!(
@@ -291,6 +291,7 @@ async fn policy_priority_defaults_boolean_and_file_constraints_match_typescript(
             .policies_for(Some(id), 1)
             .await
             .unwrap()
+            .as_json()
             .get("extra")
             .is_none()
     );
@@ -631,11 +632,16 @@ fn policy_values_use_js_numeric_coercion_and_reject_noniterable_file_types() {
             json!({"policies":{"rateLimitFactor":{"priority":2.0,"useDefault":false,"value":value}}}),
         ];
         let actual = role::aggregate_policies(&base, &roles, 1).unwrap();
-        assert_eq!(actual["rateLimitFactor"].as_f64(), expected);
+        assert_eq!(actual.as_json()["rateLimitFactor"].as_f64(), expected);
     }
     let base = Map::from_iter([("rateLimitFactor".into(), json!(1))]);
     let roles = vec![json!({"policies":{"rateLimitFactor":{"priority":2,"useDefault":false}}})];
-    assert!(role::aggregate_policies(&base, &roles, 1).unwrap()["rateLimitFactor"].is_null());
+    assert!(
+        role::aggregate_policies(&base, &roles, 1)
+            .unwrap()
+            .as_json()["rateLimitFactor"]
+            .is_null()
+    );
     let base = Map::from_iter([("uploadableFileTypes".into(), json!(17))]);
     assert!(role::aggregate_policies::<Value>(&base, &[], 1).is_err());
 }
@@ -690,11 +696,79 @@ async fn policy_snapshot_preserves_nonfinite_factors_before_json_projection() {
             expected != 0.0 && !expected.is_nan()
         );
         if expected.is_finite() {
-            assert_js_number(snapshot["rateLimitFactor"].as_f64().unwrap(), expected);
+            assert_js_number(
+                snapshot.as_json()["rateLimitFactor"].as_f64().unwrap(),
+                expected,
+            );
         } else {
-            assert!(snapshot["rateLimitFactor"].is_null());
+            assert!(snapshot.as_json()["rateLimitFactor"].is_null());
         }
     }
+}
+
+#[tokio::test]
+async fn projected_null_does_not_replace_a_numeric_policy_or_anonymous_base_value() {
+    let (_, service) = service().await;
+    service
+        .apply_event(
+            &event(
+                "metaUpdated",
+                json!({"after":{"policies":{"rateLimitFactor":"Infinity"}}}),
+            ),
+            1,
+        )
+        .await
+        .unwrap();
+    let infinite = service.policies_for(Some("user"), 1).await.unwrap();
+    service
+        .apply_event(
+            &event(
+                "metaUpdated",
+                json!({"after":{"policies":{"rateLimitFactor":"NaN"}}}),
+            ),
+            2,
+        )
+        .await
+        .unwrap();
+    let nan = service.policies_for(Some("user"), 2).await.unwrap();
+    service
+        .apply_event(
+            &event(
+                "metaUpdated",
+                json!({"after":{"policies":{"rateLimitFactor":null}}}),
+            ),
+            3,
+        )
+        .await
+        .unwrap();
+    let anonymous = service.policies_for(None, 3).await.unwrap();
+    let stored_null = service.policies_for(Some("user"), 3).await.unwrap();
+
+    // All three JSON nulls have different policy meanings. Only the evaluated
+    // snapshots carry aggregates; a stored null instead coerces to numeric +0.
+    assert!(infinite.as_json()["rateLimitFactor"].is_null());
+    assert_eq!(
+        infinite.as_json()["rateLimitFactor"],
+        nan.as_json()["rateLimitFactor"]
+    );
+    assert_eq!(
+        infinite.as_json()["rateLimitFactor"],
+        anonymous.as_json()["rateLimitFactor"]
+    );
+    assert_js_number(
+        infinite.numeric_aggregate("rateLimitFactor").unwrap(),
+        f64::INFINITY,
+    );
+    assert!(nan.numeric_aggregate("rateLimitFactor").unwrap().is_nan());
+    assert_eq!(anonymous.numeric_aggregate("rateLimitFactor"), None);
+    assert_js_number(
+        stored_null.numeric_aggregate("rateLimitFactor").unwrap(),
+        0.0,
+    );
+    assert!(infinite.is_truthy("rateLimitFactor"));
+    assert!(!nan.is_truthy("rateLimitFactor"));
+    assert!(!anonymous.is_truthy("rateLimitFactor"));
+    assert!(!stored_null.is_truthy("rateLimitFactor"));
 }
 
 #[test]
@@ -759,9 +833,9 @@ async fn nonfinite_factor_does_not_skip_other_policy_aggregation_errors() {
     let anonymous = service.policies_for(None, 1).await.unwrap();
     // The anonymous branch deliberately returns raw base values without the
     // numeric aggregation/coercion or the file-types aggregation exception.
-    assert_eq!(anonymous["rateLimitFactor"], "Infinity");
+    assert_eq!(anonymous.as_json()["rateLimitFactor"], "Infinity");
     assert_eq!(anonymous.numeric_aggregate("rateLimitFactor"), None);
-    assert_eq!(anonymous["uploadableFileTypes"], 17);
+    assert_eq!(anonymous.as_json()["uploadableFileTypes"], 17);
     assert!(anonymous.is_truthy("rateLimitFactor"));
 }
 
