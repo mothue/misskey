@@ -2,6 +2,8 @@
 
 ## Authority and scope
 
+The complete [users/relation candidate](users-relation-validation.md) preserves the relationship response contract but remains on TS after its paired performance gate failed.
+
 The complete [users/lists/show slice](users-lists-show-validation.md) reuses the UserList formatter and passed all six paired performance cases. Its remaining acceptance checks are recorded there.
 
 The complete [users/lists/list slice](users-lists-list-validation.md) passed its paired performance gate after bounded membership batching. Its final acceptance checks are recorded there.
@@ -18,7 +20,7 @@ The user authorizes implementation, validation, independent review, commits, nor
 
 Fastify still owns the public socket and non-API/WebSocket routes. Its API onRequest hook forwards raw method/path/headers/IP/body to the authenticated loopback Rust application, before TS body parsing or CORS. Rust owns routing, method checks, CORS, query/JSON/multipart parsing and temporary files, token authentication and credential/suspension/moved/role/scope checks, Redis rate limits and cache invalidation, AJV-compatible validation/defaults, IP history, and public status/headers/errors/JSON. Existing TS telemetry remains around the transport/business callback boundary.
 
-The registry currently contains 438 endpoints: 28 native Rust business handlers (the original five, 22 measured reads, and `notes/show`) and 410 legacy TS business callbacks. Counts are observations, never dispatch constants. Seven special paths also pass through Rust: signup, signin-flow, signin-with-passkey, signup-pending, v1/instance/peers, miauth/:session/check, and clear-browser-cache. Clear-browser-cache is handled directly; the remaining special business flows, including password/passkey authentication, use the private executor. This is **common API infrastructure migration**, not completion of all business-handler migration or public listener migration.
+The generated [native/TS/held registry](native-status.md) derives current business-handler selection from source; dispatch never depends on fixed counts. Seven special paths also pass through Rust: signup, signin-flow, signin-with-passkey, signup-pending, v1/instance/peers, miauth/:session/check, and clear-browser-cache. Clear-browser-cache is handled directly; the remaining special business flows, including password/passkey authentication, use the private executor. This is **common API infrastructure migration**, not completion of all business-handler migration or public listener migration.
 
 A legacy dispatch invokes exactly one callback through an authenticated private capability. It never calls the former TS HTTP/auth/validation pipeline or `Endpoint.exec`; `invokeValidated` invokes only the business body. Rust handlers call their native application operations directly. No TS fallback, automatic request replay, or child restart is added. Rust loss makes all API routes and health checks unavailable (503). The final goal remains a Rust-only backend with both temporary RPC directions removed.
 

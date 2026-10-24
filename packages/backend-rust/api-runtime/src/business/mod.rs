@@ -11,6 +11,7 @@ pub(crate) mod notes;
 mod registry_apps;
 mod roles_admin;
 mod user_lists;
+mod user_relations;
 use id::{iso_date, parse_id_date};
 
 pub(super) struct Config {
@@ -191,6 +192,9 @@ pub(super) async fn execute(
 ) -> Option<Result<Value, Error>> {
     if !ACTIVE_READ_ENDPOINTS.contains(&name) {
         return None;
+    }
+    if name == "users/relation" {
+        return Some(user_relations::relation(runtime, params, auth).await);
     }
     if name == "users/lists/show" {
         return Some(user_lists::show(runtime, params, auth).await);

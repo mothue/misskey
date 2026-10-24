@@ -9,9 +9,14 @@ import * as assert from 'assert';
 import { beforeAll, beforeEach, describe, test } from 'vitest';
 import { inspect } from 'node:util';
 import { randomUUID } from 'node:crypto';
-import { api, post, role, signup, successfulApiCall, uploadFile } from '../utils.js';
+import { api, createAppToken, initTestDb, post, role, signup, successfulApiCall, uploadFile } from '../utils.js';
 import type * as misskey from 'misskey-js';
 import { DEFAULT_POLICIES } from '@/core/RoleService.js';
+import { MiFollowing } from '@/models/Following.js';
+import { MiFollowRequest } from '@/models/FollowRequest.js';
+import { MiBlocking } from '@/models/Blocking.js';
+import { MiMuting } from '@/models/Muting.js';
+import { MiRenoteMuting } from '@/models/RenoteMuting.js';
 
 describe('ユーザー', () => {
 	// エンティティとしてのユーザーを主眼においたテストを記述する
@@ -1006,6 +1011,124 @@ describe('users/lists list and show response compatibility', () => {
 			const response = await api('users/lists/list', params);
 			assert.strictEqual(response.status, 400);
 			assert.deepStrictEqual(errorBody(response.body), expected);
+		}
+	});
+});
+
+describe('users/relation response compatibility', () => {
+	let viewer: misskey.entities.SignupResponse;
+	let outgoing: misskey.entities.SignupResponse;
+	let incoming: misskey.entities.SignupResponse;
+	let unrelated: misskey.entities.SignupResponse;
+	const absent = {
+		isFollowing: false, isFollowed: false,
+		hasPendingFollowRequestFromYou: false, hasPendingFollowRequestToYou: false,
+		isBlocking: false, isBlocked: false, isMuted: false, isRenoteMuted: false,
+	};
+
+	beforeAll(async () => {
+		viewer = await signup({ username: 'relationViewer' });
+		outgoing = await signup({ username: 'relationOutgoing' });
+		incoming = await signup({ username: 'relationIncoming' });
+		unrelated = await signup({ username: 'relationUnrelated' });
+	});
+
+	function runtimeObject(value: unknown): asserts value is Record<string, unknown> {
+		assert.ok(value !== null && typeof value === 'object' && !Array.isArray(value));
+	}
+
+	test('preserves the raw following, all eight directions and an expired mute row', async () => {
+		const connection = await initTestDb(true);
+		const followings = connection.getRepository(MiFollowing);
+		const requests = connection.getRepository(MiFollowRequest);
+		const blocks = connection.getRepository(MiBlocking);
+		const mutes = connection.getRepository(MiMuting);
+		const renoteMutes = connection.getRepository(MiRenoteMuting);
+		const ids = Array.from({ length: 8 }, () => randomUUID().replaceAll('-', ''));
+		const following = {
+			id: ids[0], followeeId: outgoing.id, followerId: viewer.id,
+			isFollowerHibernated: false, withReplies: true, notify: null,
+			followerHost: null, followerInbox: null, followerSharedInbox: null,
+			followeeHost: null, followeeInbox: null, followeeSharedInbox: null,
+		};
+		try {
+			// Insert isolated rows directly: API mutations would also start
+			// notifications and remove other edges when blocking these users.
+			await followings.insert([following, { ...following, id: ids[1], followerId: incoming.id, followeeId: viewer.id }]);
+			await requests.insert([
+				{ id: ids[2], followerId: viewer.id, followeeId: outgoing.id, requestId: null, withReplies: false },
+				{ id: ids[3], followerId: incoming.id, followeeId: viewer.id, requestId: null, withReplies: false },
+			]);
+			await blocks.insert([
+				{ id: ids[4], blockerId: viewer.id, blockeeId: outgoing.id },
+				{ id: ids[5], blockerId: incoming.id, blockeeId: viewer.id },
+			]);
+			await mutes.insert({ id: ids[6], muterId: viewer.id, muteeId: outgoing.id, expiresAt: new Date(0) });
+			await renoteMutes.insert({ id: ids[7], muterId: viewer.id, muteeId: outgoing.id });
+			const expectedOutgoing = {
+				id: outgoing.id, following, ...absent, isFollowing: true,
+				hasPendingFollowRequestFromYou: true, isBlocking: true, isMuted: true, isRenoteMuted: true,
+			};
+			const scalar = await api('users/relation', { userId: outgoing.id }, viewer);
+			assert.strictEqual(scalar.status, 200);
+			assert.ok(Array.isArray(scalar.body));
+			const raw: unknown = scalar.body[0];
+			runtimeObject(raw);
+			runtimeObject(raw.following);
+			assert.deepStrictEqual(raw.following, following);
+			assert.deepStrictEqual(scalar.body, [expectedOutgoing]);
+			const batch = await api('users/relation', { userId: [incoming.id, outgoing.id] }, viewer);
+			assert.strictEqual(batch.status, 200);
+			assert.ok(Array.isArray(batch.body));
+			assert.deepStrictEqual(batch.body, [{
+				id: incoming.id, following: null, ...absent, isFollowed: true,
+				hasPendingFollowRequestToYou: true, isBlocked: true,
+			}, expectedOutgoing]);
+			const isolated = await api('users/relation', { userId: outgoing.id }, unrelated);
+			assert.strictEqual(isolated.status, 200);
+			assert.deepStrictEqual(isolated.body, [{ id: outgoing.id, following: null, ...absent }]);
+		} finally {
+			try {
+				await renoteMutes.delete(ids[7]);
+				await mutes.delete(ids[6]);
+				await blocks.delete([ids[4], ids[5]]);
+				await requests.delete([ids[2], ids[3]]);
+				await followings.delete([ids[0], ids[1]]);
+			} finally { await connection.destroy(); }
+		}
+	});
+
+	test('keeps scalar responses as arrays and deduplicates IDs in first appearance order', async () => {
+		const missing = '0000000000000000';
+		for (const id of [viewer.id, missing]) {
+			const scalar = await api('users/relation', { userId: id }, viewer);
+			assert.strictEqual(scalar.status, 200);
+			assert.ok(Array.isArray(scalar.body));
+			assert.deepStrictEqual(scalar.body, [{ id, following: null, ...absent }]);
+		}
+		const empty = await api('users/relation', { userId: [] }, viewer);
+		assert.strictEqual(empty.status, 200);
+		assert.deepStrictEqual(empty.body, []);
+		const repeated = await api('users/relation', { userId: [missing, viewer.id, missing] }, viewer);
+		assert.strictEqual(repeated.status, 200);
+		assert.ok(Array.isArray(repeated.body));
+		assert.deepStrictEqual(repeated.body, [missing, viewer.id].map(id => ({ id, following: null, ...absent })));
+	});
+
+	test('requires credentials and read:account for scoped application tokens', async () => {
+		const allowed = await createAppToken(viewer, ['read:account']);
+		const denied = await createAppToken(viewer, ['read:notifications']);
+		const scoped = await api('users/relation', { userId: [] }, { token: allowed, bearer: true });
+		assert.strictEqual(scoped.status, 200);
+		assert.deepStrictEqual(scoped.body, []);
+		const anonymous = await api('users/relation', { userId: [] });
+		const forbidden = await api('users/relation', { userId: [] }, { token: denied, bearer: true });
+		for (const [response, status, code] of [[anonymous, 401, 'CREDENTIAL_REQUIRED'], [forbidden, 403, 'PERMISSION_DENIED']] as const) {
+			assert.strictEqual(response.status, status);
+			const body: unknown = response.body;
+			runtimeObject(body);
+			runtimeObject(body.error);
+			assert.strictEqual(body.error.code, code);
 		}
 	});
 });

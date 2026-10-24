@@ -54,6 +54,12 @@
       "kind": "performance",
       "reason": "Paired nine-draft account scenario improved throughput by 19.52% but p95 increased 3.71%; all-scenario throughput/p95 gate failed, so keep the complete TS body.",
       "evidence": "notes-drafts-count-validation.md"
+    },
+    {
+      "endpoint": "users/relation",
+      "kind": "performance",
+      "reason": "Eight-query complete native candidate failed five of six paired throughput/p95 scenarios; scoped 20-ID request throughput -30.46%, p95 +29.12%. Keep the complete TS body.",
+      "evidence": "users-relation-validation.md"
     }
   ]
 }
