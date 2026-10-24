@@ -93,7 +93,7 @@ async fn empty_query(socket: &mut tokio::net::TcpStream) {
         .unwrap();
 }
 
-fn fixture() -> PostgresConfig {
+pub(super) fn fixture() -> PostgresConfig {
     serde_json::from_str(include_str!("../tests/fixtures/local.json")).unwrap()
 }
 
@@ -165,7 +165,7 @@ async fn read_startup(socket: &mut tokio::net::TcpStream) {
     socket.read_exact(&mut startup).await.unwrap();
 }
 
-async fn read_frontend(socket: &mut tokio::net::TcpStream) -> (u8, Vec<u8>) {
+pub(super) async fn read_frontend(socket: &mut tokio::net::TcpStream) -> (u8, Vec<u8>) {
     use tokio::io::AsyncReadExt;
     let kind = socket.read_u8().await.unwrap();
     let length = socket.read_u32().await.unwrap() as usize;
@@ -354,7 +354,7 @@ async fn mid_query_disconnect_retains_the_driver_error_and_discards_connection()
         fault.io_kind().is_some(),
         "concrete driver IO source survives Closed"
     );
-    assert!(database.primary.slots[0].connection.lock().await.is_none());
+    assert!(database.primary.slots[0].idle_count() == 0);
     peer.await.unwrap();
     database.shutdown().await;
 }
@@ -401,10 +401,16 @@ async fn typed_query_deadline_keeps_legacy_error_and_cancels_the_same_connection
         .unwrap_err();
     assert!(matches!(error, QueryError::QueryTimeout));
     assert_eq!(error.legacy_message(), Some("Query read timeout"));
-    assert!(database.primary.slots[0].connection.lock().await.is_none());
+    assert!(database.primary.slots[0].idle_count() == 0);
     database.shutdown().await;
     peer.await.unwrap();
-    assert!(database.primary.cancellations.lock().unwrap().is_empty());
+    assert!(
+        database.primary.slots[0]
+            .cancellations
+            .lock()
+            .unwrap()
+            .is_empty()
+    );
 }
 
 #[tokio::test]
@@ -521,7 +527,7 @@ async fn a_later_query_connects_again_after_a_failed_startup() {
             .unwrap()
             .is_empty()
     );
-    assert!(database.primary.slots[0].connection.lock().await.is_some());
+    assert!(database.primary.slots[0].idle_count() == 1);
     database.shutdown().await;
     peer.await.unwrap();
 }
@@ -609,8 +615,10 @@ async fn absent_configuration_and_stopped_adapters_are_unavailable() {
 
 #[tokio::test(start_paused = true)]
 async fn operation_deadline_includes_waiting_for_a_shared_connection() {
-    let adapter = OnlineUsers::new(Some(fixture()));
-    let _held = adapter.slots[0].connection.lock().await;
+    let mut config = fixture();
+    config.targets[0].connect_timeout_ms = None;
+    let adapter = OnlineUsers::new(Some(config));
+    let _held = adapter.slots[0].hold_capacity();
     let started = Instant::now();
     assert_eq!(adapter.count_at(UNIX_EPOCH).await, Err(Failure));
     assert_eq!(Instant::now() - started, OPERATION_LIMIT);
@@ -733,8 +741,8 @@ async fn dedicated_postgres_lifecycle() {
     );
     let pid: i32;
     {
-        let stored = adapter.slots[0].connection.lock().await;
-        let client = &stored.as_ref().unwrap().client;
+        let lease = adapter.slots[0].acquire(true).await.unwrap();
+        let client = &lease.connection().client;
         pid = client
             .query_one("SELECT pg_backend_pid()", &[])
             .await
@@ -753,21 +761,14 @@ async fn dedicated_postgres_lifecycle() {
             .await
             .unwrap_err();
         assert_eq!(error.code().map(|code| code.code()), Some("25006"));
+        lease.release();
     }
     admin
         .query_one("SELECT pg_terminate_backend($1)", &[&pid])
         .await
         .unwrap();
     for _ in 0..100 {
-        if adapter.slots[0]
-            .connection
-            .lock()
-            .await
-            .as_ref()
-            .unwrap()
-            .client
-            .is_closed()
-        {
+        if adapter.slots[0].idle_closed() {
             break;
         }
         tokio::time::sleep(Duration::from_millis(5)).await;
@@ -1104,7 +1105,7 @@ async fn duplicate_addresses_do_not_retry_startup_failure_and_a_later_operation_
     assert_eq!(fault.attempted_addr(), Some(addr));
     assert_eq!(fault.resolver_address_count(), Some(3));
     assert_eq!(resolver.calls().len(), 1);
-    assert!(database.primary.slots[0].connection.lock().await.is_none());
+    assert!(database.primary.slots[0].idle_count() == 0);
     assert!(
         database
             .query_typed(false, "SELECT 1", &[])
@@ -1113,8 +1114,7 @@ async fn duplicate_addresses_do_not_retry_startup_failure_and_a_later_operation_
             .is_empty()
     );
     {
-        let stored = database.primary.slots[0].connection.lock().await;
-        let context = stored.as_ref().unwrap().transport_context().unwrap();
+        let context = database.primary.slots[0].idle_context().unwrap();
         assert_eq!(context.attempted_addr(), Some(addr));
         assert_eq!(context.attempt_index(), Some(0));
         assert_eq!(context.connect_stage(), ConnectStage::Established);
@@ -1194,7 +1194,7 @@ async fn first_tcp_startup_fatal_never_tries_a_healthy_second_ip_and_later_opera
     assert_eq!(fault.tls_verify_code(), None);
     assert_eq!(error.legacy_message(), None);
     assert_eq!(resolver.calls().len(), 1);
-    assert!(database.primary.slots[0].connection.lock().await.is_none());
+    assert!(database.primary.slots[0].idle_count() == 0);
     assert_eq!(
         second_accepts.load(Ordering::Acquire),
         0,
@@ -1209,8 +1209,7 @@ async fn first_tcp_startup_fatal_never_tries_a_healthy_second_ip_and_later_opera
     );
     assert_eq!(resolver.calls().len(), 2);
     {
-        let stored = database.primary.slots[0].connection.lock().await;
-        let context = stored.as_ref().unwrap().transport_context().unwrap();
+        let context = database.primary.slots[0].idle_context().unwrap();
         assert_eq!(context.attempted_addr(), Some(first_addr));
         assert_eq!(context.attempt_index(), Some(0));
     }
@@ -1274,7 +1273,7 @@ async fn resolver_deadline_and_shutdown_drop_the_original_pending_lookup() {
         }
         assert!(dropped.load(Ordering::Acquire));
         assert_eq!(resolver.calls().len(), 1);
-        assert!(database.primary.slots[0].connection.lock().await.is_none());
+        assert!(database.primary.slots[0].idle_count() == 0);
     }
 }
 
@@ -1344,7 +1343,7 @@ async fn native_cancellation_uses_the_successful_ip_without_dns_retry_and_later_
         1,
         "the cancellation socket never resolves"
     );
-    assert!(database.primary.slots[0].connection.lock().await.is_none());
+    assert!(database.primary.slots[0].idle_count() == 0);
     assert!(
         database
             .query_typed(false, "SELECT 1", &[])
@@ -1358,14 +1357,19 @@ async fn native_cancellation_uses_the_successful_ip_without_dns_retry_and_later_
         "a later operation owns its own lookup"
     );
     {
-        let stored = database.primary.slots[0].connection.lock().await;
-        let context = stored.as_ref().unwrap().transport_context().unwrap();
+        let context = database.primary.slots[0].idle_context().unwrap();
         assert_eq!(context.attempted_addr(), Some(selected_addr));
         assert_eq!(context.attempt_index(), Some(1));
     }
     database.shutdown().await;
     selected_peer.await.unwrap();
-    assert!(database.primary.cancellations.lock().unwrap().is_empty());
+    assert!(
+        database.primary.slots[0]
+            .cancellations
+            .lock()
+            .unwrap()
+            .is_empty()
+    );
 }
 
 struct MemoryTlsFixture {
@@ -3075,8 +3079,7 @@ async fn a_refused_tcp_candidate_falls_back_to_the_actual_healthy_second_ip() {
             .is_empty()
     );
     {
-        let stored = database.primary.slots[0].connection.lock().await;
-        let context = stored.as_ref().unwrap().transport_context().unwrap();
+        let context = database.primary.slots[0].idle_context().unwrap();
         assert_eq!(context.attempted_addr(), Some(second_addr));
         assert_eq!(context.attempt_index(), Some(1));
         assert_eq!(context.resolver_address_count(), Some(2));
@@ -3191,7 +3194,7 @@ async fn first_tcp_ssl_decline_never_tries_a_healthy_second_ip_and_later_operati
     assert_eq!(resolver.calls().len(), 1);
     assert_eq!(accepted[0].load(Ordering::Acquire), 1);
     assert_eq!(accepted[1].load(Ordering::Acquire), 0);
-    assert!(database.primary.slots[0].connection.lock().await.is_none());
+    assert!(database.primary.slots[0].idle_count() == 0);
     assert!(
         database
             .query_typed(false, "SELECT 1", &[])
@@ -3201,8 +3204,7 @@ async fn first_tcp_ssl_decline_never_tries_a_healthy_second_ip_and_later_operati
     );
     assert_eq!(resolver.calls().len(), 2);
     {
-        let stored = database.primary.slots[0].connection.lock().await;
-        let context = stored.as_ref().unwrap().transport_context().unwrap();
+        let context = database.primary.slots[0].idle_context().unwrap();
         assert_eq!(context.attempted_addr(), Some(first_addr));
         assert_eq!(context.attempt_index(), Some(0));
         assert_eq!(context.ssl_reply(), Some(SslReply::Accepted));

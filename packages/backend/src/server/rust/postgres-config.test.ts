@@ -34,6 +34,7 @@ test('normalization does not open a DB connection and preserves defaults', async
 	const connect = vi.spyOn(pg.Client.prototype, 'connect').mockImplementation(() => { throw new Error('Must not connect'); });
 	expect(await resolveRustPostgresConfig(database())).toEqual({ targets: [{
 		autoSelectFamily: net.getDefaultAutoSelectFamily(), autoSelectFamilyAttemptTimeoutMs: net.getDefaultAutoSelectFamilyAttemptTimeout(), dnsResultOrder: dns.getDefaultResultOrder(),
+		source: { kind: 'primary' }, pool: { max: 10, min: 0, idleTimeoutMs: 10_000, maxUses: null, maxLifetimeMs: null, held: null },
 		host: 'db.test', port: 5432, database: 'dedicated-test', user: 'test-user', password: 'test-only-password',
 		options: null, applicationName: null, statementTimeoutMs: 10_000, lockTimeoutMs: null,
 		idleInTransactionSessionTimeoutMs: null, connectTimeoutMs: null, queryTimeoutMs: null,
@@ -171,4 +172,21 @@ test('captures effective runtime network defaults without resolving or connectin
 		net.setDefaultAutoSelectFamilyAttemptTimeout(previous.timeout);
 		dns.setDefaultResultOrder(previous.order);
 	}
+});
+
+test('pool normalization follows installed constructor comparisons and timer coercion', async () => {
+    const defaults = (await resolveRustPostgresConfig(database()))?.targets[0].pool;
+    expect(defaults).toEqual({ max: 10, min: 0, idleTimeoutMs: 10_000, maxUses: null, maxLifetimeMs: null, held: null });
+    const result = await resolveRustPostgresConfig(database({ max: '2.5', min: '1.9', idleTimeoutMillis: '0', maxUses: '2.5', maxLifetimeSeconds: 0.0015 }));
+    expect(result?.targets[0].pool).toEqual({ max: 3, min: 1, idleTimeoutMs: 1, maxUses: 3, maxLifetimeMs: 1, held: null });
+    expect((await resolveRustPostgresConfig(database({ max: 0, min: Infinity, idleTimeoutMillis: 0, maxUses: '0', maxLifetimeSeconds: '0' })))?.targets[0].pool)
+        .toEqual({ max: 10, min: 10, idleTimeoutMs: null, maxUses: 1, maxLifetimeMs: 1, held: null });
+    expect((await resolveRustPostgresConfig(database({ max: 'not-a-number' })))?.targets[0].pool)
+        .toEqual({ max: 1, min: 0, idleTimeoutMs: null, maxUses: null, maxLifetimeMs: null, held: 'max' });
+});
+
+test('source identities distinguish duplicate replicas from primary', async () => {
+    const config = { ...database(), dbReplications: true, dbSlaves: [database().db, database().db] };
+    expect((await resolveRustPostgresConfig(config))?.targets.map(target => target.source))
+        .toEqual([{ kind: 'replica', index: 0 }, { kind: 'replica', index: 1 }]);
 });

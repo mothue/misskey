@@ -20,7 +20,7 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 use tokio::{
-    sync::{Mutex, watch},
+    sync::watch,
     task::{AbortHandle, JoinHandle},
     time::{Instant, timeout_at},
 };
@@ -35,6 +35,7 @@ const OPERATION_LIMIT: Duration = Duration::from_secs(4);
 mod fault;
 mod identity;
 mod legacy;
+mod pool;
 pub use legacy::LegacyError;
 mod resolver;
 mod transport;
@@ -63,6 +64,7 @@ impl std::error::Error for Failure {}
 pub enum QueryError {
     Server { message: String },
     QueryTimeout,
+    CheckoutTimeout,
     Fault(QueryFault),
     Unavailable,
 }
@@ -87,7 +89,7 @@ impl QueryError {
             // node-postgres emits this exact Error.message for query_timeout;
             // TypeORM wraps the query's rejection as QueryFailedError.
             Self::QueryTimeout => Some("Query read timeout"),
-            Self::Fault(_) | Self::Unavailable => None,
+            Self::CheckoutTimeout | Self::Fault(_) | Self::Unavailable => None,
         }
     }
 }
@@ -96,6 +98,7 @@ impl fmt::Debug for QueryError {
         f.write_str(match self {
             Self::Server { .. } => "QueryError::Server",
             Self::QueryTimeout => "QueryError::QueryTimeout",
+            Self::CheckoutTimeout => "QueryError::CheckoutTimeout",
             Self::Fault(_) => "QueryError::Fault",
             Self::Unavailable => "QueryError::Unavailable",
         })
@@ -124,9 +127,86 @@ pub struct PostgresConfig {
     pub targets: Vec<Target>,
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Default, Deserialize, PartialEq, Eq)]
+#[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
+pub enum PoolSource {
+    #[default]
+    Unspecified,
+    Primary,
+    Replica {
+        index: usize,
+    },
+}
+
+/// Canonical pg-pool comparison/timer semantics, resolved without connecting.
+/// A held exotic configuration retains the original single-connection adapter.
+#[derive(Clone, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct PoolSettings {
+    pub max: usize,
+    pub min: usize,
+    pub idle_timeout_ms: Option<u32>,
+    pub max_uses: Option<u64>,
+    pub max_lifetime_ms: Option<u32>,
+    pub held: Option<PoolSetting>,
+}
+#[derive(Clone, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum PoolSetting {
+    Legacy,
+    Max,
+    Min,
+    IdleTimeoutMillis,
+    MaxUses,
+    MaxLifetimeSeconds,
+}
+#[derive(Clone, Copy)]
+enum CheckoutPolicy {
+    LegacySlot,
+    PgPool,
+}
+impl Default for PoolSettings {
+    fn default() -> Self {
+        Self {
+            max: 1,
+            min: 0,
+            idle_timeout_ms: None,
+            max_uses: None,
+            max_lifetime_ms: None,
+            held: Some(PoolSetting::Legacy),
+        }
+    }
+}
+impl PoolSettings {
+    fn checkout_policy(&self) -> CheckoutPolicy {
+        match self.held {
+            Some(_) => CheckoutPolicy::LegacySlot,
+            None => CheckoutPolicy::PgPool,
+        }
+    }
+
+    fn valid(&self) -> bool {
+        self.max > 0
+            && self.min <= self.max
+            && self.max_uses != Some(0)
+            && self.idle_timeout_ms != Some(0)
+            && self.max_lifetime_ms != Some(0)
+            && (self.held.is_none()
+                || (self.max == 1
+                    && self.min == 0
+                    && self.idle_timeout_ms.is_none()
+                    && self.max_uses.is_none()
+                    && self.max_lifetime_ms.is_none()))
+    }
+}
+
+#[derive(Clone, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Target {
+    #[serde(default)]
+    pub source: PoolSource,
+    #[serde(default)]
+    pub pool: PoolSettings,
     pub host: String,
     pub port: u16,
     #[serde(default = "default_auto_select_family")]
@@ -158,7 +238,7 @@ fn default_attempt_timeout() -> u32 {
     500
 }
 
-#[derive(Clone, Copy, Default, Deserialize)]
+#[derive(Clone, Copy, Default, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum DnsResultOrder {
     #[default]
@@ -167,13 +247,13 @@ pub enum DnsResultOrder {
     Ipv6first,
 }
 
-#[derive(Clone, Copy, Deserialize)]
+#[derive(Clone, Copy, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum Negotiation {
     Postgres,
     Direct,
 }
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Tls {
     pub reject_unauthorized: bool,
@@ -187,7 +267,7 @@ pub struct Tls {
     pub max_version: TlsVersion,
     pub ciphers: String,
 }
-#[derive(Clone, Copy, Deserialize)]
+#[derive(Clone, Copy, Deserialize, PartialEq, Eq)]
 pub enum TlsVersion {
     #[serde(rename = "TLSv1")]
     V1,
@@ -213,7 +293,7 @@ type Cancellations = Arc<SyncMutex<Vec<JoinHandle<()>>>>;
 type DriverFault = Arc<SyncMutex<Option<Arc<tokio_postgres::Error>>>>;
 struct Connection {
     client: Client,
-    driver: JoinHandle<()>,
+    driver: Option<JoinHandle<()>>,
     driver_fault: DriverFault,
     transport_context: ConnectContext,
     cancel_route: CancelRoute,
@@ -270,63 +350,56 @@ where
     });
     (task, fault)
 }
-impl Drop for Connection {
-    fn drop(&mut self) {
-        self.driver.abort();
-        if !self.in_flight.load(Ordering::Acquire) {
-            return;
+impl Connection {
+    fn start_cancellation(&self) -> Option<JoinHandle<()>> {
+        if !self.in_flight.swap(false, Ordering::AcqRel) {
+            return None;
         }
-        // Closing TCP does not interrupt a PostgreSQL lock wait. Send the
-        // protocol cancellation capability, never a replacement SQL request.
         let token = self.client.cancel_token();
         let tls = self.cancel_tls.clone();
         let route = self.cancel_route.clone();
-        if let Ok(runtime) = tokio::runtime::Handle::try_current() {
-            let task = runtime.spawn(async move {
-                let _ = tokio::time::timeout(Duration::from_millis(500), async {
-                    match tls {
-                        Some(tls) => {
-                            let _ = route
-                                .cancel(&token, |observation| tls.with_observation(observation))
-                                .await;
-                        }
-                        None => {
-                            let _ = route.cancel(&token, |_| NoTls).await;
-                        }
+        let runtime = tokio::runtime::Handle::try_current().ok()?;
+        Some(runtime.spawn(async move {
+            let _ = tokio::time::timeout(Duration::from_millis(500), async {
+                match tls {
+                    Some(tls) => {
+                        let _ = route
+                            .cancel(&token, |observation| tls.with_observation(observation))
+                            .await;
                     }
-                })
-                .await;
-            });
-            if let Ok(mut pending) = self.cancellations.lock() {
-                pending.retain(|task| !task.is_finished());
-                pending.push(task);
-            }
+                    None => {
+                        let _ = route.cancel(&token, |_| NoTls).await;
+                    }
+                }
+            })
+            .await;
+        }))
+    }
+}
+impl Drop for Connection {
+    fn drop(&mut self) {
+        if let Some(driver) = self.driver.take() {
+            driver.abort();
+        }
+        if let Some(task) = self.start_cancellation()
+            && let Ok(mut pending) = self.cancellations.lock()
+        {
+            pending.retain(|task| !task.is_finished());
+            pending.push(task);
         }
     }
 }
-struct Slot {
-    target: Target,
-    connection: Mutex<Option<Connection>>,
-    driver: SyncMutex<Option<AbortHandle>>,
-}
 
-/// One connection per configured read target, established only on first use.
-/// A failed operation never retries. A later operation may connect again.
+/// Complete count operation over shared source pools. A failed SQL operation
+/// is never retried; a later independent operation may establish a connection.
 pub struct OnlineUsers {
-    slots: Vec<Slot>,
-    stopped: AtomicBool,
-    stop_signal: watch::Sender<bool>,
-    cancellations: Cancellations,
+    slots: Vec<Arc<pool::TargetPool>>,
     read_only: bool,
     resolver: Arc<dyn Resolver>,
 }
 impl OnlineUsers {
     pub fn new(config: Option<PostgresConfig>) -> Self {
-        Self::with_access(config, true)
-    }
-
-    fn with_access(config: Option<PostgresConfig>, read_only: bool) -> Self {
-        Self::with_access_and_resolver(config, read_only, Arc::new(SystemResolver))
+        Self::with_access_and_resolver(config, true, Arc::new(SystemResolver))
     }
 
     #[cfg(test)]
@@ -343,231 +416,96 @@ impl OnlineUsers {
         resolver: Arc<dyn Resolver>,
     ) -> Self {
         Self {
-            slots: config.map_or_else(Vec::new, |c| {
-                c.targets
+            slots: config.map_or_else(Vec::new, |config| {
+                config
+                    .targets
                     .into_iter()
-                    .map(|target| Slot {
-                        target,
-                        connection: Mutex::new(None),
-                        driver: SyncMutex::new(None),
-                    })
+                    .map(|target| pool::TargetPool::new(target, Arc::clone(&resolver)))
                     .collect()
             }),
-            stopped: AtomicBool::new(false),
-            stop_signal: watch::channel(false).0,
-            cancellations: Arc::new(SyncMutex::new(Vec::new())),
             read_only,
             resolver,
         }
     }
 
-    pub async fn count_at(&self, now: SystemTime) -> Result<f64, Failure> {
-        // Subscribe before checking stopped, so shutdown cannot fall into the
-        // interval between that check and registering a cancellation waiter.
-        let mut stop = self.stop_signal.subscribe();
-        if self.stopped.load(Ordering::Acquire) || self.slots.is_empty() {
-            return Err(Failure);
+    /// Count, authentication and native operations use the same source budget.
+    /// With no replicas, read-only and writable sessions share primary capacity.
+    pub fn database(&self, primary: Option<Target>) -> Database {
+        let primary = primary.map(|mut target| {
+            if let Some(existing) = self
+                .slots
+                .iter()
+                // Legacy v1 descriptors carry no source identity. They may
+                // describe replicas, even when their credentials match the
+                // primary. Only explicit primary identity permits sharing.
+                .find(|pool| {
+                    target.source == PoolSource::Primary
+                        && pool.target.source == PoolSource::Primary
+                })
+            {
+                if existing.target == target {
+                    return Arc::clone(existing);
+                }
+                // Conflicting descriptors must not create a second source budget.
+                target.pool.max = 0;
+            }
+            pool::TargetPool::new(target, Arc::clone(&self.resolver))
+        });
+        Database {
+            reads: Self {
+                slots: self.slots.clone(),
+                read_only: true,
+                resolver: Arc::clone(&self.resolver),
+            },
+            primary: Self {
+                slots: primary.into_iter().collect(),
+                read_only: false,
+                resolver: Arc::clone(&self.resolver),
+            },
         }
-        // Equivalent to TypeORM's per-read random slave selection. No master
-        // fallback is added when the selected slave fails.
-        let slot = &self.slots[rand::random_range(0..self.slots.len())];
+    }
+
+    pub async fn count_at(&self, now: SystemTime) -> Result<f64, Failure> {
         let deadline = Instant::now() + OPERATION_LIMIT;
         let cutoff = system_time(online_users_cutoff(now).map_err(|_| Failure)?)?;
-        let mut stored = timeout_at(deadline, slot.connection.lock())
-            .await
+        let rows = timeout_at(
+            deadline,
+            self.query_typed(
+                "SELECT COUNT(*) FROM \"user\" WHERE \"lastActiveDate\" > $1",
+                &[&cutoff],
+            ),
+        )
+        .await
+        .map_err(|_| Failure)?
+        .map_err(|_| Failure)?;
+        let count: i64 = rows
+            .first()
+            .ok_or(Failure)?
+            .try_get(0)
             .map_err(|_| Failure)?;
-        if self.stopped.load(Ordering::Acquire) {
-            return Err(Failure);
-        }
-        // Ownership while in flight is intentional. Timeout, cancellation, SQL
-        // failure or disconnect drops this resource and aborts its IO driver.
-        let mut connection = stored.take();
-        let operation = timeout_at(deadline, async {
-            // Do not accumulate cancellation sockets when a peer is slow or
-            // unavailable. Each previous cancellation has its own 500ms bound;
-            // the wait remains inside this operation's total four seconds.
-            loop {
-                let pending = {
-                    let mut tasks = self.cancellations.lock().map_err(|_| Failure)?;
-                    tasks.retain(|task| !task.is_finished());
-                    !tasks.is_empty()
-                };
-                if !pending {
-                    break;
-                }
-                tokio::time::sleep(Duration::from_millis(1)).await;
-            }
-            if connection.as_ref().is_none_or(|c| c.client.is_closed()) {
-                connection = None;
-                connection =
-                    Some(connect(&slot.target, &self.cancellations, self.resolver.as_ref()).await?);
-                *slot.driver.lock().map_err(|_| Failure)? =
-                    connection.as_ref().map(|c| c.driver.abort_handle());
-            }
-            if self.stopped.load(Ordering::Acquire) {
-                return Err(Failure);
-            }
-            let connection = connection.as_ref().ok_or(Failure)?;
-            let query = async {
-                connection.in_flight.store(true, Ordering::Release);
-                let response = connection
-                    .client
-                    .query_one(
-                        "SELECT COUNT(*) FROM \"user\" WHERE \"lastActiveDate\" > $1",
-                        &[&cutoff],
-                    )
-                    .await;
-                if response.is_ok()
-                    || response
-                        .as_ref()
-                        .err()
-                        .is_some_and(|error| error.as_db_error().is_some())
-                {
-                    connection.in_flight.store(false, Ordering::Release);
-                }
-                let row = response.map_err(|_| Failure)?;
-                let count: i64 = row.try_get(0).map_err(|_| Failure)?;
-                online_users_count(count).map_err(|_| Failure)
-            };
-            match positive_duration(slot.target.query_timeout_ms) {
-                Some(limit) => tokio::time::timeout(limit, query)
-                    .await
-                    .map_err(|_| Failure)?,
-                None => query.await,
-            }
-        });
-        let result = tokio::select! {
-            biased;
-            _ = stop.changed() => return Err(Failure),
-            result = operation => result.map_err(|_| Failure)?,
-        };
-        if result.is_ok() && !self.stopped.load(Ordering::Acquire) {
-            *stored = connection;
-        }
-        result
+        online_users_count(count).map_err(|_| Failure)
     }
 
-    pub async fn shutdown(&self) {
-        self.stopped.store(true, Ordering::Release);
-        self.stop_signal.send_replace(true);
-        // Concurrent queries have a shorter-than-parent deadline, but shutdown
-        // itself does not wait that long: abort anything still holding a slot.
-        // The parent process also bounds its complete child shutdown.
-        for slot in &self.slots {
-            if let Ok(mut driver) = slot.driver.lock()
-                && let Some(driver) = driver.take()
-            {
-                driver.abort();
-            }
-        }
-        let deadline = Instant::now() + Duration::from_secs(1);
-        for slot in &self.slots {
-            if let Ok(mut connection) = timeout_at(deadline, slot.connection.lock()).await {
-                *connection = None;
-            }
-        }
-        let pending = self
-            .cancellations
-            .lock()
-            .map(|mut tasks| std::mem::take(&mut *tasks))
-            .unwrap_or_default();
-        for task in pending {
-            let _ = timeout_at(deadline, task).await;
-        }
-    }
-}
-
-/// API infrastructure uses the same TLS/configuration and cancellation ownership
-/// as the original count adapter. Reads retain replica selection; writes always
-/// use the explicitly configured primary, with no retry or read fallback.
-pub struct Database {
-    reads: OnlineUsers,
-    primary: OnlineUsers,
-}
-impl Database {
-    pub fn new(reads: Option<PostgresConfig>, primary: Option<Target>) -> Self {
-        Self {
-            reads: OnlineUsers::new(reads),
-            primary: OnlineUsers::with_access(
-                primary.map(|target| PostgresConfig {
-                    targets: vec![target],
-                }),
-                false,
-            ),
-        }
-    }
-
-    #[cfg(test)]
-    pub(crate) fn new_with_resolver(
-        reads: Option<PostgresConfig>,
-        primary: Option<Target>,
-        resolver: Arc<dyn Resolver>,
-    ) -> Self {
-        Self {
-            reads: OnlineUsers::with_access_and_resolver(reads, true, Arc::clone(&resolver)),
-            primary: OnlineUsers::with_access_and_resolver(
-                primary.map(|target| PostgresConfig {
-                    targets: vec![target],
-                }),
-                false,
-                resolver,
-            ),
-        }
-    }
-
-    pub async fn query(
+    async fn query_typed(
         &self,
-        read: bool,
-        sql: &str,
-        params: &[&(dyn tokio_postgres::types::ToSql + Sync)],
-    ) -> Result<Vec<tokio_postgres::Row>, Failure> {
-        self.query_typed(read, sql, params)
-            .await
-            .map_err(|_| Failure)
-    }
-
-    /// Adds business-error information without changing the opaque query API
-    /// used by authentication, nor connection selection/cancellation behavior.
-    pub async fn query_typed(
-        &self,
-        read: bool,
         sql: &str,
         params: &[&(dyn tokio_postgres::types::ToSql + Sync)],
     ) -> Result<Vec<tokio_postgres::Row>, QueryError> {
-        let pool = if read { &self.reads } else { &self.primary };
-        let mut stop = pool.stop_signal.subscribe();
-        if pool.stopped.load(Ordering::Acquire) || pool.slots.is_empty() {
+        if self.slots.is_empty() {
             return Err(QueryError::Unavailable);
         }
-        let slot = &pool.slots[rand::random_range(0..pool.slots.len())];
-        // Connection checkout is interruptible by shutdown. No arbitrary
-        // five-second RPC deadline is imposed on existing API operations.
+        // Select once, before waiting. Saturation or failure never selects again.
+        let pool = &self.slots[rand::random_range(0..self.slots.len())];
+        let mut stop = pool.subscribe();
+        if pool.is_stopped() {
+            return Err(QueryError::Unavailable);
+        }
         let operation = async {
-            let mut stored = slot.connection.lock().await;
-            if pool.stopped.load(Ordering::Acquire) {
-                return Err(QueryError::Unavailable);
-            }
-            let mut connection = stored.take();
-            if connection.as_ref().is_none_or(|c| c.client.is_closed()) {
-                connection = Some(
-                    connect_with_access(
-                        &slot.target,
-                        &pool.cancellations,
-                        pool.read_only,
-                        pool.resolver.as_ref(),
-                    )
-                    .await?,
-                );
-                *slot.driver.lock().map_err(|_| QueryError::Unavailable)? =
-                    connection.as_ref().map(|c| c.driver.abort_handle());
-            }
-            let current = connection.as_ref().ok_or(QueryError::Unavailable)?;
-            if pool.stopped.load(Ordering::Acquire) {
-                return Err(QueryError::Unavailable);
-            }
+            let lease = pool.acquire(self.read_only).await?;
+            let current = lease.connection();
             current.in_flight.store(true, Ordering::Release);
             let execute = current.client.query(sql, params);
-            let result = match positive_duration(slot.target.query_timeout_ms) {
+            let result = match positive_duration(pool.target.query_timeout_ms) {
                 Some(limit) => tokio::time::timeout(limit, execute)
                     .await
                     .map_err(|_| QueryError::QueryTimeout)?,
@@ -581,23 +519,86 @@ impl Database {
             {
                 current.in_flight.store(false, Ordering::Release);
             }
-            let rows = result.map_err(|error| {
-                if error.as_db_error().is_some() {
-                    QueryError::from_postgres(error)
-                } else {
-                    current.fault(FaultPhase::Query, error).into()
+            match result {
+                Ok(rows) => {
+                    lease.release();
+                    Ok(rows)
                 }
-            })?;
-            if !pool.stopped.load(Ordering::Acquire) {
-                *stored = connection;
+                Err(error) if error.as_db_error().is_some() => {
+                    let error = QueryError::from_postgres(error);
+                    // ReadyForQuery completed the operation. A SQL rejection
+                    // does not poison or cancel this healthy pool session.
+                    lease.release();
+                    Err(error)
+                }
+                Err(error) => Err(current.fault(FaultPhase::Query, error).into()),
             }
-            Ok(rows)
         };
         tokio::select! {
             biased;
             _ = stop.changed() => Err(QueryError::Unavailable),
             result = operation => result,
         }
+    }
+
+    pub async fn shutdown(&self) {
+        // Every source begins stopping together; disposal has one shared bound.
+        let futures = self.slots.iter().map(|pool| pool.shutdown());
+        let mut tasks = Vec::new();
+        for future in futures {
+            tasks.push(Box::pin(future));
+        }
+        std::future::poll_fn(|cx| {
+            tasks.retain_mut(|task| task.as_mut().poll(cx).is_pending());
+            if tasks.is_empty() {
+                std::task::Poll::Ready(())
+            } else {
+                std::task::Poll::Pending
+            }
+        })
+        .await;
+    }
+}
+
+/// Shared PostgreSQL resources; read routing and explicit-primary operations
+/// retain their existing call sites and opaque authentication error boundary.
+pub struct Database {
+    reads: OnlineUsers,
+    primary: OnlineUsers,
+}
+impl Database {
+    pub fn new(reads: Option<PostgresConfig>, primary: Option<Target>) -> Self {
+        OnlineUsers::new(reads).database(primary)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn new_with_resolver(
+        reads: Option<PostgresConfig>,
+        primary: Option<Target>,
+        resolver: Arc<dyn Resolver>,
+    ) -> Self {
+        OnlineUsers::with_access_and_resolver(reads, true, resolver).database(primary)
+    }
+
+    pub async fn query(
+        &self,
+        read: bool,
+        sql: &str,
+        params: &[&(dyn tokio_postgres::types::ToSql + Sync)],
+    ) -> Result<Vec<tokio_postgres::Row>, Failure> {
+        self.query_typed(read, sql, params)
+            .await
+            .map_err(|_| Failure)
+    }
+
+    pub async fn query_typed(
+        &self,
+        read: bool,
+        sql: &str,
+        params: &[&(dyn tokio_postgres::types::ToSql + Sync)],
+    ) -> Result<Vec<tokio_postgres::Row>, QueryError> {
+        let pool = if read { &self.reads } else { &self.primary };
+        pool.query_typed(sql, params).await
     }
 
     pub async fn shutdown(&self) {
@@ -681,19 +682,23 @@ fn config(target: &Target) -> Result<Config, Failure> {
     }
     Ok(config)
 }
-async fn connect(
-    target: &Target,
-    cancellations: &Cancellations,
-    resolver: &dyn Resolver,
-) -> Result<Connection, Failure> {
-    connect_with_access(target, cancellations, true, resolver)
-        .await
-        .map_err(|_| Failure)
-}
+#[cfg(test)]
 async fn connect_with_access(
     target: &Target,
     cancellations: &Cancellations,
     read_only: bool,
+    resolver: &dyn Resolver,
+) -> Result<Connection, QueryFault> {
+    let connection = establish_connection(target, cancellations, resolver).await?;
+    if read_only {
+        set_read_only(&connection).await?;
+    }
+    Ok(connection)
+}
+
+async fn establish_connection(
+    target: &Target,
+    cancellations: &Cancellations,
     resolver: &dyn Resolver,
 ) -> Result<Connection, QueryFault> {
     let config = config(target).map_err(QueryFault::configuration)?;
@@ -712,7 +717,7 @@ async fn connect_with_access(
             let (driver, driver_fault) = spawn_driver(driver);
             Ok(Connection {
                 client,
-                driver,
+                driver: Some(driver),
                 driver_fault,
                 transport_context: context.clone(),
                 cancel_route,
@@ -729,7 +734,7 @@ async fn connect_with_access(
             let (driver, driver_fault) = spawn_driver(driver);
             Ok(Connection {
                 client,
-                driver,
+                driver: Some(driver),
                 driver_fault,
                 transport_context: context.clone(),
                 cancel_route,
@@ -745,16 +750,15 @@ async fn connect_with_access(
             .map_err(|_| QueryFault::connect_timeout().with_context(context.snapshot()))??,
         None => establish.await?,
     };
-    // Session-scoped and applied before the first business query. This does
-    // not create roles, grant privileges, or change the database schema.
-    if read_only {
-        connection
-            .client
-            .batch_execute("SET default_transaction_read_only = on")
-            .await
-            .map_err(|error| connection.fault(FaultPhase::SessionSetup, error))?;
-    }
     Ok(connection)
+}
+
+async fn set_read_only(connection: &Connection) -> Result<(), QueryFault> {
+    connection
+        .client
+        .batch_execute("SET default_transaction_read_only = on")
+        .await
+        .map_err(|error| connection.fault(FaultPhase::SessionSetup, error))
 }
 
 #[derive(Clone)]
@@ -937,5 +941,7 @@ fn tls_connector_without_observation(
     Ok(connector)
 }
 
+#[cfg(test)]
+mod pool_tests;
 #[cfg(test)]
 mod tests;

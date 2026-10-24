@@ -10,7 +10,7 @@ use misskey_backend_api_auth::{
     AuthConfig, AuthError, AuthService, Context, Store, postgres::PostgresAuthStore,
 };
 use misskey_backend_core::{Catalog, ping_at};
-use misskey_backend_postgres::{Database, OnlineUsers, PostgresConfig, Target};
+use misskey_backend_postgres::{Database, OnlineUsers, Target};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value as Json, json};
 use std::{
@@ -264,7 +264,6 @@ impl Runtime {
     pub async fn new(
         config: ApiBootstrap,
         catalog: Arc<Catalog>,
-        reads: Option<PostgresConfig>,
         online_users: Arc<OnlineUsers>,
     ) -> Result<Self, Failure> {
         let callback_url = reqwest::Url::parse(&config.callback.url)
@@ -298,7 +297,7 @@ impl Runtime {
                     .map_err(|_| Failure::new(FailureStage::EndpointSchema))?,
             });
         }
-        let database = Arc::new(Database::new(reads, config.postgres_primary));
+        let database = Arc::new(online_users.database(config.postgres_primary));
         let store = Arc::new(
             PostgresAuthStore::new(database.clone(), config.auth.entity_layouts.clone())
                 .map_err(|_| Failure::new(FailureStage::AuthStore))?,

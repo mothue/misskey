@@ -45,7 +45,7 @@ pub(crate) fn query_error(error: &QueryError) -> Option<LegacyError> {
         QueryError::Server { message } => Some(projected("QueryFailedError", message.clone())),
         QueryError::QueryTimeout => Some(projected("QueryFailedError", "Query read timeout")),
         QueryError::Fault(fault) => fault_error(fault),
-        QueryError::Unavailable => None,
+        QueryError::CheckoutTimeout | QueryError::Unavailable => None,
     }
 }
 

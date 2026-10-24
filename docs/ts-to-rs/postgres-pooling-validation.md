@@ -1,0 +1,41 @@
+# Native PostgreSQL source pools (cloud, 2026-10-24)
+
+This review correction replaces the native adapter's serialized connection slots with exclusive connection leases. Count, auth and subsequent native operations share one capacity budget per configured source. In the hybrid backend, **legacy TS callbacks retain their separate TypeORM pools**: this is not a combined cross-language or deployment-wide connection cap. No business handler is activated, SQL replay/TS fallback is added, schema/role is changed, or replica failure is retried on primary.
+
+## Source, access and type contract
+
+The private TS bootstrap carries typed source identity (`primary` or replica index) and effective pool settings. The installed pg-pool constructor resolves defaults and precedence without opening a socket: max10, min0, idle timeout10,000ms. Supported primitive comparison/timer inputs retain JS coercion, including numeric strings and fractions. Maximum uses and physical connection lifetime trigger retirement rather than being silently discarded. Exotic unbounded/permanently-full/object comparator settings explicitly record a held setting and retain availability under a bounded single-connection policy; their TS pool behavior is not accepted as equivalent.
+
+An unchanged v1 bootstrap without the new fields remains valid: an unspecified source is not silently promoted to primary, and omitted pool settings retain the former single-connection owner. A typed checkout policy distinguishes that legacy/held queue from an explicit pg-pool configuration. Legacy/held queues retain the existing complete-operation bound without adding a connect-timeout queue deadline. Explicit supported pools apply the effective pg-pool checkout deadline. Physical connection deadlines remain separate in both cases.
+
+The same primary source shares a max budget across read-only and writable idle lanes. Incompatible idle sessions retire before a requested access mode connects, including max1. Distinct configured replica indices remain distinct even when their connection addresses match. Source selection occurs once before FIFO checkout. A selected pool's saturation/failure cannot select another replica or primary. Primary ownership requires matching source/configuration, not credential/host deduplication.
+
+Short state locks protect reservation/queue bookkeeping; an owned lease holds its connection while SQL is active. Capacity includes connecting and retiring resources until actual driver-future drop, protocol cancellation and owned timer disposal complete. Idle timers cancel/join on checkout; idle/lifetime timers cancel/join on retirement. Owner drop aborts residual timers. Idle minimum counts live entries, excluding resources already retiring; maximum still counts their cleanup reservations. Completed server SQL errors return healthy sessions; timeout, aborted or transport-failed operations discard their lease.
+
+Checkout timeout is a distinct typed internal cause, never invented DNS/socket evidence. It remains opaque to legacy error projection pending an actual matching oracle. Query timeout begins after checkout; count retains its four-second complete-operation deadline. Read-only session setup remains outside configured connect/query timers, while count/shutdown still bound it. Cancellation retains the original successful IP, options, TLS policy and protocol token without DNS/SQL replay. Shutdown closes admission, interrupts waiters/active work and drains owners within existing bounds.
+
+Runtime receives the same `OnlineUsers` owner instead of reconstructing another read pool from duplicated configuration. The unused constructor parameter and bridge's redundant configuration clone are removed. Bootstrap API failures now log their static failure-stage enum, without config, SQL, credentials, URLs or capabilities.
+
+## Fresh validation and review
+
+| Check | Result | Command / cloud evidence |
+| --- | --- | --- |
+| Workspace tests | PASS, 191 passed; 6 explicit ignores not counted | `cargo test --locked --manifest-path packages/backend-rust/Cargo.toml --workspace`; `rust-pool-legacy-policy-final.log`, exit0 |
+| Pool wire/resource controls | PASS, all17; storage total85 passed/1 dedicated DB ignored | Same workspace run; two live SQL sessions before releasing either, third queued, max1 read/write, count/auth sharing, aborted waiter recovery, isolated cancellation, shutdown, use/lifetime retirement, idle minimum/no prewarming, stale timer, server-error reuse, query timer after checkout, replica identity/no fallback, actual driver-drop capacity, bounded owned timers, unchanged v1 bootstrap and legacy/held queue policy |
+| Dedicated PostgreSQL and Redis adapters | PASS, 1 PostgreSQL and 4 Redis tests | `live-pool-legacy-policy-final.log`, exit0; ignored tests explicitly selected with dedicated configuration |
+| Clippy all-targets with warnings denied | PASS | `rust-pool-legacy-policy-clippy.log`, exit0 |
+| Rust formatting | PASS | `rust-pool-legacy-policy-format.log`, exit0 |
+| Backend source/test/federation TS checks | PASS | `backend-pool-typecheck.log`, exit0 |
+| Socket-free effective-config tests | PASS, 13 | `ts-pool-legacy-policy-final.log`, exit0 |
+| Changed-file lint, SPDX and locale safety | PASS | `shipping-pool-legacy-policy-final.log`, exit0 |
+| Independent source review | PASS, no outstanding actionable finding | `/workspace/api-native-phase/review-pool-final2.json`, final source hashes; previous review preserved; reviewer ran no Cargo |
+| Fresh Bun/native network controls | PASS, 36 exact fault comparisons and 4 native identity controls | `fault-matrix/attempt3/runtime-validation.json`; same frozen sources, no response normalization; all42 native shutdowns complete |
+| Saturated checkout public error parity | HOLD, typed behavior PASS; public legacy projection absent | `fault-matrix/attempt3/saturation/comparison.json`; two actual TypeORM controls return `Error` / `timeout exceeded when trying to connect`, whereas native `CheckoutTimeout` deliberately has no unverified projection. This is not accepted as public parity or used to activate held business handlers |
+
+Full commands, cwd, exit codes and times are in `/workspace/api-native-phase/results.jsonl`; logs live under `logs/`. Test PostgreSQL and Redis are owned dedicated services. Raw wire fixtures use separate random loopback ports, without shared database resets.
+
+The source review found two resource issues: capacity reopened after scheduling abort but before actual driver drop, and uncancelled timer tasks accumulated on repeated checkout. Fixes retain/join the driver and own/cancel/join timers. The subsequent idle-min regression control found a real race where concurrent timer expiry counted already-retiring connections toward min; atomic retiring IDs corrected it. The failed run (80 passed/1 failed) remains in `rust-pool-final-tests.log`; it is not claimed as a pass. A later constructor-test adaptation missed one removed parameter and failed compilation; `rust-pool-resource-fix-tests.log` preserves it. The final separate retry passed. No gate was weakened or failing test removed.
+
+The first live run rejected an unchanged private v1 fixture because new source fields were required (`live-pool-adapters.log`, exit101). Defaulting to an unspecified source and legacy single-slot policy corrected the wire compatibility issue without rewriting the fixture. The next workspace run exposed a second regression: a newly imposed checkout deadline interrupted the unchanged 16-request count control (`rust-pool-v1-compat-tests.log`, exit101). The typed legacy/pg-pool checkout distinction fixes that regression; both the unchanged control and a paired legacy/explicit-pool deadline test pass in the final workspace run. These intermediate failures are retained as FAIL, not baseline or successful validation.
+
+Final live adapter, public HTTP/lifecycle, E2E/federation, benchmark, build and final-SHA CI results must be recorded separately. Earlier type-unit E2E success (37 files,1475 passed,2 skipped,20 todo) used the preceding built binary and cannot establish this pool unit's acceptance. Four date-pagination APIs and all24 database-read activations remain held for their separate compatibility reasons.

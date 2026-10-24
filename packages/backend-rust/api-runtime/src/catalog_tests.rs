@@ -145,7 +145,6 @@ async fn mismatching_api_catalog_fails_before_auth_store_or_redis_startup() {
     let result = Runtime::new(
         config,
         Arc::new(Catalog::new(vec![])),
-        None,
         Arc::new(OnlineUsers::new(None)),
     )
     .await;

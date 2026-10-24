@@ -97,7 +97,6 @@ struct App {
     bearer: String,
     catalog: Arc<Catalog>,
     online_users: Arc<OnlineUsers>,
-    postgres: Option<PostgresConfig>,
     api_config: Option<ApiBootstrap>,
     api: Option<ApiRuntime>,
 }
@@ -252,8 +251,7 @@ fn bootstrap() -> Result<App, Failure> {
     Ok(App {
         bearer: format!("Bearer {}", bootstrap.token),
         catalog: Arc::new(Catalog::new(endpoints)),
-        online_users: Arc::new(OnlineUsers::new(bootstrap.postgres.clone())),
-        postgres: bootstrap.postgres,
+        online_users: Arc::new(OnlineUsers::new(bootstrap.postgres)),
         api_config: bootstrap.api,
         api: None,
     })
@@ -274,14 +272,14 @@ async fn signal() {
 async fn serve(mut app: App, eof: tokio::sync::oneshot::Receiver<()>) -> Result<(), Failure> {
     if let Some(config) = app.api_config.take() {
         app.api = Some(
-            ApiRuntime::new(
-                config,
-                app.catalog.clone(),
-                app.postgres.take(),
-                app.online_users.clone(),
-            )
-            .await
-            .map_err(|_| Failure)?,
+            ApiRuntime::new(config, app.catalog.clone(), app.online_users.clone())
+                .await
+                .map_err(|error| {
+                    // This enum contains locations only. Never format bootstrap
+                    // config, authenticated URLs, capabilities or driver errors.
+                    eprintln!("Rust API bootstrap failed at {:?}", error.stage());
+                    Failure
+                })?,
         );
     }
     let listener = tokio::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0))

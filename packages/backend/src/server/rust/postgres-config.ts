@@ -24,6 +24,8 @@ export type RustPostgresTls = {
 };
 
 export type RustPostgresTarget = {
+	source: { kind: 'primary' } | { kind: 'replica'; index: number };
+	pool: RustPostgresPool;
 	host: string;
 	port: number;
 	autoSelectFamily: boolean;
@@ -46,6 +48,16 @@ export type RustPostgresTarget = {
 	tls: RustPostgresTls | null;
 };
 
+export type RustPostgresPool = {
+	max: number;
+	min: number;
+	idleTimeoutMs: number | null;
+	maxUses: number | null;
+	maxLifetimeMs: number | null;
+	// Exotic comparator values retain the original adapter until verified.
+	held: 'max' | 'min' | 'idleTimeoutMillis' | 'maxUses' | 'maxLifetimeSeconds' | null;
+};
+
 export type RustPostgresConfig = { targets: RustPostgresTarget[] };
 type DatabaseConfig = Pick<Config, 'dbReplications' | 'dbSlaves'> & {
 	db: Omit<Config['db'], 'extra'> & { extra?: Record<string, unknown> };
@@ -58,8 +70,7 @@ const extraKeys = new Set([
 	'options', 'application_name', 'fallback_application_name', 'statement_timeout', 'lock_timeout',
 	'idle_in_transaction_session_timeout', 'query_timeout', 'connectionTimeoutMillis', 'client_encoding',
 	'keepAlive', 'keepAliveInitialDelayMillis', 'enableChannelBinding',
-	// These size/lifetime settings belong to the existing TS pool. The Rust adapter
-	// owns at most one shared connection per read target, with its own bounded lifetime.
+	// The installed pg.Pool constructor supplies effective defaults/coercions.
 	'max', 'min', 'idleTimeoutMillis', 'allowExitOnIdle', 'maxUses', 'maxLifetimeSeconds',
 ]);
 
@@ -77,6 +88,40 @@ function milliseconds(value: unknown): number | null {
 	const parsed = typeof value === 'string' ? Number(value) : value;
 	if (typeof parsed !== 'number' || !Number.isInteger(parsed) || parsed < 0 || parsed > 0xffffffff) throw invalid();
 	return parsed === 0 ? null : parsed;
+}
+
+function normalizePool(options: Record<string, unknown>): RustPostgresPool {
+	// Construction opens no socket and starts no timers. Do not read pg.defaults:
+	// its idle timeout differs from this installed pg-pool constructor's default.
+	const effective: unknown = Reflect.get(new pg.Pool(options), 'options');
+	if (!object(effective)) throw invalid();
+	let setting: Exclude<RustPostgresPool['held'], null> = 'max';
+	const primitiveNumber = (value: unknown): number => {
+		if (value !== null && typeof value !== 'number' && typeof value !== 'string' && typeof value !== 'boolean' && value !== undefined) throw invalid();
+		return Number(value);
+	};
+	// Bun/Node setTimeout truncates fractions and maps out-of-range delays to 1.
+	const timer = (value: number) => Number.isFinite(value) && value >= 1 && value <= 0x7fffffff ? Math.trunc(value) : 1;
+	try {
+		const maximum = primitiveNumber(effective.max);
+		if (!Number.isFinite(maximum) || maximum <= 0 || maximum > Number.MAX_SAFE_INTEGER) throw invalid();
+		const max = Math.ceil(maximum);
+		setting = 'min';
+		const minimum = primitiveNumber(effective.min);
+		const min = Number.isNaN(minimum) ? max : Math.max(0, Math.min(max, Math.floor(minimum)));
+		setting = 'idleTimeoutMillis';
+		const idleTimeoutMs = effective.idleTimeoutMillis ? timer(primitiveNumber(effective.idleTimeoutMillis)) : null;
+		setting = 'maxUses';
+		const uses = primitiveNumber(effective.maxUses);
+		const maxUses = Number.isNaN(uses) || uses > 2 ** 53 ? null : Math.max(1, Math.ceil(uses));
+		setting = 'maxLifetimeSeconds';
+		const maxLifetimeMs = effective.maxLifetimeSeconds !== 0 ? timer(primitiveNumber(effective.maxLifetimeSeconds) * 1000) : null;
+		return { max, min, idleTimeoutMs, maxUses, maxLifetimeMs, held: null };
+	} catch {
+		// Preserve availability and the former resource policy for unverified
+		// exotic settings. This is an explicit hold, never claimed pool parity.
+		return { max: 1, min: 0, idleTimeoutMs: null, maxUses: null, maxLifetimeMs: null, held: setting };
+	}
 }
 
 function pem(value: unknown): string {
@@ -132,7 +177,7 @@ async function resolvePassword(client: pg.Client, parameters: Record<string, unk
 	return parameters.password == null ? null : text(parameters.password);
 }
 
-async function normalizeTarget(config: DatabaseConfig, source: Omit<Config['db'], 'extra'>): Promise<RustPostgresTarget> {
+async function normalizeTarget(config: DatabaseConfig, source: Omit<Config['db'], 'extra'>, identity: RustPostgresTarget['source']): Promise<RustPostgresTarget> {
 	const extra = config.db.extra ?? {};
 	if (Object.keys(extra).some(key => !extraKeys.has(key))) throw invalid();
 	const options = {
@@ -160,6 +205,8 @@ async function normalizeTarget(config: DatabaseConfig, source: Omit<Config['db']
 	const dnsResultOrder = getDefaultResultOrder();
 	if (dnsResultOrder !== 'verbatim' && dnsResultOrder !== 'ipv4first' && dnsResultOrder !== 'ipv6first') throw invalid();
 	return {
+		source: identity,
+		pool: normalizePool(options),
 		autoSelectFamily: getDefaultAutoSelectFamily(),
 		autoSelectFamilyAttemptTimeoutMs: getDefaultAutoSelectFamilyAttemptTimeout(),
 		dnsResultOrder,
@@ -181,8 +228,9 @@ async function normalizeTarget(config: DatabaseConfig, source: Omit<Config['db']
 export async function resolveRustPostgresConfig(config?: DatabaseConfig): Promise<RustPostgresConfig | null> {
 	if (!config) return null;
 	try {
-		const sources = config.dbReplications && config.dbSlaves?.length ? config.dbSlaves : [config.db];
-		const result = { targets: await Promise.all(sources.map(source => normalizeTarget(config, source))) };
+		const replicas = config.dbReplications && config.dbSlaves?.length ? config.dbSlaves : null;
+		const sources = replicas ?? [config.db];
+		const result = { targets: await Promise.all(sources.map((source, index) => normalizeTarget(config, source, replicas ? { kind: 'replica', index } : { kind: 'primary' }))) };
 		// Keep credential/bootstrap growth from preventing the unrelated catalog startup.
 		return Buffer.byteLength(JSON.stringify(result)) <= 8 * 1024 * 1024 ? result : null;
 	} catch { return null; }
@@ -191,5 +239,5 @@ export async function resolveRustPostgresConfig(config?: DatabaseConfig): Promis
 /** Authentication writes use the primary even when reads use replicas. */
 export async function resolveRustPrimaryTarget(config?: DatabaseConfig): Promise<RustPostgresTarget | null> {
 	if (!config) return null;
-	try { return await normalizeTarget(config, config.db); } catch { return null; }
+	try { return await normalizeTarget(config, config.db, { kind: 'primary' }); } catch { return null; }
 }
