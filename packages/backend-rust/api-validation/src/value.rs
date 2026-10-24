@@ -1,3 +1,4 @@
+use crate::SafeJson;
 use serde::{Deserialize, Serialize};
 
 pub fn utf16(value: &str) -> Vec<u16> {
@@ -128,20 +129,6 @@ impl<'de> Deserialize<'de> for Value {
     }
 }
 
-struct Raw(serde_json::Value);
-impl Drop for Raw {
-    fn drop(&mut self) {
-        let mut pending = vec![std::mem::replace(&mut self.0, serde_json::Value::Null)];
-        while let Some(value) = pending.pop() {
-            match value {
-                serde_json::Value::Array(values) => pending.extend(values),
-                serde_json::Value::Object(values) => pending.extend(values.into_values()),
-                _ => {}
-            }
-        }
-    }
-}
-
 fn wire_units(value: &serde_json::Value) -> Result<Vec<u16>, String> {
     value
         .as_array()
@@ -157,11 +144,11 @@ fn wire_units(value: &serde_json::Value) -> Result<Vec<u16>, String> {
 
 fn decode_wire(root: serde_json::Value) -> Result<Value, String> {
     enum Task {
-        Value(Raw),
+        Value(SafeJson),
         Array(usize),
         Object(Vec<Vec<u16>>),
     }
-    let mut tasks = vec![Task::Value(Raw(root))];
+    let mut tasks = vec![Task::Value(SafeJson::new(root))];
     let mut results = Vec::new();
     while let Some(task) = tasks.pop() {
         match task {
@@ -176,30 +163,33 @@ fn decode_wire(root: serde_json::Value) -> Result<Value, String> {
                 ));
             }
             Task::Value(mut raw) => {
-                let fields = raw.0.as_object_mut().ok_or("invalid wire envelope")?;
-                let tag = Raw(fields.remove("t").ok_or("missing wire tag")?);
+                let fields = raw
+                    .as_value_mut()
+                    .as_object_mut()
+                    .ok_or("invalid wire envelope")?;
+                let tag = SafeJson::new(fields.remove("t").ok_or("missing wire tag")?);
                 let content = fields.remove("v");
                 let has_content = content.is_some();
-                let mut content = Raw(content.unwrap_or(serde_json::Value::Null));
+                let mut content = SafeJson::new(content.unwrap_or(serde_json::Value::Null));
                 if !fields.is_empty() {
                     return Err("unknown wire field".into());
                 }
-                match tag.0.as_str().ok_or("invalid wire tag")? {
+                match tag.as_value().as_str().ok_or("invalid wire tag")? {
                     "undefined" | "null" => {
                         if has_content {
                             return Err("unexpected wire content".into());
                         }
-                        results.push(if tag.0.as_str() == Some("null") {
+                        results.push(if tag.as_value().as_str() == Some("null") {
                             Value::Null
                         } else {
                             Value::Undefined
                         });
                     }
                     "boolean" => results.push(Value::Boolean(
-                        content.0.as_bool().ok_or("invalid wire boolean")?,
+                        content.as_value().as_bool().ok_or("invalid wire boolean")?,
                     )),
                     "number" => {
-                        let number = content.0.as_str().ok_or("invalid wire number")?;
+                        let number = content.as_value().as_str().ok_or("invalid wire number")?;
                         let value = match number {
                             "NaN" => f64::NAN,
                             "Infinity" | "+Infinity" => f64::INFINITY,
@@ -218,24 +208,36 @@ fn decode_wire(root: serde_json::Value) -> Result<Value, String> {
                         };
                         results.push(Value::Number(value));
                     }
-                    "string" => results.push(Value::String(wire_units(&content.0)?)),
+                    "string" => results.push(Value::String(wire_units(content.as_value())?)),
                     "array" => {
-                        let values =
-                            std::mem::take(content.0.as_array_mut().ok_or("invalid wire array")?);
+                        let values = std::mem::take(
+                            content
+                                .as_value_mut()
+                                .as_array_mut()
+                                .ok_or("invalid wire array")?,
+                        );
                         tasks.push(Task::Array(values.len()));
                         for value in values.into_iter().rev() {
-                            tasks.push(Task::Value(Raw(value)))
+                            tasks.push(Task::Value(SafeJson::new(value)))
                         }
                     }
                     "object" => {
-                        let entries =
-                            std::mem::take(content.0.as_array_mut().ok_or("invalid wire object")?);
-                        let entries: Vec<Raw> = entries.into_iter().map(Raw).collect();
+                        let entries = std::mem::take(
+                            content
+                                .as_value_mut()
+                                .as_array_mut()
+                                .ok_or("invalid wire object")?,
+                        );
+                        let entries: Vec<SafeJson> =
+                            entries.into_iter().map(SafeJson::new).collect();
                         let mut keys = Vec::new();
                         let mut values = Vec::new();
                         let mut seen = std::collections::HashSet::new();
                         for mut entry in entries {
-                            let pair = entry.0.as_array_mut().ok_or("invalid wire property")?;
+                            let pair = entry
+                                .as_value_mut()
+                                .as_array_mut()
+                                .ok_or("invalid wire property")?;
                             if pair.len() != 2 {
                                 return Err("invalid wire property".into());
                             }
@@ -244,7 +246,7 @@ fn decode_wire(root: serde_json::Value) -> Result<Value, String> {
                                 return Err("duplicate wire object key".into());
                             }
                             keys.push(key);
-                            values.push(Raw(pair.pop().expect("value")));
+                            values.push(SafeJson::new(pair.pop().expect("value")));
                         }
                         tasks.push(Task::Object(keys));
                         for value in values.into_iter().rev() {
@@ -358,21 +360,42 @@ impl Value {
     }
 
     pub fn from_json(value: &serde_json::Value) -> Self {
-        match value {
-            serde_json::Value::Null => Self::Null,
-            serde_json::Value::Bool(value) => Self::Boolean(*value),
-            serde_json::Value::Number(value) => Self::Number(value.as_f64().expect("JSON number")),
-            serde_json::Value::String(value) => Self::string(value),
-            serde_json::Value::Array(values) => {
-                Self::Array(values.iter().map(Self::from_json).collect())
-            }
-            serde_json::Value::Object(values) => Self::ordered_object(
-                values
-                    .iter()
-                    .map(|(key, value)| (utf16(key), Self::from_json(value)))
-                    .collect(),
-            ),
+        enum Task<'a> {
+            Visit(&'a serde_json::Value),
+            Array(usize),
+            Object(Vec<Vec<u16>>),
         }
+        let mut tasks = vec![Task::Visit(value)];
+        let mut results = Vec::new();
+        while let Some(task) = tasks.pop() {
+            match task {
+                Task::Visit(value) => match value {
+                    serde_json::Value::Null => results.push(Self::Null),
+                    serde_json::Value::Bool(value) => results.push(Self::Boolean(*value)),
+                    serde_json::Value::Number(value) => {
+                        results.push(Self::Number(value.as_f64().expect("JSON number")))
+                    }
+                    serde_json::Value::String(value) => results.push(Self::string(value)),
+                    serde_json::Value::Array(values) => {
+                        tasks.push(Task::Array(values.len()));
+                        tasks.extend(values.iter().rev().map(Task::Visit));
+                    }
+                    serde_json::Value::Object(values) => {
+                        tasks.push(Task::Object(values.keys().map(|key| utf16(key)).collect()));
+                        tasks.extend(values.values().rev().map(Task::Visit));
+                    }
+                },
+                Task::Array(len) => {
+                    let values = results.split_off(results.len() - len);
+                    results.push(Self::Array(values));
+                }
+                Task::Object(keys) => {
+                    let values = results.split_off(results.len() - keys.len());
+                    results.push(Self::ordered_object(keys.into_iter().zip(values).collect()));
+                }
+            }
+        }
+        results.pop().expect("one JSON root")
     }
 
     /// JSON.stringify-compatible output. Object undefined members are omitted;
@@ -548,5 +571,185 @@ mod string_conversion_tests {
             assert!(value.as_utf16().is_none());
             assert!(value.to_utf8().is_none());
         }
+    }
+}
+
+#[cfg(test)]
+mod json_ownership_tests {
+    use super::{Value, decode_wire};
+    use crate::SafeJson;
+    use serde_json::{Map, Value as Json, json};
+
+    const DEPTH: usize = 20_000;
+
+    fn deep_json() -> Json {
+        let mut value = Json::Bool(true);
+        for depth in 0..DEPTH {
+            value = if depth % 2 == 0 {
+                Json::Array(vec![value])
+            } else {
+                Json::Object(Map::from_iter([("child".into(), value)]))
+            };
+        }
+        value
+    }
+
+    fn wire_array(values: Vec<Json>) -> Json {
+        Json::Object(Map::from_iter([
+            ("t".into(), Json::String("array".into())),
+            ("v".into(), Json::Array(values)),
+        ]))
+    }
+
+    fn deep_wire() -> Json {
+        let mut value = json!({"t":"boolean", "v":true});
+        for _ in 0..DEPTH {
+            value = wire_array(vec![value]);
+        }
+        value
+    }
+
+    #[test]
+    fn from_json_clones_and_drops_deep_arrays_and_objects_iteratively() {
+        let raw = SafeJson::new(deep_json());
+        let converted = Value::from_json(raw.as_value());
+        let cloned = converted.clone();
+        assert!(converted == cloned);
+        let mut value = &converted;
+        for depth in (0..DEPTH).rev() {
+            value = if depth % 2 == 0 {
+                let Value::Array(values) = value else {
+                    panic!("expected array at depth {depth}")
+                };
+                assert_eq!(values.len(), 1);
+                &values[0]
+            } else {
+                let Value::Object(values) = value else {
+                    panic!("expected object at depth {depth}")
+                };
+                assert_eq!(values.len(), 1);
+                assert_eq!(values[0].0, super::utf16("child"));
+                &values[0].1
+            };
+        }
+        assert_eq!(value, &Value::Boolean(true));
+        drop(cloned);
+        drop(converted);
+        drop(raw);
+    }
+
+    #[test]
+    fn from_json_preserves_binary64_utf16_and_js_property_order() {
+        let mut object = Map::new();
+        for key in ["z", "10", "2", "01", "4294967295", "0", "4294967294", "a"] {
+            object.insert(key.into(), Json::Null);
+        }
+        object.insert("z".into(), Json::from(9_007_199_254_740_993_u64));
+        object.insert("a".into(), Json::String("A😀".into()));
+        object.insert("negative".into(), Json::from(-0.0));
+        object.insert("array".into(), json!([true, null, [], {}]));
+        let converted = Value::from_json(&Json::Object(object));
+        let Value::Object(values) = &converted else {
+            panic!("expected object")
+        };
+        let keys: Vec<_> = values
+            .iter()
+            .map(|(key, _)| String::from_utf16(key).unwrap())
+            .collect();
+        assert_eq!(
+            keys,
+            [
+                "0",
+                "2",
+                "10",
+                "4294967294",
+                "z",
+                "01",
+                "4294967295",
+                "a",
+                "negative",
+                "array"
+            ]
+        );
+        assert_eq!(
+            converted.get("z").unwrap().as_number(),
+            Some(9_007_199_254_740_992.0)
+        );
+        assert!(
+            converted
+                .get("negative")
+                .unwrap()
+                .as_number()
+                .unwrap()
+                .is_sign_negative()
+        );
+        assert_eq!(
+            converted.get("a").unwrap().as_utf16(),
+            Some([0x41, 0xd83d, 0xde00].as_slice())
+        );
+        assert_eq!(
+            converted.get("array").unwrap().stringify().as_deref(),
+            Some("[true,null,[],{}]")
+        );
+        let mut projected = converted.clone();
+        projected.set("omitted", Value::Undefined);
+        projected.set("nonfinite", Value::Number(f64::INFINITY));
+        assert_eq!(
+            projected.stringify().unwrap(),
+            "{\"0\":null,\"2\":null,\"10\":null,\"4294967294\":null,\"z\":9007199254740992,\"01\":null,\"4294967295\":null,\"a\":\"A😀\",\"negative\":0,\"array\":[true,null,[],{}],\"nonfinite\":null}"
+        );
+    }
+
+    #[test]
+    fn deep_wire_decoding_uses_the_same_iterative_json_cleanup() {
+        let decoded = decode_wire(deep_wire()).unwrap();
+        assert_eq!(
+            decoded.stringify().unwrap(),
+            format!("{}true{}", "[".repeat(DEPTH), "]".repeat(DEPTH))
+        );
+        drop(decoded);
+    }
+
+    #[test]
+    fn malformed_wire_drops_deep_unvisited_and_completed_values() {
+        let mut unknown = Map::new();
+        unknown.insert("t".into(), Json::String("null".into()));
+        unknown.insert("extra".into(), deep_json());
+        assert_eq!(
+            decode_wire(Json::Object(unknown)).err().as_deref(),
+            Some("unknown wire field")
+        );
+
+        let invalid_tag = Json::Object(Map::from_iter([
+            ("t".into(), deep_json()),
+            ("v".into(), deep_json()),
+        ]));
+        assert_eq!(
+            decode_wire(invalid_tag).err().as_deref(),
+            Some("invalid wire tag")
+        );
+
+        // A completed deep Value and an unvisited deep JSON sibling coexist
+        // when the middle child fails. Both must unwind without recursion.
+        let pending = wire_array(vec![deep_wire(), json!({}), deep_wire()]);
+        assert_eq!(
+            decode_wire(pending).err().as_deref(),
+            Some("missing wire tag")
+        );
+
+        // Object-entry validation can fail before queued values are visited.
+        let valid_pair = Json::Array(vec![json!([97]), deep_wire()]);
+        let invalid_pair = Json::Array(vec![json!([65536]), deep_json()]);
+        let entries = Json::Object(Map::from_iter([
+            ("t".into(), Json::String("object".into())),
+            (
+                "v".into(),
+                Json::Array(vec![valid_pair, invalid_pair, deep_json()]),
+            ),
+        ]));
+        assert_eq!(
+            decode_wire(entries).err().as_deref(),
+            Some("invalid UTF16 unit")
+        );
     }
 }

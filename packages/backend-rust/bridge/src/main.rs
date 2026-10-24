@@ -95,7 +95,7 @@ struct Parameter {
 }
 struct App {
     bearer: String,
-    catalog: Catalog,
+    catalog: Arc<Catalog>,
     online_users: Arc<OnlineUsers>,
     postgres: Option<PostgresConfig>,
     api_config: Option<ApiBootstrap>,
@@ -251,7 +251,7 @@ fn bootstrap() -> Result<App, Failure> {
         .collect();
     Ok(App {
         bearer: format!("Bearer {}", bootstrap.token),
-        catalog: Catalog::new(endpoints),
+        catalog: Arc::new(Catalog::new(endpoints)),
         online_users: Arc::new(OnlineUsers::new(bootstrap.postgres.clone())),
         postgres: bootstrap.postgres,
         api_config: bootstrap.api,
@@ -274,9 +274,14 @@ async fn signal() {
 async fn serve(mut app: App, eof: tokio::sync::oneshot::Receiver<()>) -> Result<(), Failure> {
     if let Some(config) = app.api_config.take() {
         app.api = Some(
-            ApiRuntime::new(config, app.postgres.take(), app.online_users.clone())
-                .await
-                .map_err(|_| Failure)?,
+            ApiRuntime::new(
+                config,
+                app.catalog.clone(),
+                app.postgres.take(),
+                app.online_users.clone(),
+            )
+            .await
+            .map_err(|_| Failure)?,
         );
     }
     let listener = tokio::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0))

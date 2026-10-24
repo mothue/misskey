@@ -825,6 +825,7 @@ name = "misskey-backend-api-auth"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "misskey-api-validation",
  "misskey-backend-postgres",
  "serde",
  "serde_json",

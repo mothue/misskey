@@ -2,6 +2,16 @@
  * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
+import type { Schema } from '@/misc/json-schema.js';
+
+export interface CatalogEndpoint {
+	readonly nameUtf16: readonly number[];
+	readonly properties: readonly {
+		readonly nameUtf16: readonly number[];
+		readonly type: NonNullable<Schema['type']> | null;
+	}[];
+}
+
 export function object(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

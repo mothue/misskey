@@ -10,7 +10,7 @@ import type { Config } from '@/config.js';
 import { DI } from '@/di-symbols.js';
 import { ApiError } from '@/server/api/error.js';
 import { decodeEndpoint, decodeEndpoints, decodeOnlineUsersCount, decodePing, decodeTest, encodeUtf16, object } from './protocol.js';
-import type { TestResult } from './protocol.js';
+import type { CatalogEndpoint, TestResult } from './protocol.js';
 import { findCodeRoot } from './source-root.js';
 import { resolveRustPostgresConfig, type RustPostgresConfig } from './postgres-config.js';
 
@@ -29,11 +29,11 @@ export class RustBackendTransport {
 	private readonly pending = new Set<AbortController>();
 	constructor(private readonly executable: string, private readonly args: string[] = []) {}
 	isReady(): boolean { return this.ready; }
-	start(endpoints: unknown, postgres: RustPostgresConfig | null = null, api?: unknown): Promise<void> {
+	start(endpoints: readonly CatalogEndpoint[], postgres: RustPostgresConfig | null = null, api?: unknown): Promise<void> {
 		if (this.stopped) return Promise.reject(unavailable());
 		return this.startPromise ??= this.launch(endpoints, postgres, api).catch(async () => { await this.stop(); throw unavailable(); });
 	}
-	private async launch(endpoints: unknown, postgres: RustPostgresConfig | null, api?: unknown): Promise<void> {
+	private async launch(endpoints: readonly CatalogEndpoint[], postgres: RustPostgresConfig | null, api?: unknown): Promise<void> {
 		const bootstrap = Buffer.from(`${JSON.stringify({ v: 1, token: this.token, endpoints, postgres, ...(api === undefined ? {} : { api }) })}\n`);
 		if (bootstrap.length > MAX_BYTES) throw unavailable();
 		const child = spawn(this.executable, this.args, { stdio: ['pipe', 'pipe', 'pipe'] });

@@ -92,6 +92,28 @@ test('endpoint preserves UTF16 code units and rejects invalid values', () => {
  expect(() => decodeEndpoint({ v: 1, op: 'endpoint', result: { params: [{ nameUtf16: [65536], type: 'String' }] } })).toThrow();
 });
 
+test('bootstrap catalog uses the registry order and only direct properties with exact UTF16 and type presence', async () => {
+	const { RustBackendService, RustBackendTransport } = await import('./RustBackendService.js');
+	const start = vi.spyOn(RustBackendTransport.prototype, 'start').mockResolvedValue();
+	vi.doMock('../api/endpoints.js', () => ({ default: [
+		{ name: 'z\ud800', params: { properties: { z: {}, 10: { type: 'integer' }, 2: { type: 'string' }, '\udc00': { type: 'boolean' } }, allOf: [{ properties: { nested: { type: 'number' } } }] } },
+		{ name: 'a', params: { anyOf: [{ properties: { nested: { type: 'string' } } }] } },
+	] }));
+	const service = new RustBackendService();
+	try {
+		await service.start();
+		expect(start).toHaveBeenCalledExactlyOnceWith([
+			{ nameUtf16: [122, 55296], properties: [
+				{ nameUtf16: [50], type: 'string' },
+				{ nameUtf16: [49, 48], type: 'integer' },
+				{ nameUtf16: [122], type: null },
+				{ nameUtf16: [56320], type: 'boolean' },
+			] },
+			{ nameUtf16: [97], properties: [] },
+		], null, undefined);
+	} finally { await service.stop(); start.mockRestore(); vi.doUnmock('../api/endpoints.js'); }
+});
+
 test('endpoints decoder preserves empty names, order, duplicates and exact UTF16 units', () => {
 	const names = ['z', '', '\ud800', '\udc00', '😀\u0000\uffff', 'a', 'z'];
 	expect(decodeEndpoints({ v: 1, op: 'endpoints', endpointsUtf16: names.map(encodeUtf16) })).toEqual(names);

@@ -129,6 +129,24 @@ fn endpoints_returns_an_empty_array_for_an_empty_catalog() {
     );
 }
 #[test]
+fn catalog_only_lookup_keeps_the_first_duplicate_definition() {
+    let server = start_with(json!({"v":1,"token":TOKEN,"endpoints":[
+        {"nameUtf16":[55296],"properties":[{"nameUtf16":[56320],"type":null}]},
+        {"nameUtf16":[55296],"properties":[{"nameUtf16":[97],"type":"string"}]}
+    ]}));
+    assert_eq!(
+        rpc(
+            &server,
+            json!({"v":1,"op":"endpoint","endpointUtf16":[55296]})
+        ),
+        json!({"v":1,"op":"endpoint","result":{"params":[{"nameUtf16":[56320],"type":"string"}]}})
+    );
+    assert_eq!(
+        rpc(&server, json!({"v":1,"op":"endpoints"})),
+        json!({"v":1,"op":"endpoints","endpointsUtf16":[[55296],[55296]]})
+    );
+}
+#[test]
 fn missing_database_configuration_only_disables_the_database_operation() {
     let server = start();
     let (status, body) = request(

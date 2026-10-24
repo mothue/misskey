@@ -14,6 +14,10 @@ impl Catalog {
     pub fn new(endpoints: Vec<Endpoint>) -> Self {
         Self(endpoints)
     }
+    /// Ordered source definitions, borrowed without normalizing names or types.
+    pub fn endpoints(&self) -> &[Endpoint] {
+        &self.0
+    }
     pub fn names(&self) -> Vec<Vec<u16>> {
         self.0
             .iter()

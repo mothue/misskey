@@ -9,7 +9,7 @@ use misskey_api_validation::{Schema, Value};
 use misskey_backend_api_auth::{
     AuthConfig, AuthError, AuthService, Context, Store, postgres::PostgresAuthStore,
 };
-use misskey_backend_core::{Catalog, Endpoint as CatalogEndpoint, Property, ping_at};
+use misskey_backend_core::{Catalog, ping_at};
 use misskey_backend_postgres::{Database, OnlineUsers, PostgresConfig, Target};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value as Json, json};
@@ -120,6 +120,47 @@ struct Endpoint {
     schema: Schema,
 }
 
+/// Both transports use the original UTF-16 catalog. Check the API schema view
+/// against it before readiness without constructing a second catalog.
+fn validate_catalog(definitions: &[EndpointDefinition], catalog: &Catalog) -> Result<(), Failure> {
+    let mismatch = || Failure::new(FailureStage::EndpointRegistry);
+    if definitions.len() != catalog.endpoints().len() {
+        return Err(mismatch());
+    }
+    for (definition, endpoint) in definitions.iter().zip(catalog.endpoints()) {
+        if !endpoint
+            .name
+            .iter()
+            .copied()
+            .eq(definition.name.encode_utf16())
+        {
+            return Err(mismatch());
+        }
+        let properties = match definition.params.get("properties") {
+            None => None,
+            Some(Json::Object(properties)) => Some(properties),
+            Some(_) => return Err(mismatch()),
+        };
+        if properties.map_or(0, |properties| properties.len()) != endpoint.properties.len() {
+            return Err(mismatch());
+        }
+        for ((name, schema), property) in properties.into_iter().flatten().zip(&endpoint.properties)
+        {
+            let kind = match schema.get("type") {
+                None | Some(Json::Null) => None,
+                Some(Json::String(kind)) => Some(kind.as_str()),
+                Some(_) => return Err(mismatch()),
+            };
+            if !property.name.iter().copied().eq(name.encode_utf16())
+                || property.kind.as_deref() != kind
+            {
+                return Err(mismatch());
+            }
+        }
+    }
+    Ok(())
+}
+
 struct Route<'a> {
     name: String,
     endpoint: Option<&'a Endpoint>,
@@ -207,7 +248,7 @@ enum CallbackResult {
 
 pub struct Runtime {
     endpoints: Vec<Endpoint>,
-    catalog: Catalog,
+    catalog: Arc<Catalog>,
     callback: CallbackConfig,
     client: reqwest::Client,
     auth: Arc<AuthService<PostgresAuthStore>>,
@@ -222,6 +263,7 @@ pub struct Runtime {
 impl Runtime {
     pub async fn new(
         config: ApiBootstrap,
+        catalog: Arc<Catalog>,
         reads: Option<PostgresConfig>,
         online_users: Arc<OnlineUsers>,
     ) -> Result<Self, Failure> {
@@ -240,8 +282,8 @@ impl Runtime {
         {
             return Err(Failure::new(FailureStage::CallbackConfig));
         }
+        validate_catalog(&config.endpoints, &catalog)?;
         let mut endpoints = Vec::new();
-        let mut definitions = Vec::new();
         let mut names = std::collections::HashSet::new();
         for definition in config.endpoints {
             if !names.insert(definition.name.clone()) || !definition.meta.is_object() {
@@ -249,23 +291,6 @@ impl Runtime {
             }
             let meta = serde_json::from_value(definition.meta)
                 .map_err(|_| Failure::new(FailureStage::EndpointMetadata))?;
-            let properties = definition
-                .params
-                .get("properties")
-                .and_then(Json::as_object)
-                .map(|p| {
-                    p.iter()
-                        .map(|(key, value)| Property {
-                            name: key.encode_utf16().collect(),
-                            kind: value.get("type").and_then(Json::as_str).map(str::to_owned),
-                        })
-                        .collect()
-                })
-                .unwrap_or_default();
-            definitions.push(CatalogEndpoint {
-                name: definition.name.encode_utf16().collect(),
-                properties,
-            });
             endpoints.push(Endpoint {
                 name: definition.name,
                 meta,
@@ -288,7 +313,7 @@ impl Runtime {
                 .map_err(|_| Failure::new(FailureStage::Redis))?;
         Ok(Self {
             endpoints,
-            catalog: Catalog::new(definitions),
+            catalog,
             callback: config.callback,
             client: reqwest::Client::builder()
                 .no_proxy()
@@ -962,6 +987,9 @@ async fn authorize_required_policy<S: Store>(
 
 #[cfg(test)]
 mod compatibility_tests;
+
+#[cfg(test)]
+mod catalog_tests;
 
 fn route_is_known(registry: bool, special: bool, name: &str, method: &str) -> bool {
     registry || name == "clear-browser-cache" || (special && request::special_method(name, method))

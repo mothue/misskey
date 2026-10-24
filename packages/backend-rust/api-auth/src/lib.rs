@@ -12,9 +12,8 @@ use tokio::sync::{Mutex, RwLock};
 
 pub mod postgres;
 mod role;
-mod safe_json;
+pub use misskey_api_validation::{SafeJson, clone_json, drop_json};
 pub use role::{evaluate_condition, parse_id_date};
-pub use safe_json::{SafeJson, clone_json, drop_json};
 
 /// One completed policy evaluation. JSON is only a projection: JSON.stringify
 /// turns nonfinite JS numbers into null, which cannot drive numeric decisions.

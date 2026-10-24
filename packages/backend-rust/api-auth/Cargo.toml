@@ -6,6 +6,7 @@ license.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+misskey-api-validation = { path = "../api-validation" }
 misskey-backend-postgres = { path = "../storage-postgres" }
 async-trait = "0.1"
 serde = { version = "1", features = ["derive"] }
