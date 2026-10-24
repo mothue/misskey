@@ -10,7 +10,7 @@ Membership reads run in bounded batches of up to 64 eligible lists before constr
 
 The original per-list-query candidate failed: large scoped-app throughput -20.20%, p95 +5.22%, while the five other scenarios passed. That attempt is retained under `/workspace/native-queue/users-lists-list/attempt-1-per-list-queries/`. The second paired measurement of the reviewed bounded-batch change passed all six scenarios: median throughput +18.62% to +85.61%, p95 -21.99% to -48.09%. All 36,000 measured requests and 3,600 warm-ups matched their TS responses. The same dedicated fixture, source, artifacts and configuration stayed fixed through three AB/BA/AB pairs; concurrency 8, 100 warm-ups plus 1,000 measured requests per scenario per side. Baseline: the TS business body at `fb102ecbcc23681020c6e895e94cdc6377048788`, with the same hybrid common runtime. [Full metrics and variation](users-lists-list-benchmark.csv) retain every scenario.
 
-**PASS — measured activation gate.** The complete operation is selected for native execution. Acceptance remains pending until fresh federation and the final pushed-commit CI are checked; source review and HTTP parity alone do not complete the slice.
+**PASS — measured activation gate.** The complete operation is selected for native execution. Fresh federation passed; acceptance remains pending until the final pushed-commit CI is checked; source review and HTTP parity alone do not complete the slice.
 
 ## Fresh cloud checks
 
@@ -26,7 +26,7 @@ The original per-list-query candidate failed: large scoped-app throughput -20.20
 | Independent manual review | PASS | Fresh-context review of original TS, schemas, selection, shared gates and projection; no findings. |
 | Rust child lifecycle | PASS, exit 0 | New list/core APIs return 503 after Rust termination, host survives, no automatic restart, owned processes collected. |
 | Measured activation gate | PASS, exit 0 | All six scenarios improve throughput and p95 after bounded membership batching. The first attempt remains FAIL. |
-| Local federation | PENDING | Requires a fresh Linux container build and two-instance run if the performance gate passes. |
+| Local federation | PASS, exit 0 | Fresh Linux container build and dedicated two-instance suite at `2de2e66b27cb0bb12eb557d746059b2c556c7657`: 92 passed, 13 skipped. All 1,283 product/test source files and HEAD stayed unchanged; owned containers/volumes removed. |
 | Final pushed-commit CI | PENDING | Check the actual final SHA. |
 | Local product browser | SKIPPED | Frontend assets and a browser are not provisioned in this workspace. The public response is compared directly and against the frontend SDK; no visual/UI behavior success is claimed. |
 
