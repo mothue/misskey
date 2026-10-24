@@ -8,6 +8,7 @@ import type { Repository } from "typeorm";
 process.env.NODE_ENV = 'test';
 
 import * as assert from 'assert';
+import { randomUUID } from 'node:crypto';
 import { describe, beforeAll, afterAll, test } from 'vitest';
 import { MiNote } from '@/models/Note.js';
 import { MAX_NOTE_TEXT_LENGTH } from '@/const.js';
@@ -108,14 +109,14 @@ describe('Note', () => {
 
 	describe('notes/show-partial-bulk response compatibility', () => {
 		test('does not interpret reactions on notes excluded by visibility', async () => {
-			const note = await post(alice, { text: 'private payload', visibility: 'specified', visibleUserIds: [bob.id] });
-			await Notes.query('UPDATE note SET reactions=$1::jsonb WHERE id=$2', [JSON.stringify({ '👍': { toString: null } }), note.id]);
+			const noteId = '0000000000000098';
+			await Notes.query('INSERT INTO note(id,"userId",visibility,"localOnly",reactions) VALUES($1,$2,\'specified\',false,$3::jsonb)', [noteId, alice.id, JSON.stringify({ '👍': { toString: null } })]);
 			try {
-				const result = await api('notes/show-partial-bulk', { noteIds: [note.id] });
+				const result = await api('notes/show-partial-bulk', { noteIds: [noteId] });
 				assert.strictEqual(result.status, 200);
 				assert.deepStrictEqual(result.body, []);
 			} finally {
-				await Notes.query('UPDATE note SET reactions=\'{}\'::jsonb WHERE id=$1', [note.id]);
+				await Notes.delete({ id: noteId });
 			}
 		});
 
@@ -135,21 +136,21 @@ describe('Note', () => {
 		});
 
 		test('treats null recipient and mention members as nonmatching IDs', async () => {
-			const note = await post(alice, { text: 'private recipients', visibility: 'specified', visibleUserIds: [bob.id] });
-			await Notes.query('UPDATE note SET "visibleUserIds"=ARRAY[NULL,$1]::varchar[], mentions=ARRAY[NULL]::varchar[] WHERE id=$2', [bob.id, note.id]);
+			const noteId = '0000000000000097';
+			await Notes.query('INSERT INTO note(id,"userId",visibility,"localOnly","visibleUserIds",mentions) VALUES($1,$2,\'specified\',false,ARRAY[NULL,$3]::varchar[],ARRAY[NULL]::varchar[])', [noteId, alice.id, bob.id]);
 			try {
 				for (const viewer of [undefined, root]) {
-					const result = await api('notes/show-partial-bulk', { noteIds: [note.id] }, viewer);
+					const result = await api('notes/show-partial-bulk', { noteIds: [noteId] }, viewer);
 					assert.strictEqual(result.status, 200);
 					assert.deepStrictEqual(result.body, []);
 				}
 				for (const viewer of [alice, bob]) {
-					const result = await api('notes/show-partial-bulk', { noteIds: [note.id] }, viewer);
+					const result = await api('notes/show-partial-bulk', { noteIds: [noteId] }, viewer);
 					assert.strictEqual(result.status, 200);
-					assert.deepStrictEqual(result.body, [{ id: note.id, reactions: {}, reactionEmojis: {} }]);
+					assert.deepStrictEqual(result.body, [{ id: noteId, reactions: {}, reactionEmojis: {} }]);
 				}
 			} finally {
-				await Notes.query('UPDATE note SET "visibleUserIds"=ARRAY[$1]::varchar[], mentions=ARRAY[]::varchar[] WHERE id=$2', [bob.id, note.id]);
+				await Notes.delete({ id: noteId });
 			}
 		});
 
@@ -187,6 +188,49 @@ describe('Note', () => {
 				assert.ok(body !== null && typeof body === 'object' && 'error' in body);
 				assert.ok(body.error !== null && typeof body.error === 'object' && 'code' in body.error);
 				assert.strictEqual(body.error.code, 'INVALID_PARAM');
+			}
+		});
+	});
+
+	describe('notes/state response compatibility', () => {
+		test('keeps favorite state per viewer and mute state per thread', async () => {
+			const note = await post(alice, { text: 'state root' });
+			const initial = await api('notes/state', { noteId: note.id }, alice);
+			assert.strictEqual(initial.status, 200);
+			assert.deepStrictEqual(initial.body, { isFavorited: false, isMutedThread: false });
+			assert.strictEqual((await api('notes/favorites/create', { noteId: note.id }, alice)).status, 204);
+			assert.strictEqual((await api('notes/thread-muting/create', { noteId: note.id }, alice)).status, 204);
+			const mine = await api('notes/state', { noteId: note.id }, alice);
+			assert.deepStrictEqual(mine.body, { isFavorited: true, isMutedThread: true });
+			const other = await api('notes/state', { noteId: note.id }, bob);
+			assert.deepStrictEqual(other.body, { isFavorited: false, isMutedThread: false });
+			const reply = await post(bob, { text: 'state reply', replyId: note.id });
+			const thread = await api('notes/state', { noteId: reply.id }, alice);
+			assert.deepStrictEqual(thread.body, { isFavorited: false, isMutedThread: true });
+		});
+
+		test('requires authentication and the existing read scope', async () => {
+			const note = await post(alice, { text: 'state scopes' });
+			assert.strictEqual((await api('notes/state', { noteId: note.id })).status, 401);
+			const token = await api('miauth/gen-token', { session: randomUUID(), permission: ['write:notes'] }, alice);
+			assert.strictEqual(token.status, 200);
+			assert.strictEqual(typeof token.body.token, 'string');
+			const denied = await api('notes/state', { noteId: note.id }, { token: token.body.token });
+			assert.strictEqual(denied.status, 403);
+			assert.strictEqual(castAsError(denied.body).error.code, 'PERMISSION_DENIED');
+		});
+
+		test('does not decode note content that this operation never reads', async () => {
+			// Insert directly so asynchronous creation notifications cannot read
+			// intentionally invalid payload while this state-only fixture exists.
+			const noteId = '0000000000000099';
+			await Notes.query('INSERT INTO note(id,"userId",visibility,"localOnly",reactions) VALUES($1,$2,\'specified\',false,$3::jsonb)', [noteId, alice.id, JSON.stringify({ '👍': { toString: null } })]);
+			try {
+				const result = await api('notes/state', { noteId: noteId }, root);
+				assert.strictEqual(result.status, 200);
+				assert.deepStrictEqual(result.body, { isFavorited: false, isMutedThread: false });
+			} finally {
+				await Notes.delete({ id: noteId });
 			}
 		});
 	});
