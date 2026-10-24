@@ -7,10 +7,12 @@ use tokio_postgres::types::ToSql;
 
 mod discovery;
 mod id;
+mod local_date;
 pub(crate) mod notes;
 mod registry_apps;
 mod roles_admin;
 mod user_achievements;
+mod user_birthdays;
 mod user_lists;
 mod user_relations;
 use id::{iso_date, parse_id_date};
@@ -19,6 +21,7 @@ pub(super) struct Config {
     pub id_method: String,
     pub default_policies: Value,
     pub notes: notes::Config,
+    local_calendar: local_date::LocalCalendar,
 }
 
 impl Config {
@@ -27,6 +30,8 @@ impl Config {
             id_method: id_method.to_lowercase(),
             default_policies: Value::from_json(default_policies),
             notes: notes::Config::default(),
+            // Birthday reads are held; effective-zone bootstrap must precede activation.
+            local_calendar: local_date::LocalCalendar::new("UTC").expect("bundled UTC zone"),
         }
     }
 }
@@ -194,6 +199,9 @@ pub(super) async fn execute(
 ) -> Option<Result<Value, Error>> {
     if !ACTIVE_READ_ENDPOINTS.contains(&name) {
         return None;
+    }
+    if name == "users/get-following-users-by-birthday" {
+        return Some(user_birthdays::birthdays(runtime, params, auth).await);
     }
     if name == "users/achievements" {
         return Some(user_achievements::achievements(runtime, params).await);

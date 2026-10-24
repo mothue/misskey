@@ -60,6 +60,12 @@
       "kind": "performance",
       "reason": "Eight-query complete native candidate failed five of six paired throughput/p95 scenarios; scoped 20-ID request throughput -30.46%, p95 +29.12%. Keep the complete TS body.",
       "evidence": "users-relation-validation.md"
+    },
+    {
+      "endpoint": "users/get-following-users-by-birthday",
+      "kind": "compatibility",
+      "reason": "Accepted single-day inputs can carry extra begin/end fields that the TS handler coerces as a range; the strict native candidate rejects them. HTTP differential fails, so retain the TS body. Effective local-time-zone bootstrap and a paired measured gate are also pending.",
+      "evidence": "users-birthdays-validation.md"
     }
   ]
 }

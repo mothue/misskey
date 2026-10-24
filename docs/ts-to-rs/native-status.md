@@ -6,7 +6,7 @@ Native means the complete business handler is selected in Rust; the public TS li
 
 | Total | Native | TS | Held (TS) |
 | ---: | ---: | ---: | ---: |
-| 438 | 32 | 396 | 10 |
+| 438 | 32 | 395 | 11 |
 
 Names and enumeration order come from the API registry. Native core match arms and the business allowlist are read from Rust source and must match the TS callback rejection guard. Hold reasons come from the hold manifest.
 
@@ -398,7 +398,7 @@ Names and enumeration order come from the API registry. Native core match arms a
 | `users/flashs` | TS |  |
 | `users/followers` | TS |  |
 | `users/following` | TS |  |
-| `users/get-following-users-by-birthday` | TS |  |
+| `users/get-following-users-by-birthday` | Held (TS) | compatibility: Accepted single-day inputs can carry extra begin/end fields that the TS handler coerces as a range; the strict native candidate rejects them. HTTP differential fails, so retain the TS body. Effective local-time-zone bootstrap and a paired measured gate are also pending. ([evidence](users-birthdays-validation.md)) |
 | `users/gallery/posts` | TS |  |
 | `users/get-frequently-replied-users` | TS |  |
 | `users/lists/create` | TS |  |
@@ -457,6 +457,6 @@ Names and enumeration order come from the API registry. Native core match arms a
 | --- | --- |
 | `packages/backend/src/server/api/endpoint-list.ts` | `f6adc6070df862e7544a92bafc001a9339bfe1e746a856b602c505a248ae5470` |
 | `packages/backend-rust/api-runtime/src/lib.rs` | `b574ff5047304af46bca93ecca36246026cc6e82fdc0e657b284d437851305c8` |
-| `packages/backend-rust/api-runtime/src/business/mod.rs` | `02f19598ad9999dd5f6619f1ae075b4e4092c31a15ab928a5374978e17818f85` |
+| `packages/backend-rust/api-runtime/src/business/mod.rs` | `70842c0209838113465a45d3c8ee9f46e81d2e684cbec107cfda3cb18b7fb419` |
 | `packages/backend/src/server/api/ApiServerService.ts` | `78a46b41ab553c5041b9afa559aaeaba55a9a0fb71539b441b028e92e8f11ee7` |
-| `scripts/ts-to-rs/native-holds.json` | `f370da108d9b3bf094b61a77fdba33f1cb4f535793763168fe88b1abb4726483` |
+| `scripts/ts-to-rs/native-holds.json` | `02e45d1885d346f05621b23511ebc4550133e213bdbf789c77ff93154033b721` |

@@ -2,6 +2,8 @@
 
 ## Authority and scope
 
+The [followed-user birthday candidate](users-birthdays-validation.md) remains on TS: an actual HTTP differential found three accepted-extra-field differences. Its ordinary-path/date work is retained, but activation, effective-zone bootstrap and measurement remain pending.
+
 The complete [users/achievements slice](users-achievements-validation.md) passed its six-case measured gate, preserving raw JSON achievement values and existing missing-profile errors. Remaining acceptance checks are recorded there.
 
 The complete [users/relation candidate](users-relation-validation.md) preserves the relationship response contract but remains on TS after its paired performance gate failed.

@@ -9,6 +9,7 @@ import * as assert from 'assert';
 import { beforeAll, beforeEach, describe, test } from 'vitest';
 import { inspect } from 'node:util';
 import { randomUUID } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
 import { api, createAppToken, initTestDb, post, relativeFetch, role, signup, successfulApiCall, uploadFile } from '../utils.js';
 import type * as misskey from 'misskey-js';
 import { DEFAULT_POLICIES } from '@/core/RoleService.js';
@@ -1227,5 +1228,120 @@ describe('users/achievements response compatibility', () => {
 		assert.strictEqual(error.info.e.message, `Could not find any entity of type "MiUserProfile" matching: {\n    "userId": "${id}"\n}`);
 		assert.ok(typeof error.info.e.id === 'string');
 		assert.match(error.info.e.id, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+	});
+});
+
+describe('followed-user birthday response compatibility', () => {
+	let viewer: misskey.entities.SignupResponse;
+	let january: misskey.entities.SignupResponse;
+	let december: misskey.entities.SignupResponse;
+	let unrelated: misskey.entities.SignupResponse;
+
+	beforeAll(async () => {
+		viewer = await signup({ username: 'birthdayViewer' });
+		january = await signup({ username: 'birthdayJanuary' });
+		december = await signup({ username: 'birthdayDecember' });
+		unrelated = await signup({ username: 'birthdayUnrelated' });
+	});
+
+	function runtimeObject(value: unknown): asserts value is Record<string, unknown> {
+		assert.ok(value !== null && typeof value === 'object' && !Array.isArray(value));
+	}
+
+	async function withBirthdays(check: () => Promise<void>) {
+		const connection = await initTestDb(true);
+		const profiles = connection.getRepository(MiUserProfile);
+		const followings = connection.getRepository(MiFollowing);
+		const ids = [randomUUID().replaceAll('-', ''), randomUUID().replaceAll('-', '')];
+		let originals: MiUserProfile[] = [];
+		try {
+			// Synchronization omits SQL functions. Provision only the existing
+			// migration's exact static definition in this dedicated test DB.
+			const migration = await readFile(new URL('../../migration/1767169026317-birthday-index.js', import.meta.url), 'utf8');
+			const definitions = [...migration.matchAll(/queryRunner\.query\(`(CREATE OR REPLACE FUNCTION get_birthday_date\(birthday TEXT\)[^`]+)`\)/g)];
+			assert.strictEqual(definitions.length, 1);
+			assert.ok(!definitions[0][1].includes('${'));
+			await connection.query(definitions[0][1]);
+			originals = await profiles.findBy([{ userId: january.id }, { userId: december.id }]);
+			assert.strictEqual(originals.length, 2);
+			await profiles.update(january.id, { birthday: '2000-01-01' });
+			await profiles.update(december.id, { birthday: '2000-12-31' });
+			// Direct isolated edges avoid follow notifications and queue activity.
+			await followings.insert([
+				{ id: ids[0], followerId: viewer.id, followeeId: december.id, isFollowerHibernated: false, withReplies: false, notify: null },
+				{ id: ids[1], followerId: viewer.id, followeeId: january.id, isFollowerHibernated: false, withReplies: false, notify: null },
+			]);
+			await check();
+		} finally {
+			try {
+				const cleanup = await Promise.allSettled([
+					followings.delete(ids),
+					...originals.map(profile => profiles.update(profile.userId, { birthday: profile.birthday })),
+				]);
+				for (const result of cleanup) assert.strictEqual(result.status, 'fulfilled', 'birthday fixture cleanup failed');
+			} finally { await connection.destroy(); }
+		}
+	}
+
+	test('keeps wrapped month/day ordering, single-day selection and offset pages', async () => {
+		await withBirthdays(async () => {
+			const birthday = { begin: { month: 12, day: 31 }, end: { month: 1, day: 1 } };
+			const result = await api('users/get-following-users-by-birthday', { birthday }, viewer);
+			assert.strictEqual(result.status, 200);
+			assert.ok(Array.isArray(result.body));
+			assert.deepStrictEqual(result.body.map(row => row.id), [january.id, december.id]);
+			for (const row of result.body) {
+				assert.match(row.birthday, /^\d{4}-\d{2}-\d{2}$/);
+				assert.strictEqual(row.user.id, row.id);
+				assert.strictEqual(row.user.username, row.id === january.id ? january.username : december.username);
+			}
+			const explicitDefaults = await api('users/get-following-users-by-birthday', { birthday, limit: 10, offset: 0 }, viewer);
+			assert.strictEqual(explicitDefaults.status, 200);
+			assert.deepStrictEqual(explicitDefaults.body, result.body);
+			for (const [offset, expected] of [[0, [january.id]], [1, [december.id]], [2, []]] as const) {
+				const page = await api('users/get-following-users-by-birthday', { birthday, limit: 1, offset }, viewer);
+				assert.strictEqual(page.status, 200);
+				assert.deepStrictEqual(page.body.map(row => row.id), expected);
+			}
+			const single = await api('users/get-following-users-by-birthday', { birthday: { month: 1, day: 1 } }, viewer);
+			assert.strictEqual(single.status, 200);
+			assert.deepStrictEqual(single.body.map(row => row.id), [january.id]);
+			// These extra fields pass the single-day schema branch, but the TS
+			// handler selects a range whenever both own keys exist. Keep this
+			// regression check before considering native activation again.
+			for (const begin of [{ month: '1', day: 1 }, { month: 1, day: 0 }]) {
+				const acceptedExtraRange = await api('users/get-following-users-by-birthday', {
+					birthday: { month: 10, day: 24, begin, end: { month: 12, day: 31 } },
+				}, viewer);
+				assert.strictEqual(acceptedExtraRange.status, 200);
+				assert.deepStrictEqual(acceptedExtraRange.body.map(row => row.id), [january.id, december.id]);
+			}
+		});
+	});
+
+	test('uses the authenticated following graph and preserves credential and app-scope gates', async () => {
+		await withBirthdays(async () => {
+			const params = { birthday: { month: 1, day: 1 } };
+			const allowed = await createAppToken(viewer, ['read:account']);
+			const denied = await createAppToken(viewer, ['read:notifications']);
+			const account = await api('users/get-following-users-by-birthday', params, viewer);
+			const scoped = await api('users/get-following-users-by-birthday', params, { token: allowed, bearer: true });
+			assert.strictEqual(account.status, 200);
+			assert.strictEqual(scoped.status, 200);
+			assert.deepStrictEqual(scoped.body, account.body);
+			assert.deepStrictEqual(account.body.map(row => row.id), [january.id]);
+			const other = await api('users/get-following-users-by-birthday', params, unrelated);
+			assert.strictEqual(other.status, 200);
+			assert.deepStrictEqual(other.body, []);
+			const anonymous = await api('users/get-following-users-by-birthday', params);
+			const forbidden = await api('users/get-following-users-by-birthday', params, { token: denied, bearer: true });
+			for (const [response, status, code] of [[anonymous, 401, 'CREDENTIAL_REQUIRED'], [forbidden, 403, 'PERMISSION_DENIED']] as const) {
+				assert.strictEqual(response.status, status);
+				const body: unknown = response.body;
+				runtimeObject(body);
+				runtimeObject(body.error);
+				assert.strictEqual(body.error.code, code);
+			}
+		});
 	});
 });

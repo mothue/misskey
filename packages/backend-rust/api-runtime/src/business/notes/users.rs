@@ -25,7 +25,7 @@ async fn load_user_rows(runtime: &Runtime, ids: &[String]) -> Result<Vec<Value>,
 
 /// Batch the same selected UserLite fields, then reuse the complete formatter.
 /// IN naturally deduplicates IDs; callers retain their own result sequence.
-pub(super) async fn pack_many_users(
+pub(in crate::business) async fn pack_many_users(
     runtime: &Runtime,
     ids: &[String],
     auth: &Context,
