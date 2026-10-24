@@ -2,6 +2,8 @@
 
 ## Authority and scope
 
+The complete [users/lists/show slice](users-lists-show-validation.md) reuses the UserList formatter and passed all six paired performance cases. Its remaining acceptance checks are recorded there.
+
 The complete [users/lists/list slice](users-lists-list-validation.md) passed its paired performance gate after bounded membership batching. Its final acceptance checks are recorded there.
 
 The complete [notes/drafts/count candidate](notes-drafts-count-validation.md) is also held after the paired p95 gate failed; its business operation continues on TS.

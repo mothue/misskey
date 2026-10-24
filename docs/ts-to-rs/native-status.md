@@ -6,7 +6,7 @@ Native means the complete business handler is selected in Rust; the public TS li
 
 | Total | Native | TS | Held (TS) |
 | ---: | ---: | ---: | ---: |
-| 438 | 30 | 399 | 9 |
+| 438 | 31 | 398 | 9 |
 
 Names and enumeration order come from the API registry. Native core match arms and the business allowlist are read from Rust source and must match the TS callback rejection guard. Hold reasons come from the hold manifest.
 
@@ -409,7 +409,7 @@ Names and enumeration order come from the API registry. Native core match arms a
 | `users/lists/list` | Native |  |
 | `users/lists/pull` | TS |  |
 | `users/lists/push` | TS |  |
-| `users/lists/show` | TS |  |
+| `users/lists/show` | Native |  |
 | `users/lists/unfavorite` | TS |  |
 | `users/lists/update` | TS |  |
 | `users/lists/update-membership` | TS |  |
@@ -457,6 +457,6 @@ Names and enumeration order come from the API registry. Native core match arms a
 | --- | --- |
 | `packages/backend/src/server/api/endpoint-list.ts` | `f6adc6070df862e7544a92bafc001a9339bfe1e746a856b602c505a248ae5470` |
 | `packages/backend-rust/api-runtime/src/lib.rs` | `b574ff5047304af46bca93ecca36246026cc6e82fdc0e657b284d437851305c8` |
-| `packages/backend-rust/api-runtime/src/business/mod.rs` | `be9b1f32665841184aa328a1fbc43de5f54c167f1582d7c5efa1f2ac8e61213f` |
-| `packages/backend/src/server/api/ApiServerService.ts` | `37463145fed3ab22b5694523e53193247be227eac1aeca6fd2af21be99c847c6` |
+| `packages/backend-rust/api-runtime/src/business/mod.rs` | `dd7d2f3352905eb3fe982c18f8c53bd2224c394f70b1a86055080796e2431ed9` |
+| `packages/backend/src/server/api/ApiServerService.ts` | `fb5e33f3dcf8681f2282f88d56d8e0807fcc5bfe0e32d33139df57e4415d8d97` |
 | `scripts/ts-to-rs/native-holds.json` | `92f908edebc78cfb55e304710589066d599721687585587bcc4880e1af0f22cb` |

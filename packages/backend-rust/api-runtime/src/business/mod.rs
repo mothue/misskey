@@ -180,6 +180,7 @@ pub(super) const ACTIVE_READ_ENDPOINTS: &[&str] = &[
     "roles/show",
     "username/available",
     "users/lists/list",
+    "users/lists/show",
 ];
 
 pub(super) async fn execute(
@@ -190,6 +191,9 @@ pub(super) async fn execute(
 ) -> Option<Result<Value, Error>> {
     if !ACTIVE_READ_ENDPOINTS.contains(&name) {
         return None;
+    }
+    if name == "users/lists/show" {
+        return Some(user_lists::show(runtime, params, auth).await);
     }
     if name == "users/lists/list" {
         return Some(user_lists::list(runtime, params, auth).await);

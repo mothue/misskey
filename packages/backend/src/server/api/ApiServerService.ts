@@ -188,6 +188,7 @@ export class ApiServerService implements OnApplicationShutdown {
 			'roles/show',
 			'username/available',
 			'users/lists/list',
+			'users/lists/show',
 			'notes/show',
 			'notes/show-partial-bulk',
 		].includes(invocation.endpoint)) throw new Error('Native API cannot execute through TS');

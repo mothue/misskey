@@ -10,7 +10,7 @@ Membership reads run in bounded batches of up to 64 eligible lists before constr
 
 The original per-list-query candidate failed: large scoped-app throughput -20.20%, p95 +5.22%, while the five other scenarios passed. That attempt is retained under `/workspace/native-queue/users-lists-list/attempt-1-per-list-queries/`. The second paired measurement of the reviewed bounded-batch change passed all six scenarios: median throughput +18.62% to +85.61%, p95 -21.99% to -48.09%. All 36,000 measured requests and 3,600 warm-ups matched their TS responses. The same dedicated fixture, source, artifacts and configuration stayed fixed through three AB/BA/AB pairs; concurrency 8, 100 warm-ups plus 1,000 measured requests per scenario per side. Baseline: the TS business body at `fb102ecbcc23681020c6e895e94cdc6377048788`, with the same hybrid common runtime. [Full metrics and variation](users-lists-list-benchmark.csv) retain every scenario.
 
-**PASS — measured activation gate.** The complete operation is selected for native execution. Fresh federation passed; acceptance remains pending until the final pushed-commit CI is checked; source review and HTTP parity alone do not complete the slice.
+**PASS — measured activation gate.** The complete operation is selected for native execution. Fresh federation and final pushed-commit CI at `02c0f8a4b46c956e73611052bb9d3bccd150cb18` passed. Local product browser checks also passed. Source review and HTTP parity alone were not counted as completion.
 
 ## Fresh cloud checks
 
@@ -27,7 +27,9 @@ The original per-list-query candidate failed: large scoped-app throughput -20.20
 | Rust child lifecycle | PASS, exit 0 | New list/core APIs return 503 after Rust termination, host survives, no automatic restart, owned processes collected. |
 | Measured activation gate | PASS, exit 0 | All six scenarios improve throughput and p95 after bounded membership batching. The first attempt remains FAIL. |
 | Local federation | PASS, exit 0 | Fresh Linux container build and dedicated two-instance suite at `2de2e66b27cb0bb12eb557d746059b2c556c7657`: 92 passed, 13 skipped. All 1,283 product/test source files and HEAD stayed unchanged; owned containers/volumes removed. |
-| Final pushed-commit CI | PENDING | Check the actual final SHA. |
-| Local product browser | SKIPPED | Frontend assets and a browser are not provisioned in this workspace. The public response is compared directly and against the frontend SDK; no visual/UI behavior success is claimed. |
+| Pushed slice CI | PASS at `02c0f8a4b46c956e73611052bb9d3bccd150cb18` | All 18 executed workflows succeeded; Storybook was skipped. Later revisions require their own final-SHA check. |
+| Local product browser | PASS, exits 0 | Existing frontend build and system Chromium via Playwright: actual `/my/lists` and anonymous public-list page on TS and native versions. Same rendered IDs/order (three own / two public), zero page errors, four screenshots retained. External HTTP resources blocked. |
 
 Commands, exit codes, sanitized logs, source/binary provenance, capture pairs and reviews: `/workspace/native-queue/users-lists-list/`. Dedicated runtime DB: `users-lists-list-runtime`; main Redis DB10 and reactions DB15 with separate prefixes. Backend E2E uses the separate `test-misskey` fixture. No shared or production service is used.
+
+The earlier browser availability assessment checked the wrong frontend build path; existing root `built/_frontend_*` assets and system Chromium were available. Initial screenshot checks were limited by expected onboarding, and two harness attempts failed waiting for the unhandled Later confirmation. After handling that normal UI dialog and waiting for rendering to settle, both TS and native checks passed. These setup failures are retained, not treated as product failures or silent passes.

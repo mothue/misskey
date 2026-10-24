@@ -894,7 +894,7 @@ describe('ユーザー', () => {
 	test.todo('をサーバー向けに取得することができる(federation/users)');
 });
 
-describe('users/lists/list response compatibility', () => {
+describe('users/lists list and show response compatibility', () => {
 	let owner: misskey.entities.SignupResponse;
 	let other: misskey.entities.SignupResponse;
 
@@ -943,6 +943,57 @@ describe('users/lists/list response compatibility', () => {
 			for (const listId of ids) await api('users/lists/delete', { listId }, owner);
 		}
 		assert.deepStrictEqual((await api('users/lists/list', {}, owner)).body, []);
+	});
+
+	test('shows own private lists and includes favorite fields only forPublic', async () => {
+		const ids: string[] = [];
+		try {
+			const privateList = await successfulApiCall({ endpoint: 'users/lists/create', parameters: { name: 'private detail' }, user: owner });
+			ids.push(privateList.id);
+			const publicList = await successfulApiCall({ endpoint: 'users/lists/create', parameters: { name: 'public detail 😀' }, user: owner });
+			ids.push(publicList.id);
+			const base = await successfulApiCall({ endpoint: 'users/lists/update', parameters: { listId: publicList.id, isPublic: true }, user: owner });
+			assert.deepStrictEqual(await successfulApiCall({ endpoint: 'users/lists/show', parameters: { listId: privateList.id }, user: owner }), privateList);
+			const anonymousDefault = await api('users/lists/show', { listId: publicList.id });
+			assert.strictEqual(anonymousDefault.status, 200);
+			assert.deepStrictEqual(anonymousDefault.body, base);
+			const zero = await api('users/lists/show', { listId: publicList.id, forPublic: true });
+			assert.strictEqual(zero.status, 200);
+			assert.deepStrictEqual(zero.body, { ...base, likedCount: 0, isLiked: false });
+			await successfulApiCall({ endpoint: 'users/lists/favorite', parameters: { listId: publicList.id }, user: other });
+			const liked = await successfulApiCall({ endpoint: 'users/lists/show', parameters: { listId: publicList.id, forPublic: true }, user: other });
+			assert.deepStrictEqual(liked, { ...base, likedCount: 1, isLiked: true });
+			assert.deepStrictEqual(await successfulApiCall({ endpoint: 'users/lists/show', parameters: { listId: publicList.id }, user: owner }), base);
+			const allowed = await api('miauth/gen-token', { session: randomUUID(), permission: ['read:account'] }, other);
+			const denied = await api('miauth/gen-token', { session: randomUUID(), permission: ['read:notifications'] }, other);
+			const scoped = await api('users/lists/show', { listId: publicList.id, forPublic: true }, { token: allowed.body.token });
+			assert.strictEqual(scoped.status, 200);
+			assert.deepStrictEqual(scoped.body, liked);
+			assert.strictEqual((await api('users/lists/show', { listId: publicList.id, forPublic: true }, { token: denied.body.token })).status, 403);
+		} finally {
+			for (const listId of ids) await api('users/lists/delete', { listId }, owner);
+		}
+	});
+
+	test('uses the same missing-list error for inaccessible lists and missing IDs', async () => {
+		const privateList = await successfulApiCall({ endpoint: 'users/lists/create', parameters: { name: 'hidden detail' }, user: owner });
+		const publicList = await successfulApiCall({ endpoint: 'users/lists/create', parameters: { name: 'other public detail' }, user: owner });
+		try {
+			await successfulApiCall({ endpoint: 'users/lists/update', parameters: { listId: publicList.id, isPublic: true }, user: owner });
+			for (const [params, viewer] of [
+				[{ listId: privateList.id }, null],
+				[{ listId: privateList.id }, other],
+				[{ listId: privateList.id, forPublic: true }, owner],
+				[{ listId: publicList.id }, other],
+				[{ listId: '0000000000000000' }, owner],
+			] as const) {
+				const response = await api('users/lists/show', params, viewer ?? undefined);
+				assert.strictEqual(response.status, 400);
+				assert.deepStrictEqual(errorBody(response.body), { code: 'NO_SUCH_LIST', id: '7bc05c21-1d7a-41ae-88f1-66820f4dc686' });
+			}
+		} finally {
+			for (const listId of [privateList.id, publicList.id]) await api('users/lists/delete', { listId }, owner);
+		}
 	});
 
 	test('keeps anonymous, missing-user and remote-user errors distinct', async () => {

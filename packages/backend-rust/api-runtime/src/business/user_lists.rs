@@ -141,8 +141,8 @@ fn membership_arrays(ids: &[String], values: Vec<Value>) -> Result<Vec<Vec<Value
     Ok(result)
 }
 
-/// Shared base projection remains reusable by a later lists/show operation.
-async fn pack_lists(runtime: &Runtime, lists: &[Value]) -> Result<Value, Error> {
+/// Shared base projection for list and show, without favorite-only fields.
+async fn pack_lists(runtime: &Runtime, lists: &[Value]) -> Result<Vec<Value>, Error> {
     let mut packed = Vec::with_capacity(lists.len());
     for chunk in lists.chunks(MEMBERSHIP_BATCH) {
         let ids = chunk
@@ -169,7 +169,7 @@ async fn pack_lists(runtime: &Runtime, lists: &[Value]) -> Result<Value, Error> 
             )?);
         }
     }
-    Ok(Value::Array(packed))
+    Ok(packed)
 }
 
 pub(super) async fn list(
@@ -200,7 +200,127 @@ pub(super) async fn list(
     // own ID. Eligibility is resolved before list payload/membership decoding.
     let owner = selection.owner();
     let lists = rows(&runtime.database, true, sql, &[&owner]).await?;
-    pack_lists(runtime, &lists).await
+    Ok(Value::Array(pack_lists(runtime, &lists).await?))
+}
+
+fn for_public(params: &Value) -> Result<bool, Error> {
+    match params.get("forPublic") {
+        None | Some(Value::Undefined) => Ok(false),
+        Some(Value::Boolean(value)) => Ok(*value),
+        _ => Err(Error::Internal),
+    }
+}
+
+fn viewer_id(auth: &Context) -> Result<Option<&str>, Error> {
+    auth.user
+        .as_ref()
+        .map(|user| {
+            user.get("id")
+                .and_then(serde_json::Value::as_str)
+                .ok_or(Error::Internal)
+        })
+        .transpose()
+}
+
+fn favorite_count(values: &[Value]) -> Result<f64, Error> {
+    match values {
+        [Value::Number(count)] if count.is_finite() && *count >= 0. && count.fract() == 0. => {
+            // TypeORM COUNT uses parseInt's Number, including int8 rounding.
+            Ok(*count)
+        }
+        _ => Err(Error::Internal),
+    }
+}
+
+fn favorite_exists(values: &[Value]) -> Result<bool, Error> {
+    match values {
+        [Value::Boolean(exists)] => Ok(*exists),
+        _ => Err(Error::Internal),
+    }
+}
+
+fn show_fields(mut packed: Value, favorite: Option<(f64, bool)>) -> Result<Value, Error> {
+    if !matches!(packed, Value::Object(_)) {
+        return Err(Error::Internal);
+    }
+    if let Some((count, liked)) = favorite {
+        packed.set("likedCount", Value::Number(count));
+        packed.set("isLiked", Value::Boolean(liked));
+    }
+    Ok(packed)
+}
+
+pub(super) async fn show(
+    runtime: &Runtime,
+    params: &Value,
+    auth: &Context,
+) -> Result<Value, Error> {
+    let for_public = for_public(params)?;
+    let id = text(params, "listId")?;
+    let lists = if !for_public && auth.user.is_some() {
+        let owner = viewer_id(auth)?.ok_or(Error::Internal)?;
+        rows(
+            &runtime.database,
+            true,
+            "SELECT json_build_object('id',l.id,'userId',l.\"userId\",'isPublic',l.\"isPublic\",'name',l.name)::text FROM user_list l WHERE l.id=$1 AND l.\"userId\"=$2 LIMIT 1",
+            &[&id, &owner],
+        )
+        .await?
+    } else {
+        rows(
+            &runtime.database,
+            true,
+            "SELECT json_build_object('id',l.id,'userId',l.\"userId\",'isPublic',l.\"isPublic\",'name',l.name)::text FROM user_list l WHERE l.id=$1 AND l.\"isPublic\"=true LIMIT 1",
+            &[&id],
+        )
+        .await?
+    };
+    if lists.is_empty() {
+        return Err(client_error(
+            "No such list.",
+            "NO_SUCH_LIST",
+            "7bc05c21-1d7a-41ae-88f1-66820f4dc686",
+        ));
+    }
+    if lists.len() != 1 {
+        return Err(Error::Internal);
+    }
+    // Eligibility is complete before reading favorites or interpreting payload.
+    // forPublic selects only public rows; the default path omits both fields.
+    let favorite = if for_public {
+        let count = favorite_count(
+            &rows(
+                &runtime.database,
+                true,
+                "SELECT to_json(COUNT(*))::text FROM user_list_favorite WHERE \"userListId\"=$1",
+                &[&id],
+            )
+            .await?,
+        )?;
+        let liked = if let Some(viewer) = viewer_id(auth)? {
+            favorite_exists(
+                &rows(
+                    &runtime.database,
+                    true,
+                    "SELECT to_json(EXISTS(SELECT 1 FROM user_list_favorite WHERE \"userId\"=$1 AND \"userListId\"=$2 LIMIT 1))::text",
+                    &[&viewer, &id],
+                )
+                .await?,
+            )?
+        } else {
+            false
+        };
+        Some((count, liked))
+    } else {
+        None
+    };
+    // TS completes COUNT and EXISTS before membership lookup and date packing.
+    let mut packed = pack_lists(runtime, &lists).await?;
+    let result = packed.pop().ok_or(Error::Internal)?;
+    if !packed.is_empty() {
+        return Err(Error::Internal);
+    }
+    show_fields(result, favorite)
 }
 
 #[cfg(test)]
@@ -343,5 +463,38 @@ mod tests {
         assert_eq!(decoded, vec![members, Vec::new()]);
         let wrong_ids = vec!["other".to_owned(), "empty".to_owned()];
         assert!(membership_arrays(&wrong_ids, rows).is_err());
+    }
+
+    #[test]
+    fn show_default_flag_is_false_and_explicit_public_requires_a_boolean() {
+        assert!(!for_public(&Value::parse_json("{}").unwrap()).unwrap());
+        assert!(!for_public(&Value::object([("forPublic", Value::Undefined)])).unwrap());
+        assert!(for_public(&Value::object([("forPublic", Value::Boolean(true))])).unwrap());
+        assert!(for_public(&Value::object([("forPublic", Value::Null)])).is_err());
+    }
+
+    #[test]
+    fn show_only_includes_favorite_fields_when_requested_even_for_zero_and_false() {
+        let base = packed_fields(&record(), &[], "aidx").unwrap();
+        let default = show_fields(base.clone(), None).unwrap();
+        assert_eq!(default.get("likedCount"), None);
+        assert_eq!(default.get("isLiked"), None);
+        let public = show_fields(base, Some((0., false))).unwrap();
+        assert_eq!(public.get("likedCount"), Some(&Value::Number(0.)));
+        assert_eq!(public.get("isLiked"), Some(&Value::Boolean(false)));
+        assert!(favorite_exists(&[Value::Boolean(true)]).unwrap());
+        assert!(!favorite_exists(&[Value::Boolean(false)]).unwrap());
+    }
+
+    #[test]
+    fn show_favorite_count_keeps_postgres_int8_typescript_number_rounding() {
+        for (json, expected) in [
+            ("0", 0.),
+            ("9007199254740993", 9_007_199_254_740_992.),
+            ("9223372036854775807", 9_223_372_036_854_775_808.),
+        ] {
+            let parsed = Value::parse_json(json).unwrap();
+            assert_eq!(favorite_count(&[parsed]).unwrap(), expected);
+        }
     }
 }
