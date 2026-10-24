@@ -7,6 +7,8 @@ import { mkdtemp, writeFile, rm, chmod } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import * as tls from 'node:tls';
+import * as net from 'node:net';
+import * as dns from 'node:dns';
 import pg from 'pg';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { resolveRustPostgresConfig } from './postgres-config.js';
@@ -31,6 +33,7 @@ afterEach(() => { vi.unstubAllEnvs(); vi.restoreAllMocks(); });
 test('normalization does not open a DB connection and preserves defaults', async () => {
 	const connect = vi.spyOn(pg.Client.prototype, 'connect').mockImplementation(() => { throw new Error('Must not connect'); });
 	expect(await resolveRustPostgresConfig(database())).toEqual({ targets: [{
+		autoSelectFamily: net.getDefaultAutoSelectFamily(), autoSelectFamilyAttemptTimeoutMs: net.getDefaultAutoSelectFamilyAttemptTimeout(), dnsResultOrder: dns.getDefaultResultOrder(),
 		host: 'db.test', port: 5432, database: 'dedicated-test', user: 'test-user', password: 'test-only-password',
 		options: null, applicationName: null, statementTimeoutMs: 10_000, lockTimeoutMs: null,
 		idleInTransactionSessionTimeoutMs: null, connectTimeoutMs: null, queryTimeoutMs: null,
@@ -149,4 +152,23 @@ test('replication protocol settings from connectionString or PGREPLICATION fail 
 	expect(await resolveRustPostgresConfig(database({ connectionString: 'postgres://fixture:fixture@db.test/fixture?replication=database' }))).toBeNull();
 	vi.stubEnv('PGREPLICATION', 'database');
 	expect(await resolveRustPostgresConfig(database())).toBeNull();
+});
+
+test('captures effective runtime network defaults without resolving or connecting', async () => {
+	const previous = { family: net.getDefaultAutoSelectFamily(), timeout: net.getDefaultAutoSelectFamilyAttemptTimeout(), order: dns.getDefaultResultOrder() };
+	const connect = vi.spyOn(pg.Client.prototype, 'connect').mockImplementation(() => { throw new Error('Must not connect'); });
+	try {
+		net.setDefaultAutoSelectFamily(false);
+		net.setDefaultAutoSelectFamilyAttemptTimeout(75);
+		dns.setDefaultResultOrder('ipv4first');
+		expect((await resolveRustPostgresConfig(database()))?.targets[0]).toMatchObject({ autoSelectFamily: false, autoSelectFamilyAttemptTimeoutMs: 75, dnsResultOrder: 'ipv4first' });
+		net.setDefaultAutoSelectFamily(true);
+		dns.setDefaultResultOrder('verbatim');
+		expect((await resolveRustPostgresConfig(database()))?.targets[0]).toMatchObject({ autoSelectFamily: true, autoSelectFamilyAttemptTimeoutMs: 75, dnsResultOrder: 'verbatim' });
+		expect(connect).not.toHaveBeenCalled();
+	} finally {
+		net.setDefaultAutoSelectFamily(previous.family);
+		net.setDefaultAutoSelectFamilyAttemptTimeout(previous.timeout);
+		dns.setDefaultResultOrder(previous.order);
+	}
 });

@@ -218,6 +218,64 @@ impl QueryFault {
     pub fn raw_os_error(&self) -> Option<i32> {
         self.find_source::<io::Error>()
             .and_then(io::Error::raw_os_error)
+            .or_else(|| self.resolver_errno())
+    }
+
+    fn resolver_facts(&self) -> Option<&crate::resolver::ResolverFacts> {
+        match &self.source {
+            Source::Resolver(error) => crate::resolver::facts(error),
+            _ => None,
+        }
+    }
+    pub fn resolver_eai(&self) -> Option<i32> {
+        self.resolver_facts().map(|f| f.eai)
+    }
+    pub fn resolver_errno(&self) -> Option<i32> {
+        self.resolver_facts().and_then(|f| f.errno)
+    }
+    pub fn resolver_domain(&self) -> Option<&'static str> {
+        self.resolver_facts().map(|_| "getaddrinfo")
+    }
+    pub fn resolver_flags(&self) -> Option<i32> {
+        self.resolver_facts().map(|f| f.flags)
+    }
+    pub fn resolver_family(&self) -> Option<i32> {
+        self.resolver_facts().map(|f| f.family)
+    }
+    pub fn resolver_socket_type(&self) -> Option<i32> {
+        self.resolver_facts().map(|f| f.socket_type)
+    }
+    pub fn resolver_protocol(&self) -> Option<i32> {
+        self.resolver_facts().map(|f| f.protocol)
+    }
+    pub fn resolver_service(&self) -> Option<&'static str> {
+        self.resolver_facts().map(|f| f.service)
+    }
+    pub fn tcp_attempt_count(&self) -> Option<usize> {
+        self.context
+            .as_deref()
+            .map(TransportContext::tcp_attempt_count)
+    }
+    pub fn tcp_attempts_exhausted(&self) -> Option<bool> {
+        self.context
+            .as_deref()
+            .map(TransportContext::tcp_attempts_exhausted)
+    }
+    /// Original failed dials in actual attempt order; never exposes an error string.
+    pub fn tcp_failures(
+        &self,
+    ) -> Option<impl Iterator<Item = (SocketAddr, Option<io::ErrorKind>, Option<i32>)> + '_> {
+        self.context.as_deref().map(|context| {
+            context
+                .tcp_failures()
+                .iter()
+                .map(|failure| (failure.address, failure.kind, failure.errno))
+        })
+    }
+    pub(crate) fn tls_verify_certificate(&self) -> Option<&openssl::x509::X509Ref> {
+        self.context
+            .as_deref()
+            .and_then(TransportContext::tls_verify_certificate)
     }
 
     pub fn server_code(&self) -> Option<&str> {
@@ -235,6 +293,17 @@ impl QueryFault {
     pub fn connect_stage(&self) -> Option<ConnectStage> {
         self.context.as_deref().map(TransportContext::connect_stage)
     }
+    pub fn connect_host(&self) -> Option<&str> {
+        self.context
+            .as_deref()
+            .and_then(TransportContext::connect_host)
+    }
+    pub fn tls_verify_chain_len(&self) -> Option<usize> {
+        self.context
+            .as_deref()
+            .and_then(TransportContext::tls_verify_chain_len)
+    }
+
     pub fn resolver_host(&self) -> Option<&str> {
         self.context
             .as_deref()

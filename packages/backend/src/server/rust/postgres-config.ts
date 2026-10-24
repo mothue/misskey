@@ -3,7 +3,8 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-import { isIP } from 'node:net';
+import { getDefaultAutoSelectFamily, getDefaultAutoSelectFamilyAttemptTimeout, isIP } from 'node:net';
+import { getDefaultResultOrder } from 'node:dns';
 import * as tls from 'node:tls';
 import pg from 'pg';
 import type { Config } from '@/config.js';
@@ -25,6 +26,9 @@ export type RustPostgresTls = {
 export type RustPostgresTarget = {
 	host: string;
 	port: number;
+	autoSelectFamily: boolean;
+	autoSelectFamilyAttemptTimeoutMs: number;
+	dnsResultOrder: 'verbatim' | 'ipv4first' | 'ipv6first';
 	user: string;
 	password: string | null;
 	database: string;
@@ -153,7 +157,12 @@ async function normalizeTarget(config: DatabaseConfig, source: Omit<Config['db']
 	if (typeof port !== 'number' || !Number.isInteger(port) || port < 1 || port > 65535) throw invalid();
 	const negotiation = parameters.sslnegotiation ?? 'postgres';
 	if (negotiation !== 'postgres' && negotiation !== 'direct') throw invalid();
+	const dnsResultOrder = getDefaultResultOrder();
+	if (dnsResultOrder !== 'verbatim' && dnsResultOrder !== 'ipv4first' && dnsResultOrder !== 'ipv6first') throw invalid();
 	return {
+		autoSelectFamily: getDefaultAutoSelectFamily(),
+		autoSelectFamilyAttemptTimeoutMs: getDefaultAutoSelectFamilyAttemptTimeout(),
+		dnsResultOrder,
 		host, port, user: text(parameters.user), database: text(parameters.database),
 		password: await resolvePassword(client, parameters),
 		options: optionalText(startup.options), applicationName: optionalText(startup.application_name),

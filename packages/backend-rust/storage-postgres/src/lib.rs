@@ -33,6 +33,10 @@ use tokio_postgres::{
 const OPERATION_LIMIT: Duration = Duration::from_secs(4);
 
 mod fault;
+mod identity;
+mod legacy;
+pub use legacy::LegacyError;
+mod resolver;
 mod transport;
 mod wire;
 pub use fault::{
@@ -70,6 +74,11 @@ impl QueryError {
             },
             None => Self::Fault(QueryFault::postgres(FaultPhase::Query, error)),
         }
+    }
+
+    /// Explicit public business projection; opaque auth/count callers stay opaque.
+    pub fn legacy_error(&self) -> Option<LegacyError> {
+        legacy::query_error(self)
     }
 
     pub fn legacy_message(&self) -> Option<&str> {
@@ -120,6 +129,12 @@ pub struct PostgresConfig {
 pub struct Target {
     pub host: String,
     pub port: u16,
+    #[serde(default = "default_auto_select_family")]
+    pub auto_select_family: bool,
+    #[serde(default = "default_attempt_timeout")]
+    pub auto_select_family_attempt_timeout_ms: u32,
+    #[serde(default)]
+    pub dns_result_order: DnsResultOrder,
     pub user: String,
     pub password: Option<String>,
     pub database: String,
@@ -136,6 +151,22 @@ pub struct Target {
     pub ssl_negotiation: Negotiation,
     pub tls: Option<Tls>,
 }
+fn default_auto_select_family() -> bool {
+    true
+}
+fn default_attempt_timeout() -> u32 {
+    500
+}
+
+#[derive(Clone, Copy, Default, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum DnsResultOrder {
+    #[default]
+    Verbatim,
+    Ipv4first,
+    Ipv6first,
+}
+
 #[derive(Clone, Copy, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Negotiation {
@@ -666,7 +697,7 @@ async fn connect_with_access(
     resolver: &dyn Resolver,
 ) -> Result<Connection, QueryFault> {
     let config = config(target).map_err(QueryFault::configuration)?;
-    let context = ConnectContext::default();
+    let context = ConnectContext::for_target(target);
     let establish = async {
         if let Some(tls) = &target.tls {
             let connector = tls_connector(tls, target.ssl_negotiation)?;
@@ -761,9 +792,28 @@ where
         let mut inner = self.inner.clone();
         let (verify, sni, observe_verify) = (self.verify, self.sni, self.observe_verify);
         let verify_observation = observation.clone();
+        // Bun verifies UTS #46 names and zone-free IP identities while sending
+        // the original servername bytes as SNI. Keep those two roles separate.
+        let original_name = self
+            .servername
+            .strip_suffix('.')
+            .unwrap_or(&self.servername);
+        let verify_name =
+            idna::domain_to_ascii(original_name).unwrap_or_else(|_| original_name.to_owned());
+        let verify_ip = identity::typed_ip(original_name);
         inner.set_callback(move |config, _| {
-            config.set_verify_hostname(verify);
+            config.set_verify_hostname(false);
             config.set_use_server_name_indication(sni);
+            if verify {
+                config
+                    .param_mut()
+                    .set_hostflags(openssl::x509::verify::X509CheckFlags::NO_PARTIAL_WILDCARDS);
+                if let Some(ip) = verify_ip {
+                    config.param_mut().set_ip(ip)?;
+                } else {
+                    config.param_mut().set_host(&verify_name)?;
+                }
+            }
             if verify && observe_verify {
                 let observation = verify_observation.clone();
                 config.set_verify_callback(SslVerifyMode::PEER, move |preverify_ok, context| {

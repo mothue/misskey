@@ -11,7 +11,7 @@ use std::{
     fmt,
     future::Future,
     io,
-    net::{IpAddr, SocketAddr},
+    net::SocketAddr,
     pin::Pin,
     sync::{Arc, Mutex},
     time::Duration,
@@ -29,7 +29,7 @@ pub(crate) trait Resolver: Send + Sync {
 pub(crate) struct SystemResolver;
 impl Resolver for SystemResolver {
     fn resolve<'a>(&'a self, host: &'a str, port: u16) -> ResolveFuture<'a> {
-        Box::pin(async move { Ok(tokio::net::lookup_host((host, port)).await?.collect()) })
+        Box::pin(crate::resolver::lookup(host, port))
     }
 }
 
@@ -38,9 +38,10 @@ struct Verification {
     code: i32,
     depth: u32,
     preverify_ok: bool,
+    chain_len: Option<usize>,
     // The actual certificate is private context for later compatibility work.
     // It is never formatted or exported as a public legacy message.
-    _certificate: Option<X509>,
+    certificate: Option<X509>,
 }
 
 struct AttemptState {
@@ -92,7 +93,8 @@ impl AttemptObservation {
                 code: context.error().as_raw(),
                 depth: context.error_depth(),
                 preverify_ok,
-                _certificate: context.current_cert().map(ToOwned::to_owned),
+                chain_len: context.chain().map(|chain| chain.len()),
+                certificate: context.current_cert().map(ToOwned::to_owned),
             });
         }
     }
@@ -177,15 +179,77 @@ struct CurrentAttempt {
     addr: SocketAddr,
     observation: AttemptObservation,
 }
+#[derive(Clone)]
+pub(crate) struct TcpFailure {
+    pub(crate) address: SocketAddr,
+    pub(crate) kind: Option<io::ErrorKind>,
+    pub(crate) errno: Option<i32>,
+}
+impl fmt::Debug for TcpFailure {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("TcpFailure")
+    }
+}
+
 struct ContextState {
     host: Option<String>,
+    connect_host: Option<String>,
     address_count: Option<usize>,
     attempt: Option<CurrentAttempt>,
+    tcp_failures: Vec<TcpFailure>,
+    exhausted: bool,
+}
+
+#[derive(Clone)]
+struct NetworkOptions {
+    auto_select_family: bool,
+    attempt_timeout: Duration,
+    order: crate::DnsResultOrder,
+}
+impl Default for NetworkOptions {
+    fn default() -> Self {
+        Self {
+            auto_select_family: true,
+            attempt_timeout: Duration::from_millis(500),
+            order: crate::DnsResultOrder::Verbatim,
+        }
+    }
 }
 
 #[derive(Clone, Default)]
-pub(crate) struct ConnectContext(Arc<Mutex<Option<ContextState>>>);
+pub(crate) struct ConnectContext(Arc<Mutex<Option<ContextState>>>, NetworkOptions);
 impl ConnectContext {
+    pub(crate) fn for_target(target: &crate::Target) -> Self {
+        Self(
+            Arc::default(),
+            NetworkOptions {
+                auto_select_family: target.auto_select_family,
+                attempt_timeout: Duration::from_millis(u64::from(
+                    target.auto_select_family_attempt_timeout_ms.max(10),
+                )),
+                order: target.dns_result_order,
+            },
+        )
+    }
+
+    fn failed_tcp(&self, address: SocketAddr, fault: &QueryFault) {
+        if let Ok(mut state) = self.0.lock()
+            && let Some(state) = state.as_mut()
+        {
+            state.tcp_failures.push(TcpFailure {
+                address,
+                kind: fault.io_kind(),
+                errno: fault.raw_os_error(),
+            });
+        }
+    }
+    fn exhausted(&self) {
+        if let Ok(mut state) = self.0.lock()
+            && let Some(state) = state.as_mut()
+        {
+            state.exhausted = true;
+        }
+    }
     #[cfg(test)]
     pub(crate) fn test_attempt(addr: SocketAddr) -> (Self, AttemptObservation) {
         let context = Self::default();
@@ -194,12 +258,28 @@ impl ConnectContext {
         (context, observation)
     }
 
+    fn target(&self, host: &str) {
+        if let Ok(mut state) = self.0.lock() {
+            *state = Some(ContextState {
+                host: None,
+                connect_host: Some(host.to_owned()),
+                address_count: None,
+                attempt: None,
+                tcp_failures: Vec::new(),
+                exhausted: false,
+            });
+        }
+    }
+
     fn resolving(&self, host: &str) {
         if let Ok(mut state) = self.0.lock() {
             *state = Some(ContextState {
                 host: Some(host.to_owned()),
+                connect_host: Some(host.to_owned()),
                 address_count: None,
                 attempt: None,
+                tcp_failures: Vec::new(),
+                exhausted: false,
             });
         }
     }
@@ -208,8 +288,11 @@ impl ConnectContext {
         if let Ok(mut state) = self.0.lock() {
             let state = state.get_or_insert_with(|| ContextState {
                 host: None,
+                connect_host: None,
                 address_count: None,
                 attempt: None,
+                tcp_failures: Vec::new(),
+                exhausted: false,
             });
             state.address_count = Some(count);
         }
@@ -235,6 +318,7 @@ impl ConnectContext {
         let mut snapshot = TransportContext {
             stage: ConnectStage::Resolve,
             host: state.host.clone(),
+            connect_host: state.connect_host.clone(),
             address_count: state.address_count,
             attempt_index: None,
             attempted_addr: None,
@@ -245,6 +329,8 @@ impl ConnectContext {
             last_io: None,
             bytes_read: 0,
             bytes_written: 0,
+            tcp_failures: state.tcp_failures.clone(),
+            tcp_exhausted: state.exhausted,
         };
         if let Some(attempt) = &state.attempt {
             snapshot.attempt_index = Some(attempt.index);
@@ -270,6 +356,7 @@ impl ConnectContext {
 pub(crate) struct TransportContext {
     stage: ConnectStage,
     host: Option<String>,
+    connect_host: Option<String>,
     address_count: Option<usize>,
     attempt_index: Option<usize>,
     attempted_addr: Option<SocketAddr>,
@@ -280,8 +367,29 @@ pub(crate) struct TransportContext {
     last_io: Option<IoObservation>,
     bytes_read: u64,
     bytes_written: u64,
+    tcp_failures: Vec<TcpFailure>,
+    tcp_exhausted: bool,
 }
 impl TransportContext {
+    pub(crate) fn connect_host(&self) -> Option<&str> {
+        self.connect_host.as_deref()
+    }
+    pub(crate) fn tls_verify_chain_len(&self) -> Option<usize> {
+        self.verification.as_ref()?.chain_len
+    }
+
+    pub(crate) fn tcp_attempt_count(&self) -> usize {
+        self.attempt_index.map_or(0, |n| n + 1)
+    }
+    pub(crate) fn tcp_attempts_exhausted(&self) -> bool {
+        self.tcp_exhausted
+    }
+    pub(crate) fn tcp_failures(&self) -> &[TcpFailure] {
+        &self.tcp_failures
+    }
+    pub(crate) fn tls_verify_certificate(&self) -> Option<&openssl::x509::X509Ref> {
+        self.verification.as_ref()?.certificate.as_deref()
+    }
     pub(crate) fn connect_stage(&self) -> ConnectStage {
         self.stage
     }
@@ -378,10 +486,15 @@ impl SocketSettings {
         &self,
         address: SocketAddr,
         observation: &AttemptObservation,
+        family_timeout: Option<Duration>,
     ) -> Result<TcpStream, QueryFault> {
         observation.stage(ConnectStage::SocketConnect);
         let connect = TcpStream::connect(address);
-        match self.connect_timeout {
+        let limit = match (self.connect_timeout, family_timeout) {
+            (Some(a), Some(b)) => Some(a.min(b)),
+            (a, b) => a.or(b),
+        };
+        match limit {
             Some(limit) => tokio::time::timeout(limit, connect)
                 .await
                 .map_err(|_| QueryFault::socket_timeout())?
@@ -448,8 +561,11 @@ impl TcpRoute {
     async fn connect_socket(
         &self,
         observation: &AttemptObservation,
+        family_timeout: Option<Duration>,
     ) -> Result<TcpStream, QueryFault> {
-        self.settings.connect(self.address, observation).await
+        self.settings
+            .connect(self.address, observation, family_timeout)
+            .await
     }
 
     fn prepare_socket(
@@ -470,7 +586,7 @@ impl TcpRoute {
         &self,
         observation: AttemptObservation,
     ) -> Result<ObservedStream<TcpStream>, QueryFault> {
-        let stream = self.connect_socket(&observation).await?;
+        let stream = self.connect_socket(&observation, None).await?;
         self.prepare_socket(stream, observation)
     }
 }
@@ -542,9 +658,12 @@ where
         });
     };
     let port = config.get_ports().first().copied().unwrap_or(5432);
-    let addresses = match host.parse::<IpAddr>() {
-        Ok(ip) => vec![SocketAddr::new(ip, port)],
-        Err(_) => {
+    context.target(host);
+    let addresses = match crate::resolver::numeric_address(host, port) {
+        Some(address) => vec![
+            address.map_err(|error| QueryFault::socket(error).with_context(context.snapshot()))?,
+        ],
+        None => {
             context.resolving(host);
             resolver
                 .resolve(host, port)
@@ -553,12 +672,13 @@ where
         }
     };
     context.resolved(addresses.len());
+    let addresses = select_addresses(addresses, &context.1);
+    let address_count = addresses.len();
     let settings = SocketSettings::from_config(config);
     let mut last_error = None;
-    for (index, address) in addresses.into_iter().enumerate() {
-        // Preserve the original native addr.ip()+configured-port route,
-        // including its removal of resolver IPv6 scope/flow metadata.
-        let address = SocketAddr::new(address.ip(), port);
+    for (index, mut address) in addresses.into_iter().enumerate() {
+        // Keep resolver-provided IPv6 flow/scope and the configured port.
+        address.set_port(port);
         let observation = context.attempt(index, address);
         let route = TcpRoute {
             address,
@@ -567,10 +687,15 @@ where
             mode: config.get_ssl_mode(),
             negotiation: config.get_ssl_negotiation(),
         };
-        let stream = match route.connect_socket(&observation).await {
+        // Bun serially closes a nonfinal pending attempt at this deadline.
+        // The final address has only the overall configured connect deadline.
+        let family_timeout = (context.1.auto_select_family && index + 1 < address_count)
+            .then_some(context.1.attempt_timeout);
+        let stream = match route.connect_socket(&observation, family_timeout).await {
             Ok(stream) => stream,
             Err(error) => {
-                last_error = Some(error.with_context(context.snapshot()));
+                context.failed_tcp(address, &error);
+                last_error = Some(error);
                 continue;
             }
         };
@@ -599,5 +724,153 @@ where
             cancel_route: CancelRoute::Tcp(route),
         });
     }
-    Err(last_error.unwrap_or_else(|| QueryFault::no_addresses().with_context(context.snapshot())))
+    context.exhausted();
+    Err(last_error
+        .unwrap_or_else(QueryFault::no_addresses)
+        .with_context(context.snapshot()))
+}
+
+fn select_addresses(mut addresses: Vec<SocketAddr>, options: &NetworkOptions) -> Vec<SocketAddr> {
+    match options.order {
+        crate::DnsResultOrder::Verbatim => {}
+        crate::DnsResultOrder::Ipv4first => addresses.sort_by_key(|a| a.is_ipv6()),
+        crate::DnsResultOrder::Ipv6first => addresses.sort_by_key(|a| a.is_ipv4()),
+    }
+    if !options.auto_select_family {
+        addresses.truncate(1);
+        return addresses;
+    }
+    let Some(first) = addresses.first() else {
+        return addresses;
+    };
+    let first_is_v4 = first.is_ipv4();
+    let mut first_family = Vec::new();
+    let mut second_family = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    for address in addresses {
+        // Equivalent to Bun's textual per-family IP deduplication, retaining
+        // scoped IPv6 identity; a hash set is never used for enumeration.
+        if !seen.insert(address) {
+            continue;
+        }
+        if address.is_ipv4() == first_is_v4 {
+            first_family.push(address);
+        } else {
+            second_family.push(address);
+        }
+    }
+    let mut output = Vec::with_capacity(first_family.len() + second_family.len());
+    let (mut first, mut second) = (first_family.into_iter(), second_family.into_iter());
+    loop {
+        match (first.next(), second.next()) {
+            (None, None) => break,
+            (a, b) => {
+                output.extend(a);
+                output.extend(b);
+            }
+        }
+    }
+    output
+}
+
+#[cfg(test)]
+mod address_selection_tests {
+    use super::*;
+    use crate::DnsResultOrder;
+    use std::net::{Ipv6Addr, SocketAddrV6};
+
+    fn addresses(values: &[&str]) -> Vec<SocketAddr> {
+        values.iter().map(|value| value.parse().unwrap()).collect()
+    }
+
+    #[test]
+    fn resolver_order_selects_first_family_then_alternates_without_duplicates() {
+        let input = addresses(&[
+            "[::1]:5432",
+            "[::2]:5432",
+            "127.0.0.1:5432",
+            "[::1]:5432",
+            "127.0.0.2:5432",
+            "127.0.0.1:5432",
+            "[::3]:5432",
+        ]);
+        for (order, expected) in [
+            (
+                DnsResultOrder::Verbatim,
+                vec![
+                    "[::1]:5432",
+                    "127.0.0.1:5432",
+                    "[::2]:5432",
+                    "127.0.0.2:5432",
+                    "[::3]:5432",
+                ],
+            ),
+            (
+                DnsResultOrder::Ipv6first,
+                vec![
+                    "[::1]:5432",
+                    "127.0.0.1:5432",
+                    "[::2]:5432",
+                    "127.0.0.2:5432",
+                    "[::3]:5432",
+                ],
+            ),
+            (
+                DnsResultOrder::Ipv4first,
+                vec![
+                    "127.0.0.1:5432",
+                    "[::1]:5432",
+                    "127.0.0.2:5432",
+                    "[::2]:5432",
+                    "[::3]:5432",
+                ],
+            ),
+        ] {
+            let options = NetworkOptions {
+                order,
+                ..Default::default()
+            };
+            assert_eq!(
+                select_addresses(input.clone(), &options),
+                addresses(&expected)
+            );
+        }
+    }
+
+    #[test]
+    fn disabling_family_selection_uses_only_the_first_address_of_requested_order() {
+        let input = addresses(&["[::1]:5432", "127.0.0.1:5432", "[::2]:5432"]);
+        for (order, expected) in [
+            (DnsResultOrder::Verbatim, "[::1]:5432"),
+            (DnsResultOrder::Ipv6first, "[::1]:5432"),
+            (DnsResultOrder::Ipv4first, "127.0.0.1:5432"),
+        ] {
+            let options = NetworkOptions {
+                auto_select_family: false,
+                order,
+                ..Default::default()
+            };
+            assert_eq!(
+                select_addresses(input.clone(), &options),
+                addresses(&[expected])
+            );
+        }
+    }
+
+    #[test]
+    fn empty_single_family_and_scoped_addresses_keep_actual_socket_identity() {
+        let options = NetworkOptions::default();
+        assert!(select_addresses(vec![], &options).is_empty());
+        let v4 = addresses(&["127.0.0.2:5432", "127.0.0.1:5432", "127.0.0.2:5432"]);
+        assert_eq!(
+            select_addresses(v4, &options),
+            addresses(&["127.0.0.2:5432", "127.0.0.1:5432"])
+        );
+        let first = SocketAddr::V6(SocketAddrV6::new(Ipv6Addr::LOCALHOST, 5432, 17, 2));
+        let second = SocketAddr::V6(SocketAddrV6::new(Ipv6Addr::LOCALHOST, 5432, 17, 3));
+        assert_eq!(
+            select_addresses(vec![first, first, second], &options),
+            vec![first, second]
+        );
+    }
 }
