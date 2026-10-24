@@ -19,7 +19,10 @@ Baseline: `57fdf2198bb66b1fe761ef23fa983e3d9d1e6865`, detached source at `/works
 | Final rebuilt public HTTP differential | PASS, 105 cases, zero differences, exit 0 | `http-comparison.json`, `logs/final-candidate-http.log` |
 | Focused backend E2E | PASS, 2 files / 133 tests, exit 0; final strengthened nested-presence assertions covered by full run below | `logs/focused-notes-e2e-retry.log` |
 | Complete backend E2E | PASS, 37 files / 1478 passed, 2 skipped and 20 todo excluded, exit 0, 379.27s | `logs/full-backend-e2e.log` |
-| Backend unit | Initial full run FAIL due to missing test Meilisearch; dedicated CI-version service supplied and SearchService 32/32 retry PASS. Clean full retry PENDING | `logs/backend-unit.log`, `logs/backend-search-unit-retry.log` |
+| Backend unit | FAIL, exit 1: first full run lacked Meilisearch; after supplying CI-version service, SearchService 32/32 retry PASS. Second full run has 80 files / 949 assertions passed and 2 skipped, but 2 unhandled TS role writes still make it FAIL | `logs/backend-unit.log`, `logs/backend-search-unit-retry.log`, `logs/backend-unit-complete-retry.log` |
+| Baseline RoleService-only comparison | PASS, 47 assertions, exit 0; timing-dependent full-unit failure NOT reproduced in this baseline attempt | `logs/baseline-role-unit-1.log` |
+| Container-native Linux build | PASS, fresh slacc + backend Rust, exit 0, 199.301s; no host targets mixed | `federation/native-artifacts.json`, `federation/build.log` |
+| Local federation E2E | PASS, 9 files / 92 passed, 13 explicit skips excluded, exit 0, 85.699s | `federation/final-results.json`, `federation/test.log` |
 | Performance and activation | PASS, 6/6 scenario gates; 36,000 measured + 3,600 warmup + 6 first-public-request checks, zero errors, exit 0, 85.22s | `benchmark-results.json`, `activation-gate.json`, `logs/benchmark-final-measure.log` |
 | Final pushed-commit CI | PENDING | Not yet published |
 
@@ -33,11 +36,17 @@ Three paired AB/BA/AB runs, concurrency 8, 100 warmup and 1000 measured requests
 
 The first measurement attempt was rejected by the snapshot guard before any HTTP start: the final production rebuild changed the TS bundle after an older readiness run. That attempt has zero measured requests and is archived under `attempt-old-production-dry-run`. Prepare and readiness were repeated on the exact final artifacts before the accepted run.
 
+The English table-only benchmark comment is [PR48 comment](https://github.com/mothue/misskey/pull/48#issuecomment-6380627800). MathJax locally validates all 12 colored numeric cells with zero parse errors; actual GitHub visual rendering was not browser-verified. Activation is published in `777a4586b494db11882fd69165f7f689da565182`; subsequent documentation commits do not change the measured product sources.
+
 ## Corrections and limits
 
 Independent review caught an anonymous-view regression: the packed UserLite omits its false signin flag, while the initial note visibility check required a boolean. It now handles the packed optional field explicitly, retaining strict DB decoding; a normal anonymous public-note unit covers the case. The new cache also guards in-flight reads/fills with invalidation generations and serializes Redis publication/invalidation. An explicit dedicated Redis regression proves an older fill is rejected. Replica-eligible reads retain the existing TypeORM source selection; this does not promise stronger database replication consistency than TS.
 
 The first fixture seed expected poll voting to return 200; the existing API correctly returns 204. The fixture assertion was corrected. An added nested E2E initially compared a creation-time nested note to a later read, although creation increments its parent's counters after capturing that nested representation. Its intended detail-level contract is now asserted directly; the separate stable-data differential compares complete nested responses. These were validation-fixture assumptions, not TS product bug findings.
+
+The second full unit run records two unhandled `UPDATE role SET lastUsedAt` connection-termination errors from unchanged TS `RoleService` code. These updates are not awaited or registered with shutdown tracking. A teardown race is plausible but its precise event ordering is uninstrumented. The role service, its unit test, GlobalModule and promise tracking are byte-identical to baseline; the isolated baseline role test passes and does not reproduce the failure. Thus the local full unit run remains FAIL, not PASS or a claimed baseline runtime reproduction; no evidence attributes it to native note reads. [Issue54](https://github.com/mothue/misskey/issues/54) records the observed failure and limits without changing TS behavior in this slice. Independent classification evidence is `/workspace/notes-native/role-unit-failure-review.json`.
+
+Local federation was retried with current source and fresh Linux-container compilation, preserving TLS verification and the existing daemon/rate-limit behavior. Its first tester attempt failed before tests because a read-only root lacked Vitest cache mountpoints; private writable test caches resolved that environment setup issue. The complete retry passes. The dedicated federation containers/volumes/network are removed; immutable source and production-bundle hashes match the measured slice.
 
 Infrastructure error details remain best effort under [compatibility-exceptions.md](compatibility-exceptions.md). All ordinary auth/security/status/error-code/response contracts remain strict. All six measured median throughput/p95 gates pass; no dependency exception is used. Existing two statistics performance holds and four date-pagination holds remain unchanged.
 
