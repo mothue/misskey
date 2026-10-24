@@ -319,6 +319,13 @@ async fn serve(mut app: App, eof: tokio::sync::oneshot::Receiver<()>) -> Result<
     }
 }
 fn main() {
+    // Stdout is reserved for readiness, never business error logs.
+    let _ = tracing_subscriber::fmt()
+        .with_writer(io::stderr)
+        .with_ansi(false)
+        .with_target(false)
+        .with_max_level(tracing::Level::ERROR)
+        .try_init();
     let outcome = (|| {
         let app = bootstrap()?;
         // A detached OS thread cannot keep runtime shutdown or process exit blocked.

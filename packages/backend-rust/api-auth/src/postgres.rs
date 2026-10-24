@@ -182,7 +182,7 @@ impl Store for PostgresAuthStore {
         self.select("role", "", &[]).await
     }
     async fn meta(&self) -> Result<Value, Failure> {
-        let rows = self.database.query(false, "SELECT json_build_object('rootUserId', \"rootUserId\", 'policies', policies, 'enableIpLogging', \"enableIpLogging\")::text FROM meta ORDER BY id DESC LIMIT 1", &[]).await.map_err(|_| Failure)?;
+        let rows = self.database.query(false, "SELECT json_build_object('rootUserId', \"rootUserId\", 'policies', policies, 'enableIpLogging', \"enableIpLogging\", 'preservedUsernames', \"preservedUsernames\")::text FROM meta ORDER BY id DESC LIMIT 1", &[]).await.map_err(|_| Failure)?;
         let text: String = rows
             .first()
             .ok_or(Failure)?
@@ -206,4 +206,70 @@ fn quote_identifier(value: &str) -> String {
 }
 fn quote_literal(value: &str) -> String {
     format!("'{}'", value.replace('\'', "''"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{AuthConfig, AuthService};
+    use misskey_backend_postgres::{PoolSettings, PostgresConfig};
+
+    #[tokio::test]
+    #[ignore = "requires explicit dedicated online-adapter PostgreSQL fixture"]
+    async fn metadata_refresh_retains_reserved_usernames_from_postgres() {
+        let path =
+            std::env::var("MISSKEY_POSTGRES_TEST_CONFIG").expect("dedicated config required");
+        let mut config: PostgresConfig =
+            serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+        assert_eq!(config.targets.len(), 1);
+        assert_eq!(config.targets[0].database, "online-adapter");
+        // The temporary table is connection-local; no application schema/data
+        // is touched. Retain one writable connection for its lifetime.
+        config.targets[0].pool = PoolSettings::default();
+        let primary = config.targets[0].clone();
+        let database = Arc::new(Database::new(Some(config), Some(primary)));
+        database.query(false,
+            "CREATE TEMP TABLE meta (id text, \"rootUserId\" text, policies jsonb, \"enableIpLogging\" boolean, \"preservedUsernames\" text[])",
+            &[],
+        ).await.unwrap();
+        database.query(false,
+            "INSERT INTO meta VALUES ('fixture', NULL, '{}'::jsonb, false, ARRAY['MiXeD', 'reserved-name'])",
+            &[],
+        ).await.unwrap();
+        let store = Arc::new(PostgresAuthStore {
+            database: database.clone(),
+            layouts: HashMap::new(),
+        });
+        let auth = AuthService::new(
+            store,
+            AuthConfig {
+                id_method: "aidx".into(),
+                max_file_size: 1,
+                default_policies: json!({}),
+                meta: json!({"preservedUsernames":["bootstrap-only"]}),
+                entity_layouts: HashMap::new(),
+            },
+            0,
+        )
+        .unwrap();
+        auth.invalidate_all().await.unwrap();
+        assert_eq!(
+            auth.meta().await.get("preservedUsernames"),
+            Some(&json!(["MiXeD", "reserved-name"]))
+        );
+        database
+            .query(
+                false,
+                "UPDATE meta SET \"preservedUsernames\" = ARRAY['updated']",
+                &[],
+            )
+            .await
+            .unwrap();
+        auth.invalidate_all().await.unwrap();
+        assert_eq!(
+            auth.meta().await.get("preservedUsernames"),
+            Some(&json!(["updated"]))
+        );
+        database.shutdown().await;
+    }
 }

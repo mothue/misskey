@@ -18,6 +18,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+mod business;
 mod meta;
 pub mod redis;
 pub mod request;
@@ -255,6 +256,7 @@ pub struct Runtime {
     database: Arc<Database>,
     redis: redis::RedisState,
     online_users: Arc<OnlineUsers>,
+    business_config: business::Config,
     max_file_size: u64,
     upload_directory: String,
     enable_ip_rate_limit: bool,
@@ -297,6 +299,8 @@ impl Runtime {
                     .map_err(|_| Failure::new(FailureStage::EndpointSchema))?,
             });
         }
+        let business_config =
+            business::Config::new(&config.auth.id_method, &config.auth.default_policies);
         let database = Arc::new(online_users.database(config.postgres_primary));
         let store = Arc::new(
             PostgresAuthStore::new(database.clone(), config.auth.entity_layouts.clone())
@@ -323,6 +327,7 @@ impl Runtime {
             database,
             redis,
             online_users,
+            business_config,
             max_file_size: config.max_file_size,
             upload_directory: config.upload_directory,
             enable_ip_rate_limit: config.enable_ip_rate_limit,
@@ -572,6 +577,14 @@ impl Runtime {
                 Err(_) => response::unavailable(),
             },
             _ => {
+                if let Some(result) =
+                    business::execute(self, &endpoint.name, &input.params, auth).await
+                {
+                    return match result {
+                        Ok(value) => response::value(&value),
+                        Err(error) => error.response(),
+                    };
+                }
                 self.callback(Invocation {
                     v: 1,
                     request_id: &context.request_id,

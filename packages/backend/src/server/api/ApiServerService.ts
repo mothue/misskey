@@ -87,7 +87,7 @@ export class ApiServerService implements OnApplicationShutdown {
 						idMethod: this.config.id,
 						maxFileSize: this.config.maxFileSize,
 						defaultPolicies: DEFAULT_POLICIES,
-						meta: { rootUserId: this.meta.rootUserId, policies: this.meta.policies, enableIpLogging: this.meta.enableIpLogging },
+						meta: { rootUserId: this.meta.rootUserId, policies: this.meta.policies, enableIpLogging: this.meta.enableIpLogging, preservedUsernames: this.meta.preservedUsernames },
 						entityLayouts,
 					},
 				});
@@ -141,7 +141,13 @@ export class ApiServerService implements OnApplicationShutdown {
 		if (decodeURIComponent(endpointPath) !== invocation.endpoint) throw new Error('API callback endpoint mismatch');
 		if (invocation.kind === 'special') return this.executeSpecial(invocation, original);
 		if (!endpoints.some(endpoint => endpoint.name === invocation.endpoint)) throw new Error('Unknown legacy callback');
-		if (['ping', 'test', 'endpoint', 'endpoints', 'get-online-users-count'].includes(invocation.endpoint)) throw new Error('Native API cannot execute through TS');
+		if ([
+			'ping', 'test', 'endpoint', 'endpoints', 'get-online-users-count',
+			'emoji', 'emojis', 'hashtags/list', 'hashtags/search', 'hashtags/show', 'username/available', 'retention',
+			'i/registry/get', 'i/registry/get-all', 'i/registry/get-detail', 'i/registry/keys', 'i/registry/keys-with-type', 'i/registry/scopes-with-domain',
+			'app/show', 'my/apps', 'i/apps', 'i/authorized-apps',
+			'roles/list', 'roles/show', 'admin/roles/list', 'admin/roles/show', 'admin/relays/list', 'admin/get-index-stats', 'admin/get-table-stats',
+		].includes(invocation.endpoint)) throw new Error('Native API cannot execute through TS');
 		const userRecord = invocation.user === null ? null : hydrateApiEntity(this.db.getMetadata('user'), invocation.user);
 		if (userRecord !== null && typeof userRecord.id !== 'string') throw new Error('Invalid API user');
 		let tokenRecord: Record<string, unknown> | null = null;
