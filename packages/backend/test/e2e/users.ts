@@ -9,9 +9,10 @@ import * as assert from 'assert';
 import { beforeAll, beforeEach, describe, test } from 'vitest';
 import { inspect } from 'node:util';
 import { randomUUID } from 'node:crypto';
-import { api, createAppToken, initTestDb, post, role, signup, successfulApiCall, uploadFile } from '../utils.js';
+import { api, createAppToken, initTestDb, post, relativeFetch, role, signup, successfulApiCall, uploadFile } from '../utils.js';
 import type * as misskey from 'misskey-js';
 import { DEFAULT_POLICIES } from '@/core/RoleService.js';
+import { MiUserProfile } from '@/models/UserProfile.js';
 import { MiFollowing } from '@/models/Following.js';
 import { MiFollowRequest } from '@/models/FollowRequest.js';
 import { MiBlocking } from '@/models/Blocking.js';
@@ -1130,5 +1131,101 @@ describe('users/relation response compatibility', () => {
 			runtimeObject(body.error);
 			assert.strictEqual(body.error.code, code);
 		}
+	});
+});
+
+describe('users/achievements response compatibility', () => {
+	let viewer: misskey.entities.SignupResponse;
+	let target: misskey.entities.SignupResponse;
+
+	beforeAll(async () => {
+		viewer = await signup({ username: 'achievementViewer' });
+		target = await signup({ username: 'achievementTarget' });
+	});
+
+	function runtimeObject(value: unknown): asserts value is Record<string, unknown> {
+		assert.ok(value !== null && typeof value === 'object' && !Array.isArray(value));
+	}
+
+	test('returns the stored order and duplicates to anonymous, account and unrelated-scope viewers', async () => {
+		const connection = await initTestDb(true);
+		const profiles = connection.getRepository(MiUserProfile);
+		let original: MiUserProfile | undefined;
+		const achievements = [
+			{ name: 'login3', unlockedAt: 1700000000000 },
+			{ name: 'notes1', unlockedAt: 0 },
+			{ name: 'login3', unlockedAt: 1.5 },
+		] satisfies MiUserProfile['achievements'];
+		try {
+			original = await profiles.findOneByOrFail({ userId: target.id });
+			await profiles.update(target.id, { achievements });
+			const token = await createAppToken(viewer, ['read:notifications']);
+			for (const user of [undefined, viewer, { token, bearer: true }]) {
+				const response = await api('users/achievements', { userId: target.id }, user);
+				assert.strictEqual(response.status, 200);
+				const body: unknown = response.body;
+				assert.ok(Array.isArray(body));
+				assert.deepStrictEqual(body, achievements);
+			}
+		} finally {
+			try { if (original) await profiles.update(target.id, { achievements: original.achievements }); }
+			finally { await connection.destroy(); }
+		}
+	});
+
+	test('retains legacy JSON types and keeps JSON null distinct from a missing profile', async () => {
+		const connection = await initTestDb(true);
+		const profiles = connection.getRepository(MiUserProfile);
+		let original: MiUserProfile | undefined;
+		const legacy = [
+			{ name: 'unknown-achievement-😀', unlockedAt: '1700000000000', extra: { text: 'e\u0301' } },
+			{ name: 'notes1', unlockedAt: null },
+		];
+		try {
+			original = await profiles.findOneByOrFail({ userId: target.id });
+			await profiles.query('UPDATE user_profile SET achievements=$1::jsonb WHERE "userId"=$2', [JSON.stringify(legacy), target.id]);
+			const response = await api('users/achievements', { userId: target.id });
+			assert.strictEqual(response.status, 200);
+			const body: unknown = response.body;
+			assert.ok(Array.isArray(body));
+			runtimeObject(body[0]);
+			assert.strictEqual(body[0].unlockedAt, '1700000000000');
+			assert.deepStrictEqual(body, legacy);
+			const scalar = 'legacy scalar 😀';
+			await profiles.query('UPDATE user_profile SET achievements=$1::jsonb WHERE "userId"=$2', [JSON.stringify(scalar), target.id]);
+			const text = await relativeFetch('api/users/achievements', {
+				method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: target.id }),
+			});
+			assert.strictEqual(text.status, 200);
+			assert.strictEqual(text.headers.get('content-type'), 'text/plain; charset=utf-8');
+			assert.strictEqual(await text.text(), JSON.stringify(scalar));
+			await profiles.query('UPDATE user_profile SET achievements=$1::jsonb WHERE "userId"=$2', ['null', target.id]);
+			const empty = await relativeFetch('api/users/achievements', {
+				method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: target.id }),
+			});
+			assert.strictEqual(empty.status, 204);
+			assert.strictEqual(await empty.text(), '');
+		} finally {
+			try { if (original) await profiles.update(target.id, { achievements: original.achievements }); }
+			finally { await connection.destroy(); }
+		}
+	});
+
+	test('preserves the ordinary missing-profile error instead of returning an empty list', async () => {
+		const id = '0000000000000000';
+		const response = await api('users/achievements', { userId: id });
+		assert.strictEqual(response.status, 500);
+		const body: unknown = response.body;
+		runtimeObject(body);
+		runtimeObject(body.error);
+		const error = body.error;
+		assert.strictEqual(error.code, 'INTERNAL_ERROR');
+		assert.strictEqual(error.id, '5d37dbcb-891e-41ca-a3d6-e690c97775ac');
+		runtimeObject(error.info);
+		runtimeObject(error.info.e);
+		assert.strictEqual(error.info.e.code, 'EntityNotFoundError');
+		assert.strictEqual(error.info.e.message, `Could not find any entity of type "MiUserProfile" matching: {\n    "userId": "${id}"\n}`);
+		assert.ok(typeof error.info.e.id === 'string');
+		assert.match(error.info.e.id, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
 	});
 });

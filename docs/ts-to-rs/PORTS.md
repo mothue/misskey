@@ -2,6 +2,8 @@
 
 ## Authority and scope
 
+The complete [users/achievements slice](users-achievements-validation.md) passed its six-case measured gate, preserving raw JSON achievement values and existing missing-profile errors. Remaining acceptance checks are recorded there.
+
 The complete [users/relation candidate](users-relation-validation.md) preserves the relationship response contract but remains on TS after its paired performance gate failed.
 
 The complete [users/lists/show slice](users-lists-show-validation.md) reuses the UserList formatter and passed all six paired performance cases. Its remaining acceptance checks are recorded there.

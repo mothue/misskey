@@ -30,7 +30,7 @@ Scalar reads use a full outgoing Following query plus seven EXISTS queries. Arra
 | Product browser | PASS TS baseline / final held selection; native UI SKIPPED | Four actual API-console scenarios (scalar, duplicate, empty and invalid input), matching displayed responses, eight screenshots, zero page errors. Both business paths are TS. Three earlier failed attempts used an incorrect Send-button selector; all logs retained. Native UI was not run after the failed activation gate. |
 | Final held-selection build / HTTP | PASS, exits 0 | Rebuilt native and TS artifacts with relation excluded from both activation and callback guard; all 60 final public HTTP cases match the TS baseline. |
 | Local federation | SKIPPED | Candidate is held; no business handler is activated. Related backend E2E was run against the native candidate. |
-| Final pushed-commit CI | PENDING | Check the final actual pushed SHA. |
+| Final pushed-commit CI | PASS | `b0bcddc669c743a344e6119a872949bbe6981adf`: 18 successful workflows and one Storybook skip. |
 
 The unchanged common benchmark runner used three AB/BA/AB pairs, concurrency 8, 100 warm-ups and 1,000 measured requests per scenario per side. Six cases use the same owner graph and identical scalar, 20-ID and empty-array inputs for account and read:account app tokens. Fixtures include 45 targets, 39 following rows and independently directed request/block/mute rows. Source/artifacts/config/fixtures stayed fixed during the 80.65-second run `d973a8e0-2cef-4f93-b95a-af239c8e696c`. This is a bounded dedicated workload, not production traffic. [Full metrics and variation](users-relation-benchmark.csv).
 

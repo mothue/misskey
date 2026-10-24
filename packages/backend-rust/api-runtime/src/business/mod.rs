@@ -10,6 +10,7 @@ mod id;
 pub(crate) mod notes;
 mod registry_apps;
 mod roles_admin;
+mod user_achievements;
 mod user_lists;
 mod user_relations;
 use id::{iso_date, parse_id_date};
@@ -180,6 +181,7 @@ pub(super) const ACTIVE_READ_ENDPOINTS: &[&str] = &[
     "roles/list",
     "roles/show",
     "username/available",
+    "users/achievements",
     "users/lists/list",
     "users/lists/show",
 ];
@@ -192,6 +194,9 @@ pub(super) async fn execute(
 ) -> Option<Result<Value, Error>> {
     if !ACTIVE_READ_ENDPOINTS.contains(&name) {
         return None;
+    }
+    if name == "users/achievements" {
+        return Some(user_achievements::achievements(runtime, params).await);
     }
     if name == "users/relation" {
         return Some(user_relations::relation(runtime, params, auth).await);

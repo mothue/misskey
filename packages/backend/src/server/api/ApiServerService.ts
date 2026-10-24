@@ -187,6 +187,7 @@ export class ApiServerService implements OnApplicationShutdown {
 			'roles/list',
 			'roles/show',
 			'username/available',
+			'users/achievements',
 			'users/lists/list',
 			'users/lists/show',
 			'notes/show',
