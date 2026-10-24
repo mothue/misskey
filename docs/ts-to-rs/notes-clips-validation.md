@@ -28,6 +28,6 @@ The pool change grants the FIFO head one fixed maximum 2ms opportunity per check
 | Child lifecycle | PASS, exit 0 | New endpoint plus existing native note/core APIs return 503 after Rust termination; host survives without automatic restart. All owned processes collected. |
 | Measured activation gate | FAIL | Large scoped-token case regresses; native activation is held. Both measurement attempts are retained. |
 | Local federation | PASS for shared pool dependency, exit 0 | Fresh Linux container build and dedicated two-instance suite: 92 passed, 13 skipped. Source and HEAD stayed unchanged; owned containers/volumes removed. The clips handler itself remains held. |
-| Final pushed-commit CI | PENDING | No final-SHA success claimed until push and workflow completion. |
+| Pushed candidate CI | PASS at `8fd8819dae8dd6ef08db569b5137aef2a57fd948` | All 18 executed workflows succeeded; Storybook was skipped. Later revisions require their own final-SHA check. |
 
 Commands, exit codes, sanitized logs, captures, reviews and binary/source provenance are retained in `/workspace/native-queue/notes-clips/` and `/workspace/native-queue/pool-mode-reuse/`. Runtime fixtures use dedicated `notes-clips-runtime`, Redis DB4/reactions DB3. E2E uses the separate `test-misskey` fixture. No shared or production service is used. This backend-only change has no UI behavior change; product browser checks are SKIPPED.

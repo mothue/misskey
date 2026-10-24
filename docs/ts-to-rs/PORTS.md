@@ -2,6 +2,8 @@
 
 ## Authority and scope
 
+The complete [notes/drafts/count candidate](notes-drafts-count-validation.md) is also held after the paired p95 gate failed; its business operation continues on TS.
+
 The generated [native/TS/held registry](native-status.md) is the current selection record. [The notes/clips candidate](notes-clips-validation.md) remains held after its measured gate failed; its shared compatible-session reuse change does not activate the handler.
 
 Current activation and performance decisions are recorded in [native-read-activation.md](native-read-activation.md) and [notes-show-validation.md](notes-show-validation.md):22 complete native read slices followed by the measured complete `notes/show` slice; index/table statistics stay on TS. Historical references below to blanket24read infrastructure holds are superseded by the speed-first policy and [the single compatibility list](compatibility-exceptions.md).

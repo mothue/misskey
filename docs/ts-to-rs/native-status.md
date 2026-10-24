@@ -6,7 +6,7 @@ Native means the complete business handler is selected in Rust; the public TS li
 
 | Total | Native | TS | Held (TS) |
 | ---: | ---: | ---: | ---: |
-| 438 | 29 | 401 | 8 |
+| 438 | 29 | 400 | 9 |
 
 Names and enumeration order come from the API registry. Native core match arms and the business allowlist are read from Rust source and must match the TS callback rejection guard. Hold reasons come from the hold manifest.
 
@@ -324,7 +324,7 @@ Names and enumeration order come from the API registry. Native core match arms a
 | `notes/drafts/create` | TS |  |
 | `notes/drafts/delete` | TS |  |
 | `notes/drafts/update` | TS |  |
-| `notes/drafts/count` | TS |  |
+| `notes/drafts/count` | Held (TS) | performance: Paired nine-draft account scenario improved throughput by 19.52% but p95 increased 3.71%; all-scenario throughput/p95 gate failed, so keep the complete TS body. ([evidence](notes-drafts-count-validation.md)) |
 | `notes/favorites/create` | TS |  |
 | `notes/favorites/delete` | TS |  |
 | `notes/featured` | TS |  |
@@ -457,6 +457,6 @@ Names and enumeration order come from the API registry. Native core match arms a
 | --- | --- |
 | `packages/backend/src/server/api/endpoint-list.ts` | `f6adc6070df862e7544a92bafc001a9339bfe1e746a856b602c505a248ae5470` |
 | `packages/backend-rust/api-runtime/src/lib.rs` | `b574ff5047304af46bca93ecca36246026cc6e82fdc0e657b284d437851305c8` |
-| `packages/backend-rust/api-runtime/src/business/mod.rs` | `4f5d38b3e698c1d8424434964034c7f5c875f7e65f39402bc791eefa55be792a` |
+| `packages/backend-rust/api-runtime/src/business/mod.rs` | `9a75bae570cd8500e61d6986e99b1be1a6021ce1f3c3269bfd4bfbc5a830c629` |
 | `packages/backend/src/server/api/ApiServerService.ts` | `abb1477eb24263564e2190ee97e71cc6cc30fff092dc4d1fdf76399ea2af7295` |
-| `scripts/ts-to-rs/native-holds.json` | `e67c6567917d10db4d15fb35b96f266857add58fc94bd148d2e59e8f5c8892e6` |
+| `scripts/ts-to-rs/native-holds.json` | `92f908edebc78cfb55e304710589066d599721687585587bcc4880e1af0f22cb` |

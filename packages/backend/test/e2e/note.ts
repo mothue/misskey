@@ -236,6 +236,42 @@ describe('Note', () => {
 		});
 	});
 
+	describe('notes/drafts/count response compatibility', () => {
+		test('counts every owned draft without content, schedule or caller filters', async () => {
+			const before = await api('notes/drafts/count', {}, alice);
+			const otherBefore = await api('notes/drafts/count', {}, bob);
+			assert.strictEqual(before.status, 200);
+			assert.strictEqual(typeof before.body, 'number');
+			assert.strictEqual(otherBefore.status, 200);
+			const ids = ['0000000000000281', '0000000000000282', '0000000000000283'];
+			try {
+				for (const [index, id] of ids.entries()) {
+					await Notes.query('INSERT INTO note_draft(id,"userId",visibility,"pollMultiple","scheduledAt","isActuallyScheduled","reactionAcceptance","pollChoices") VALUES($1,$2,$3,false,$4,$5,$6,ARRAY[NULL]::varchar[])', [id, index === 2 ? bob.id : alice.id, index === 0 ? 'public' : 'specified', index === 0 ? null : new Date('2100-01-01T00:00:00Z'), index === 1, 'legacy-unknown']);
+				}
+				const mine = await api('notes/drafts/count', { userId: bob.id, scheduled: false, limit: 1 }, alice);
+				const other = await api('notes/drafts/count', {}, bob);
+				assert.strictEqual(mine.status, 200);
+				assert.strictEqual(mine.body, before.body + 2);
+				assert.strictEqual(other.status, 200);
+				assert.strictEqual(other.body, otherBefore.body + 1);
+			} finally {
+				await Notes.query('DELETE FROM note_draft WHERE id=ANY($1::varchar[])', [ids]);
+			}
+			assert.strictEqual((await api('notes/drafts/count', {}, alice)).body, before.body);
+		});
+
+		test('requires credentials and read:account for scoped application tokens', async () => {
+			assert.strictEqual((await api('notes/drafts/count', {})).status, 401);
+			const allowed = await api('miauth/gen-token', { session: randomUUID(), permission: ['read:account'] }, alice);
+			const denied = await api('miauth/gen-token', { session: randomUUID(), permission: ['read:notifications'] }, alice);
+			const mine = await api('notes/drafts/count', {}, alice);
+			const scoped = await api('notes/drafts/count', {}, { token: allowed.body.token });
+			assert.strictEqual(scoped.status, 200);
+			assert.strictEqual(scoped.body, mine.body);
+			assert.strictEqual((await api('notes/drafts/count', {}, { token: denied.body.token })).status, 403);
+		});
+	});
+
 	describe('notes/state response compatibility', () => {
 		test('keeps favorite state per viewer and mute state per thread', async () => {
 			const note = await post(alice, { text: 'state root' });
