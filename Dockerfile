@@ -108,6 +108,7 @@ RUN --mount=type=cache,target=/root/.bun/install/cache,sharing=locked \
 COPY --link ["packages-private/slacc", "./packages-private/slacc"]
 RUN bun run --filter slacc build
 COPY --link ["packages/backend-rust", "./packages/backend-rust"]
+COPY --link ["packages/backend/src/core/RoleService.ts", "./packages/backend/src/core/"]
 RUN bun run --filter backend-rust build:native
 
 FROM --platform=$TARGETPLATFORM oven/bun:${BUN_VERSION} AS runner

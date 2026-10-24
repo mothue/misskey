@@ -51,3 +51,9 @@ Fresh checks for this follow-up: **PASS** workspace Cargo tests (174 passed, 6 e
 For that preceding type unit, new public execution also passed 30 baseline/candidate HTTP comparisons with zero differences, 20 child-loss requests returning503 without restart, and dedicated DB-refusal checks preserving TS callback500 and native count503. Logs: `http-type-comparison.log`, `lifecycle-child-loss-types.log`, `lifecycle-db-refusal-types.log`. One lifecycle harness attempt omitted its required mode and exited1 without running checks; it remains a failed preparation record.
 
 The first complete backend E2E attempt was **interrupted**, not passing: Bun ignored `NODE_OPTIONS=--import` so the cloud loopback DNS fixture was absent, producing Webhook failures. Explicit Bun preload plus a worker setup file was verified using the actual resolver function/result; the dedicated Webhook control then passed8/8. The corrected full suite is a separate execution and requires its own final result.
+
+## Docker policy-source build correction
+
+CI on `c6a2bd7b08c7968bf89c5156d885f6a04c79fd0c` exposed an introduced packaging failure: Dockle job `120724545104` failed in the target-platform native builder because the new generator read `/misskey/packages/backend/src/core/RoleService.ts`, which that reduced stage did not copy. This is a migration regression, not an environment/baseline failure. The Docker target-builder now copies that authoritative source file before the native build; the final runtime image remains unchanged.
+
+A private reproduction of the target-stage file layout failed with the same ENOENT before the copy (exit1), then the real Bun generator byte check passed after the copy (exit0). Evidence: `docker-layout-before-fix.log` and `docker-layout-after-fix.log`. This path/layout control is not claimed as a complete Docker image build; the final-SHA Dockle run must verify the complete image and scan.
