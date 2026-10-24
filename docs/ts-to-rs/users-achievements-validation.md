@@ -1,6 +1,6 @@
 # Native users/achievements
 
-The whole profile-achievement read is implemented in an internal Rust module and selected for native execution after its six-case measured gate passed. It performs one read-lane query and adds no schema, crate, cache, helper RPC or TS business callback. Final acceptance remains pending fresh federation and final pushed-commit CI.
+The whole profile-achievement read is implemented in an internal Rust module and selected for native execution after its six-case measured gate passed. It performs one read-lane query and adds no schema, crate, cache, helper RPC or TS business callback. Fresh federation passed; final acceptance remains pending final pushed-commit CI.
 
 The existing optional-auth metadata is unchanged: anonymous, account and valid unrelated-scope app tokens can read the same target. No new suspended/moved-viewer, target visibility, owner or permission gate is introduced. Shared authentication and input validation run before the body.
 
@@ -29,7 +29,7 @@ A missing profile retains the ordinary `INTERNAL_ERROR` 500 and exact `EntityNot
 | Actual product UI | PASS, six paired scenarios, exits 0 | Existing achievement panel, anonymous/account, one/duplicate/empty payloads. Matching API bodies and rendered counts, twelve screenshots, zero page errors. The UI deduplicates in enum order; the server retains the original duplicate array. |
 | Paired measurement | PASS execution and activation gate | All 36,000 measured requests and 3,600 warm-ups matched the captured TS bodies/status/headers. All six median throughput/p95 gates pass. |
 | Shipping lint / SPDX / locale | PASS, exit 0 | Configured changed-file checks; unchanged out-of-scope historical test-file lint is not claimed fixed. |
-| Fresh local federation | PENDING | Run against the feature commit with container-native artifacts and frozen product/test sources. |
+| Fresh local federation | PASS, exit 0 | Fresh Linux-native build and two-instance suite at `c58f03c90760093fd6200331345279c334b62af3`: 92 passed, 13 skipped. HEAD and all 1,285 product/test files stayed unchanged; dedicated containers/volumes removed. |
 | Final pushed-commit CI | PENDING | Check the final actual pushed SHA. |
 
 Three AB/BA/AB pairs use the unchanged common runner, concurrency 8, 100 warm-ups and 1,000 measured requests per scenario per side. The six cases are anonymous/account/unrelated-scope app tokens against identical empty and all-current-enum target payloads. Enum names are loaded from the authoritative TS source, not a fixed count. Observed median throughput improves 27.53–121.70%; p95 falls 28.02–52.00%. Run `0d604319-3fb4-4d00-95da-8bc66b5a7efe` completed in 54.93 seconds. This is a bounded dedicated workload, not production traffic. [Full metrics and variation](users-achievements-benchmark.csv).
