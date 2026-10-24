@@ -1,9 +1,64 @@
 //! UserLite projection for complete native note reads.
-use super::super::Error;
+use super::super::{Error, rows};
 use super::entities::{boolean, field, nullable_string, populate_emojis, string, string_array};
 use crate::Runtime;
 use misskey_api_validation::Value;
 use misskey_backend_api_auth::Context;
+use std::collections::HashMap;
+use tokio_postgres::types::ToSql;
+
+async fn load_user_rows(runtime: &Runtime, ids: &[String]) -> Result<Vec<Value>, Error> {
+    if ids.is_empty() {
+        return Ok(Vec::new());
+    }
+    let slots = (1..=ids.len())
+        .map(|index| format!("${index}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let sql = format!(
+        "SELECT json_build_object('id',u.id,'name',u.name,'username',u.username,'host',u.host,'avatarId',u.\"avatarId\",'avatarUrl',u.\"avatarUrl\",'avatarBlurhash',u.\"avatarBlurhash\",'avatarDecorations',u.\"avatarDecorations\",'isBot',u.\"isBot\",'isCat',u.\"isCat\",'requireSigninToViewContents',u.\"requireSigninToViewContents\",'makeNotesFollowersOnlyBefore',u.\"makeNotesFollowersOnlyBefore\",'makeNotesHiddenBefore',u.\"makeNotesHiddenBefore\",'emojis',u.emojis,'hideOnlineStatus',u.\"hideOnlineStatus\",'lastActiveDate',floor(extract(epoch FROM u.\"lastActiveDate\")*1000)::double precision)::text FROM \"user\" u WHERE u.id IN ({slots})"
+    );
+    let params: Vec<&(dyn ToSql + Sync)> =
+        ids.iter().map(|id| -> &(dyn ToSql + Sync) { id }).collect();
+    rows(&runtime.database, true, &sql, &params).await
+}
+
+/// Batch the same selected UserLite fields, then reuse the complete formatter.
+/// IN naturally deduplicates IDs; callers retain their own result sequence.
+pub(super) async fn pack_many_users(
+    runtime: &Runtime,
+    ids: &[String],
+    auth: &Context,
+) -> Result<HashMap<String, Value>, Error> {
+    let users = load_user_rows(runtime, ids).await?;
+    Ok(
+        futures_util::future::try_join_all(users.iter().map(|user| async move {
+            Ok::<_, Error>((string(user, "id")?, pack_user(runtime, user, auth).await?))
+        }))
+        .await?
+        .into_iter()
+        .collect(),
+    )
+}
+
+/// Clip.pack retries an author missing from its batch hint without a viewer.
+pub(super) async fn pack_user_by_id(
+    runtime: &Runtime,
+    id: &str,
+    auth: &Context,
+) -> Result<Value, Error> {
+    let users = load_user_rows(runtime, &[id.to_owned()]).await?;
+    let Some(user) = users.first() else {
+        let encoded = serde_json::to_string(id).map_err(|_| Error::Internal)?;
+        return Err(Error::legacy(
+            format!(
+                "Could not find any entity of type \"MiUser\" matching: {{\n    \"id\": {encoded}\n}}"
+            ),
+            "EntityNotFoundError",
+        ));
+    };
+    pack_user(runtime, user, auth).await
+}
 
 fn online_status(user: &Value, now: i64) -> Result<&'static str, Error> {
     if boolean(user, "hideOnlineStatus")? {

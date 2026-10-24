@@ -5,6 +5,7 @@ use misskey_api_validation::Value;
 use misskey_backend_api_auth::Context;
 use std::collections::{HashMap, HashSet};
 
+mod clips;
 pub(crate) mod config;
 mod entities;
 mod files;
@@ -13,6 +14,7 @@ mod reactions;
 mod row;
 mod state;
 mod users;
+pub(super) use clips::clips;
 pub(crate) use config::Config;
 pub(super) use partial::show_partial_bulk;
 use row::{Note, Visibility, boolean, field, null_string, optional_string, string, string_array};

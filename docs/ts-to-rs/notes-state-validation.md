@@ -27,8 +27,8 @@ The existing unmodified runner used three AB/BA/AB pairs, concurrency 8, 100 war
 | Independent code review | PASS, no findings | Source and fixture revision reviewed independently. |
 | Activation performance gate | FAIL | Scoped application-token reply case regresses; all six must pass. |
 | Local federation for this candidate | SKIPPED | Candidate is not activated after the failed performance gate. Earlier slice results are not reused as this candidate's success. |
-| Final pushed-commit CI | PENDING | Check the actual final SHA; no CI success is claimed here. |
+| Pushed candidate CI | PASS at `0719dfae0eff3c183f01329eb49d7c3e5409ca5a` | All 18 executed workflows succeeded; Storybook was skipped. Later source revisions require their own final-SHA check. |
 
-The earlier validation-tools commit `5ba2bcc` had one backend E2E matrix failure with the same TS `No default value` notification stack. The fixture correction is a test repair, not a product behavior change. A green retry must be checked on a commit containing that correction.
+The earlier validation-tools commit `5ba2bcc` had one backend E2E matrix failure with the same TS `No default value` notification stack. The fixture correction is a test repair, not a product behavior change. Both backend E2E matrices and federation subsequently passed at `0719dfae`, which contains the fixture correction.
 
 Commands, exit codes, logs, source/binary provenance and reviews: `/workspace/native-queue/notes-state/`. Dedicated DB: `notes-state-runtime`; main Redis DB 6, reactions DB 5. No shared or production service was used.

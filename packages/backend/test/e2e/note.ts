@@ -192,6 +192,50 @@ describe('Note', () => {
 		});
 	});
 
+	describe('notes/clips response compatibility', () => {
+		test('returns public clips and keeps viewer and owner fields distinct', async () => {
+			const note = await post(alice, { text: 'clipped note' });
+			const extra = await post(alice, { text: 'another clipped note' });
+			const mine = await api('clips/create', { name: 'mine 😀', isPublic: true, description: null }, alice);
+			const other = await api('clips/create', { name: 'other', isPublic: true }, bob);
+			const hidden = await api('clips/create', { name: 'private', isPublic: false }, alice);
+			for (const [clipId, viewer] of [[mine.body.id, alice], [other.body.id, bob], [hidden.body.id, alice]] as const) {
+				assert.strictEqual((await api('clips/add-note', { clipId, noteId: note.id }, viewer)).status, 204);
+			}
+			assert.strictEqual((await api('clips/add-note', { clipId: mine.body.id, noteId: extra.id }, alice)).status, 204);
+			assert.strictEqual((await api('clips/favorite', { clipId: other.body.id }, alice)).status, 204);
+			const result = await api('notes/clips', { noteId: note.id }, alice);
+			assert.strictEqual(result.status, 200);
+			assert.deepStrictEqual(new Set(result.body.map(clip => clip.id)), new Set([mine.body.id, other.body.id]));
+			const mineResult = result.body.find(clip => clip.id === mine.body.id);
+			const otherResult = result.body.find(clip => clip.id === other.body.id);
+			assert.ok(mineResult && otherResult);
+			assert.strictEqual(mineResult.notesCount, 2);
+			assert.strictEqual(mineResult.isFavorited, false);
+			assert.strictEqual(mineResult.description, null);
+			assert.strictEqual(otherResult.isFavorited, true);
+			assert.strictEqual(otherResult.favoritedCount, 1);
+			assert.strictEqual(Object.hasOwn(otherResult, 'notesCount'), false);
+			const anonymous = await api('notes/clips', { noteId: note.id });
+			assert.strictEqual(anonymous.status, 200);
+			assert.deepStrictEqual(new Set(anonymous.body.map(clip => clip.id)), new Set([mine.body.id, other.body.id]));
+			for (const clip of anonymous.body) {
+				assert.strictEqual(Object.hasOwn(clip, 'isFavorited'), false);
+				assert.strictEqual(Object.hasOwn(clip, 'notesCount'), false);
+			}
+		});
+
+		test('preserves the endpoint-specific missing-note error', async () => {
+			const result = await api('notes/clips', { noteId: '0000000000000000' });
+			assert.strictEqual(result.status, 400);
+			const body: unknown = result.body;
+			assert.ok(body !== null && typeof body === 'object' && 'error' in body);
+			assert.ok(body.error !== null && typeof body.error === 'object' && 'code' in body.error && 'id' in body.error);
+			assert.strictEqual(body.error.code, 'NO_SUCH_NOTE');
+			assert.strictEqual(body.error.id, '47db1a1c-b0af-458d-8fb4-986e4efafe1e');
+		});
+	});
+
 	describe('notes/state response compatibility', () => {
 		test('keeps favorite state per viewer and mute state per thread', async () => {
 			const note = await post(alice, { text: 'state root' });

@@ -189,6 +189,9 @@ pub(super) async fn execute(
     if !ACTIVE_READ_ENDPOINTS.contains(&name) {
         return None;
     }
+    if name == "notes/clips" {
+        return Some(notes::clips(runtime, params, auth).await);
+    }
     if name == "notes/show" {
         return Some(notes::show(runtime, params, auth).await);
     }
