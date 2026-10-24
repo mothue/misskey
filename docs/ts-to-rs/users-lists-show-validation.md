@@ -10,7 +10,7 @@ This is an optional-credential endpoint. The existing shared metadata allows val
 
 ## Activation decision
 
-**PASS — measured activation gate.** All six scenarios improve median throughput (+10.30% to +59.27%) and p95 (-14.44% to -41.25%). The complete operation is selected for native execution; acceptance remains pending fresh federation and final pushed-commit CI.
+**PASS — measured activation gate.** All six scenarios improve median throughput (+10.30% to +59.27%) and p95 (-14.44% to -41.25%). The complete operation is selected for native execution; fresh federation passed and acceptance remains pending the final pushed-commit CI.
 
 The unchanged runner used three AB/BA/AB pairs, concurrency 8, 100 warm-ups plus 1,000 measured requests per scenario per side. All 36,000 measured requests and 3,600 warm-ups matched their TS business responses. Source, artifacts, dedicated fixtures and config remained fixed. Baseline: TS business at `02c0f8a4b46c956e73611052bb9d3bccd150cb18`, with the same hybrid common runtime. [Generated metrics and variation](users-lists-show-benchmark.csv) retain all scenarios.
 
@@ -29,7 +29,7 @@ The unchanged runner used three AB/BA/AB pairs, concurrency 8, 100 warm-ups plus
 | Rust child lifecycle | PASS, exit 0 | A valid detail request and native core requests return 503 after child termination; host survives, no restart, owned processes collected. |
 | Local product browser | PASS, exits 0 | Actual settings/public detail pages on TS and native versions: omitted, liked, anonymous and zero-like fields, matching count/icon and response, zero page errors. Eight screenshots retained; external HTTP resources blocked. |
 | Measured activation gate | PASS, exit 0 | All six paired scenarios improve throughput and p95; zero response failures. |
-| Local federation | PENDING | Fresh Linux container build/two-instance suite required if the gate passes. |
+| Local federation | PASS, exit 0 | Fresh Linux build and dedicated two-instance suite at `f00cf1f4662ce87b1f9499128dae9a7fe3e6ef0f`: 92 passed, 13 skipped. All 1,283 product/test source files and HEAD stayed unchanged; owned containers/volumes removed. |
 | Final pushed-commit CI | PENDING | Check the actual final pushed SHA. |
 
 Commands, exit codes, sanitized logs, captures, reviews and provenance: `/workspace/native-queue/users-lists-show/`. The dedicated UserLists DB `users-lists-list-runtime` and Redis DB10/reactions DB15 are reused serially with explicit settings and four favorite fixtures; no reset runs concurrently. Backend E2E uses the separate `test-misskey` fixture. No shared or production service is used.
