@@ -195,6 +195,9 @@ pub(super) async fn execute(
     if name == "notes/show-partial-bulk" {
         return Some(notes::show_partial_bulk(runtime, params, auth).await);
     }
+    if name == "notes/state" {
+        return Some(notes::state(runtime, params, auth).await);
+    }
     if let Some(result) = discovery::execute(runtime, name, params, auth).await {
         return Some(result);
     }

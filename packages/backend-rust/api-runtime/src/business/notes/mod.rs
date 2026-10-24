@@ -11,10 +11,12 @@ mod files;
 mod partial;
 mod reactions;
 mod row;
+mod state;
 mod users;
 pub(crate) use config::Config;
 pub(super) use partial::show_partial_bulk;
 use row::{Note, Visibility, boolean, field, null_string, optional_string, string, string_array};
+pub(super) use state::state;
 
 struct Graph {
     notes: HashMap<String, Note>,

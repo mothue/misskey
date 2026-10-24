@@ -36,6 +36,12 @@
       "kind": "compatibility",
       "reason": "Separate TS/Rust ID generator state can change date-pagination bounds within the same millisecond.",
       "evidence": "db-read-validation.md#candidate-and-separate-date-pagination-hold"
+    },
+    {
+      "endpoint": "notes/state",
+      "kind": "performance",
+      "reason": "Native candidate failed the paired throughput/p95 gate for the scoped application-token reply scenario; keep the complete operation on TS. Cause not yet established.",
+      "evidence": "notes-state-validation.md"
     }
   ]
 }
