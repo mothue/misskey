@@ -142,11 +142,33 @@ export class ApiServerService implements OnApplicationShutdown {
 		if (invocation.kind === 'special') return this.executeSpecial(invocation, original);
 		if (!endpoints.some(endpoint => endpoint.name === invocation.endpoint)) throw new Error('Unknown legacy callback');
 		if ([
-			'ping', 'test', 'endpoint', 'endpoints', 'get-online-users-count',
-			'emoji', 'emojis', 'hashtags/list', 'hashtags/search', 'hashtags/show', 'username/available', 'retention',
-			'i/registry/get', 'i/registry/get-all', 'i/registry/get-detail', 'i/registry/keys', 'i/registry/keys-with-type', 'i/registry/scopes-with-domain',
-			'app/show', 'my/apps', 'i/apps', 'i/authorized-apps',
-			'roles/list', 'roles/show', 'admin/roles/list', 'admin/roles/show', 'admin/relays/list', 'admin/get-index-stats', 'admin/get-table-stats',
+			'ping',
+			'test',
+			'endpoint',
+			'endpoints',
+			'get-online-users-count',
+			'admin/relays/list',
+			'admin/roles/list',
+			'admin/roles/show',
+			'app/show',
+			'emoji',
+			'emojis',
+			'hashtags/list',
+			'hashtags/search',
+			'hashtags/show',
+			'i/apps',
+			'i/authorized-apps',
+			'i/registry/get',
+			'i/registry/get-all',
+			'i/registry/get-detail',
+			'i/registry/keys',
+			'i/registry/keys-with-type',
+			'i/registry/scopes-with-domain',
+			'my/apps',
+			'retention',
+			'roles/list',
+			'roles/show',
+			'username/available',
 		].includes(invocation.endpoint)) throw new Error('Native API cannot execute through TS');
 		const userRecord = invocation.user === null ? null : hydrateApiEntity(this.db.getMetadata('user'), invocation.user);
 		if (userRecord !== null && typeof userRecord.id !== 'string') throw new Error('Invalid API user');

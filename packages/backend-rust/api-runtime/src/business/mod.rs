@@ -151,30 +151,28 @@ pub(super) fn number(value: &Value, key: &str) -> Result<f64, Error> {
 // Activation is selected per complete native slice after its paired benchmark.
 // Unsupported/held endpoints enter the normal TS path before any native work.
 pub(super) const ACTIVE_READ_ENDPOINTS: &[&str] = &[
+    "admin/relays/list",
+    "admin/roles/list",
+    "admin/roles/show",
+    "app/show",
     "emoji",
     "emojis",
     "hashtags/list",
     "hashtags/search",
     "hashtags/show",
-    "username/available",
-    "retention",
+    "i/apps",
+    "i/authorized-apps",
     "i/registry/get",
     "i/registry/get-all",
     "i/registry/get-detail",
     "i/registry/keys",
     "i/registry/keys-with-type",
     "i/registry/scopes-with-domain",
-    "app/show",
     "my/apps",
-    "i/apps",
-    "i/authorized-apps",
+    "retention",
     "roles/list",
     "roles/show",
-    "admin/roles/list",
-    "admin/roles/show",
-    "admin/relays/list",
-    "admin/get-index-stats",
-    "admin/get-table-stats",
+    "username/available",
 ];
 
 pub(super) async fn execute(
