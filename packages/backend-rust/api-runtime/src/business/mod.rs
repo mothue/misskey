@@ -172,6 +172,7 @@ pub(super) const ACTIVE_READ_ENDPOINTS: &[&str] = &[
     "i/registry/keys-with-type",
     "i/registry/scopes-with-domain",
     "my/apps",
+    "notes/show",
     "retention",
     "roles/list",
     "roles/show",
