@@ -1,0 +1,57 @@
+{
+  "source": "Actual cloud public HTTP on same dedicated malformed attachment; only per-request correlation UUID omitted from diagnostic projection",
+  "cases": [
+    {
+      "name": "pure-ts-anon",
+      "sourceEndpoint": "notes/show",
+      "sourceCommit": "d875b7e3c737b7f9f75331fffb691f6a2b97f055",
+      "idMethod": "aidx",
+      "fileId": "!gallerybadfile",
+      "status": 500,
+      "expectedDiagnostic": {
+        "message": "Invalid Date",
+        "code": "RangeError"
+      },
+      "sourceCaptureSha256": "697d31f1970903705ff09e0e6c4ee3553db7b81ad95357a04b6b3263c37b6494"
+    },
+    {
+      "name": "pure-ts-owner",
+      "sourceEndpoint": "notes/show",
+      "sourceCommit": "d875b7e3c737b7f9f75331fffb691f6a2b97f055",
+      "idMethod": "aidx",
+      "fileId": "!gallerybadfile",
+      "status": 500,
+      "expectedDiagnostic": {
+        "message": "Invalid Date",
+        "code": "RangeError"
+      },
+      "sourceCaptureSha256": "697d31f1970903705ff09e0e6c4ee3553db7b81ad95357a04b6b3263c37b6494"
+    },
+    {
+      "name": "malformed-file-id-anon",
+      "sourceEndpoint": "gallery/posts/show",
+      "sourceCommit": "a15daf3926ad8ad391735e8c8ce1c90e47a9f41f",
+      "idMethod": "aidx",
+      "fileId": "!gallerybadfile",
+      "status": 500,
+      "expectedDiagnostic": {
+        "message": "Invalid Date",
+        "code": "RangeError"
+      },
+      "sourceCaptureSha256": "7580a996e54ddd7b3a97571264e5fde53b11a49fca481ff017c471deb817f5e4"
+    },
+    {
+      "name": "malformed-file-id-owner",
+      "sourceEndpoint": "gallery/posts/show",
+      "sourceCommit": "a15daf3926ad8ad391735e8c8ce1c90e47a9f41f",
+      "idMethod": "aidx",
+      "fileId": "!gallerybadfile",
+      "status": 500,
+      "expectedDiagnostic": {
+        "message": "Invalid Date",
+        "code": "RangeError"
+      },
+      "sourceCaptureSha256": "7580a996e54ddd7b3a97571264e5fde53b11a49fca481ff017c471deb817f5e4"
+    }
+  ]
+}

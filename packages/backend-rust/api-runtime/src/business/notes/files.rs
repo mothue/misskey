@@ -155,7 +155,12 @@ fn pack_file(
     proxy_remote_files: bool,
 ) -> Result<Value, Error> {
     let id = string(file, "id")?;
-    let date = parse_id_date(id_method, &id).ok_or(Error::Internal)?;
+    let date = parse_id_date(id_method, &id).ok_or_else(|| {
+        // Actual pure-TS/public HTTP throws RangeError here for invalid stored
+        // attachment IDs; preserve its existing diagnostic envelope.
+        let definition = &crate::response::INVALID_DATE;
+        Error::legacy(definition.message.to_owned(), definition.code)
+    })?;
     let mut packed = Value::object([
         ("id", Value::string(&id)),
         ("createdAt", Value::string(&iso_date(date)?)),
@@ -231,6 +236,30 @@ pub(super) async fn pack_files_map(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn invalid_attachment_id_dates_match_captured_ts_http_errors_before_other_fields() {
+        let oracle: serde_json::Value =
+            serde_json::from_str(include_str!("fixtures/file-id-date-http-oracle.json")).unwrap();
+        for case in oracle["cases"].as_array().unwrap() {
+            let row = Value::object([("id", Value::string(case["fileId"].as_str().unwrap()))]);
+            match pack_file(
+                &Config::default(),
+                case["idMethod"].as_str().unwrap(),
+                &row,
+                false,
+            ) {
+                Err(Error::Legacy { message, code, .. }) => {
+                    assert_eq!(
+                        message,
+                        case["expectedDiagnostic"]["message"].as_str().unwrap()
+                    );
+                    assert_eq!(code, case["expectedDiagnostic"]["code"].as_str().unwrap());
+                }
+                _ => panic!("attachment must retain the captured Date error"),
+            }
+        }
+    }
 
     #[test]
     fn component_encoding_matches_encode_uri_component_without_form_plus_conversion() {
