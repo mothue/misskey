@@ -585,13 +585,27 @@ pub(super) async fn show(
     let raw = load_post(runtime, &post_id)
         .await?
         .ok_or(Error::Fixed(crate::response::ApiFailure::NoSuchPost))?;
-    let post = GalleryRow::decode(&raw, &runtime.business_config.id_method)?;
+    pack_post(runtime, &raw, auth, None).await
+}
+
+async fn pack_post(
+    runtime: &Runtime,
+    raw: &Value,
+    auth: &Context,
+    packed_user: Option<&Value>,
+) -> Result<Value, Error> {
+    let post = GalleryRow::decode(raw, &runtime.business_config.id_method)?;
     let viewer = viewer_id(auth)?;
     let query_ids = post.file_ids.query_ids()?;
     let borrowed_ids: Vec<_> = query_ids.iter().map(Option::as_deref).collect();
-    // Unlike Clip.pack, Gallery's SINGLE pack passes the actual viewer to
-    // UserLite. No ownership/block/sensitive/UGC gate is introduced here.
-    let user = notes::pack_user_lite_by_id(runtime, &post.user_id, auth);
+    // GalleryPostEntityService.pack uses a non-nullish batch author hint,
+    // otherwise it passes the actual viewer to the shared UserLite formatter.
+    let user = async {
+        match packed_user {
+            Some(user) if !matches!(user, Value::Null | Value::Undefined) => Ok(user.clone()),
+            _ => notes::pack_user_lite_by_id(runtime, &post.user_id, auth).await,
+        }
+    };
     let files = notes::pack_public_files_map(runtime, &borrowed_ids);
     let like = liked(runtime, &post.id, viewer);
     // Own all futures; source starts author/files before awaiting like, then
