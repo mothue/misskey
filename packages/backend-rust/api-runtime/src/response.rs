@@ -48,7 +48,7 @@ pub(crate) const NON_DATE_CLIP_TIMESTAMP: LegacyErrorDef = LegacyErrorDef {
 
 // Actual pinned production GalleryPost.pack: the PG driver returns infinity
 // as a primitive. Public HTTP fixtures guard the minifier-specific wording.
-pub(crate) const NON_DATE_GALLERY_TIMESTAMP: LegacyErrorDef = LegacyErrorDef {
+pub(crate) const NON_DATE_UPDATED_AT: LegacyErrorDef = LegacyErrorDef {
     message: "i.updatedAt.toISOString is not a function. (In 'i.updatedAt.toISOString()', 'i.updatedAt.toISOString' is undefined)",
     code: "TypeError",
 };

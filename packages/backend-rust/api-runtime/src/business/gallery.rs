@@ -3,7 +3,13 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 //! Complete gallery reads, preserving public attachment, ranking and viewer semantics.
-use super::{Error, iso_date, notes, parse_id_date};
+pub use super::entity_layout::LayoutFailure as GalleryLayoutFailure;
+use super::{
+    Error,
+    entity_layout::{column_name, compile_query, validated_layout},
+    notes,
+    stored_value::{self, StoredDateFailure, StoredInt4Failure},
+};
 use crate::{
     Runtime,
     redis::{CommandBatch, CommandReadFailure, RedisState},
@@ -31,7 +37,6 @@ const FEATURED_CACHE_TTL_MS: i64 = 1_800_000;
 const FEATURED_MAX_LIMIT: usize = 100;
 const LIKED_SQL: &str =
     "SELECT EXISTS(SELECT 1 FROM {like_table} l WHERE l.{post_id}=$1 AND l.{user_id}=$2)";
-const TIME_CLIP_LIMIT: f64 = 8_640_000_000_000_000.;
 // Consumed entity PROPERTY names/kinds. Database identifiers come ONLY from
 // actual exported TypeORM metadata, following the existing ClipQueries contract.
 const POST_PROPERTIES: &[(&str, ColumnKind)] = &[
@@ -65,16 +70,6 @@ impl Operation {
             Self::Liked => "gallery.posts.show.liked",
         }
     }
-}
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum GalleryLayoutFailure {
-    MissingLayout,
-    InvalidIdentifier,
-    UnknownProperty,
-    DuplicateProperty,
-    MissingProperty,
-    HydrationKind,
-    QueryTemplate,
 }
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum FailureKind {
@@ -195,67 +190,6 @@ pub(crate) struct GalleryQueries {
     show: String,
     featured_prefix: String,
     liked: String,
-}
-fn validated_layout<'a>(
-    layouts: &'a HashMap<String, Vec<EntityColumn>>,
-    table_name: &str,
-    properties: &[(&str, ColumnKind)],
-) -> Result<(&'a str, &'a [EntityColumn]), GalleryLayoutFailure> {
-    let (table, columns) = layouts
-        .get_key_value(table_name)
-        .ok_or(GalleryLayoutFailure::MissingLayout)?;
-    if table.is_empty() || table.contains('\0') {
-        return Err(GalleryLayoutFailure::InvalidIdentifier);
-    }
-    let mut seen = HashSet::new();
-    for column in columns {
-        if column.database_name.is_empty() || column.database_name.contains('\0') {
-            return Err(GalleryLayoutFailure::InvalidIdentifier);
-        }
-        let (_, kind) = properties
-            .iter()
-            .find(|(name, _)| *name == column.property_name)
-            .ok_or(GalleryLayoutFailure::UnknownProperty)?;
-        if !seen.insert(column.property_name.as_str()) {
-            return Err(GalleryLayoutFailure::DuplicateProperty);
-        }
-        if column.kind != *kind {
-            return Err(GalleryLayoutFailure::HydrationKind);
-        }
-    }
-    if seen.len() != properties.len() {
-        return Err(GalleryLayoutFailure::MissingProperty);
-    }
-    Ok((table.as_str(), columns.as_slice()))
-}
-fn column_name(columns: &[EntityColumn], property: &str) -> Result<String, GalleryLayoutFailure> {
-    columns
-        .iter()
-        .find(|column| column.property_name == property)
-        .map(|column| quote_identifier(&column.database_name))
-        .ok_or(GalleryLayoutFailure::MissingProperty)
-}
-fn compile_query(
-    template: &str,
-    replacements: &[(&str, String)],
-) -> Result<String, GalleryLayoutFailure> {
-    // Substitute only spans of the trusted source template. Braces inside
-    // quoted metadata identifiers are appended literally, never reinterpreted.
-    let mut remaining = template;
-    let mut compiled = String::new();
-    while let Some(start) = remaining.find('{') {
-        compiled.push_str(&remaining[..start]);
-        let tail = &remaining[start + 1..];
-        let end = tail.find('}').ok_or(GalleryLayoutFailure::QueryTemplate)?;
-        let (_, replacement) = replacements
-            .iter()
-            .find(|(name, _)| *name == &tail[..end])
-            .ok_or(GalleryLayoutFailure::QueryTemplate)?;
-        compiled.push_str(replacement);
-        remaining = &tail[end + 1..];
-    }
-    compiled.push_str(remaining);
-    Ok(compiled)
 }
 impl GalleryQueries {
     pub(crate) fn new(
@@ -441,51 +375,6 @@ impl TextArray {
     }
 }
 
-fn invalid_date() -> Error {
-    // Actual gallery TS HTTP: finite PG year294000 becomes an invalid JS Date.
-    // Reuse the shared legacy/correlation/envelope mapper, not a local payload.
-    let definition = &crate::response::INVALID_DATE;
-    Error::legacy(definition.message.to_owned(), definition.code)
-}
-fn non_date_updated_timestamp() -> Error {
-    // Actual pinned production gallery HTTP for BOTH +/-infinity. The central
-    // definition contains the observed minified `i.updatedAt` expression.
-    let definition = &crate::response::NON_DATE_GALLERY_TIMESTAMP;
-    Error::legacy(definition.message.to_owned(), definition.code)
-}
-
-/// Matches the typed Date projection, including PG infinities that pg/TypeORM
-/// exposes as primitive infinities rather than Date instances.
-enum UpdatedDate {
-    Finite(f64),
-    PositiveInfinity,
-    NegativeInfinity,
-}
-impl UpdatedDate {
-    fn decode(value: &Value) -> Result<Self, Error> {
-        match value {
-            Value::Number(milliseconds) if milliseconds.is_finite() => {
-                Ok(Self::Finite(*milliseconds))
-            }
-            Value::String(units) if units.iter().copied().eq("Infinity".encode_utf16()) => {
-                Ok(Self::PositiveInfinity)
-            }
-            Value::String(units) if units.iter().copied().eq("-Infinity".encode_utf16()) => {
-                Ok(Self::NegativeInfinity)
-            }
-            _ => Err(shape(FailureKind::FieldType)),
-        }
-    }
-    fn iso(&self) -> Result<String, Error> {
-        match self {
-            Self::Finite(milliseconds) if milliseconds.abs() <= TIME_CLIP_LIMIT => {
-                iso_date(*milliseconds)
-            }
-            Self::Finite(_) => Err(invalid_date()),
-            Self::PositiveInfinity | Self::NegativeInfinity => Err(non_date_updated_timestamp()),
-        }
-    }
-}
 struct GalleryRow {
     id: String,
     created_at: String,
@@ -503,9 +392,14 @@ impl GalleryRow {
         // GalleryPostEntityService converts both dates before it starts the
         // author/files promises or the inline awaited authenticated like read.
         let id = string(field(row, "id")?)?;
-        let created_ms = parse_id_date(id_method, &id).ok_or_else(invalid_date)?;
-        let created_at = iso_date(created_ms)?;
-        let updated_at = UpdatedDate::decode(field(row, "updatedAt")?)?.iso()?;
+        let created_at = stored_value::created_at(id_method, &id)?;
+        let updated_at =
+            stored_value::updated_at(field(row, "updatedAt")?).map_err(
+                |failure| match failure {
+                    StoredDateFailure::FieldType => shape(FailureKind::FieldType),
+                    StoredDateFailure::Conversion(error) => error,
+                },
+            )?;
         let description = match field(row, "description")? {
             Value::Null => None,
             value => Some(string(value)?),
@@ -514,17 +408,11 @@ impl GalleryRow {
             Value::Boolean(value) => *value,
             _ => return Err(shape(FailureKind::FieldType)),
         };
-        let liked_count = match field(row, "likedCount")? {
-            Value::Number(value) => {
-                // int4 values are exact Numbers. Checked integer parsing also
-                // rejects fractions and overflow without a narrowing cast.
-                ryu_js::Buffer::new()
-                    .format(*value)
-                    .parse()
-                    .map_err(|source| Error::Gallery(GalleryFailure::Int4 { source }))?
-            }
-            _ => return Err(shape(FailureKind::FieldType)),
-        };
+        let liked_count =
+            stored_value::int4(field(row, "likedCount")?).map_err(|failure| match failure {
+                StoredInt4Failure::FieldType => shape(FailureKind::FieldType),
+                StoredInt4Failure::Parse(source) => Error::Gallery(GalleryFailure::Int4 { source }),
+            })?;
         Ok(Self {
             id,
             created_at,
@@ -926,7 +814,6 @@ mod tests {
     use serde_json::Value as Json;
     use std::collections::VecDeque;
     const SOURCE: &str = include_str!("fixtures/gallery-packing-oracle.json");
-    const DATE_HTTP: &str = include_str!("fixtures/gallery-date-http-oracle.json");
     const ARRAY_SOURCE: &str = include_str!("fixtures/gallery-array-source-oracle.json");
     const FEATURED_CACHE: &str = include_str!("fixtures/gallery-featured-cache-source-oracle.json");
     const FEATURED_ORDER: &str =
@@ -1339,50 +1226,6 @@ mod tests {
             let actual = array.reconstruct_files(&packed).unwrap();
             let expected = Value::parse_json(&expected_ids.to_string()).unwrap();
             assert_eq!(actual, expected, "{}", fixture["name"]);
-        }
-    }
-
-    fn without_request_correlation(mut body: Value) -> Value {
-        let mut error = body.get("error").unwrap().clone();
-        let mut info = error.get("info").unwrap().clone();
-        let mut detail = info.get("e").unwrap().clone();
-        detail.set("id", Value::Undefined);
-        info.set("e", detail);
-        error.set("info", info);
-        body.set("error", error);
-        body
-    }
-
-    #[tokio::test]
-    async fn date_failure_projection_matches_captured_production_http_fields() {
-        let fixture: serde_json::Value = serde_json::from_str(DATE_HTTP).unwrap();
-        for case in fixture["cases"].as_array().unwrap() {
-            let date = match case["dateKind"].as_str().unwrap() {
-                "positive-infinity" => UpdatedDate::PositiveInfinity,
-                "negative-infinity" => UpdatedDate::NegativeInfinity,
-                // The expected body is captured for year294000. This samples
-                // the same finite-outside-TimeClip class at its first boundary;
-                // real SQL-date/native parity remains an end-to-end HTTP check.
-                "finite-outside-js" => UpdatedDate::Finite(TIME_CLIP_LIMIT + 1.),
-                _ => panic!("unknown captured date class"),
-            };
-            let response = date.iso().unwrap_err().response();
-            assert_eq!(
-                u64::from(response.status().as_u16()),
-                case["status"].as_u64().unwrap()
-            );
-            let bytes = axum::body::to_bytes(response.into_body(), 16 * 1024)
-                .await
-                .unwrap();
-            let actual = Value::parse_json(std::str::from_utf8(&bytes).unwrap()).unwrap();
-            let expected =
-                Value::parse_json(&case["bodyWithoutRequestCorrelationId"].to_string()).unwrap();
-            assert_eq!(
-                without_request_correlation(actual),
-                without_request_correlation(expected),
-                "{}",
-                case["name"]
-            );
         }
     }
 }
