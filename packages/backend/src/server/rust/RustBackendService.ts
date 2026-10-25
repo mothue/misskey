@@ -9,7 +9,7 @@ import { Inject, Injectable, Optional, type OnApplicationShutdown } from '@nestj
 import type { Config } from '@/config.js';
 import { DI } from '@/di-symbols.js';
 import { ApiError } from '@/server/api/error.js';
-import { decodeEndpoint, decodeEndpoints, decodeOnlineUsersCount, decodePing, decodeTest, encodeUtf16, object } from './protocol.js';
+import { decodeEndpoint, decodeEndpoints, decodeOnlineUsersCount, decodePing, decodeReady, decodeTest, encodeUtf16 } from './protocol.js';
 import type { CatalogEndpoint, TestResult } from './protocol.js';
 import { findCodeRoot } from './source-root.js';
 import { resolveRustPostgresConfig, type RustPostgresConfig } from './postgres-config.js';
@@ -25,10 +25,15 @@ export class RustBackendTransport {
 	private stopped = false;
 	private ready = false;
 	private port = 0;
+	private nativeEndpoints: ReadonlySet<string> = new Set();
 	private readonly token = randomBytes(32).toString('hex');
 	private readonly pending = new Set<AbortController>();
 	constructor(private readonly executable: string, private readonly args: string[] = []) {}
 	isReady(): boolean { return this.ready; }
+	isNativeEndpoint(name: string): boolean {
+		if (!this.ready) throw unavailable();
+		return this.nativeEndpoints.has(name);
+	}
 	start(endpoints: readonly CatalogEndpoint[], postgres: RustPostgresConfig | null = null, api?: unknown): Promise<void> {
 		if (this.stopped) return Promise.reject(unavailable());
 		return this.startPromise ??= this.launch(endpoints, postgres, api).catch(async () => { await this.stop(); throw unavailable(); });
@@ -36,6 +41,9 @@ export class RustBackendTransport {
 	private async launch(endpoints: readonly CatalogEndpoint[], postgres: RustPostgresConfig | null, api?: unknown): Promise<void> {
 		const bootstrap = Buffer.from(`${JSON.stringify({ v: 1, token: this.token, endpoints, postgres, ...(api === undefined ? {} : { api }) })}\n`);
 		if (bootstrap.length > MAX_BYTES) throw unavailable();
+		// UTF-16 catalog names conservatively bound their JSON text in readiness;
+		// retain fixed envelope overhead without an endpoint-count constant.
+		const readyLimit = Math.min(MAX_BYTES, 4096 + Buffer.byteLength(JSON.stringify(endpoints.map(endpoint => endpoint.nameUtf16))));
 		const child = spawn(this.executable, this.args, { stdio: ['pipe', 'pipe', 'pipe'] });
 		this.child = child;
 		child.stderr.pipe(process.stderr, { end: false });
@@ -49,14 +57,16 @@ export class RustBackendTransport {
 			child.once('error', () => finish(unavailable()));
 			child.once('exit', () => finish(unavailable()));
 			child.stdout.on('data', (chunk: Buffer) => {
-				if (received || bytes.length + chunk.length > 4096) { this.ready = false; void this.stop(); finish(unavailable()); return; }
+				if (received || bytes.length + chunk.length > readyLimit) { this.ready = false; void this.stop(); finish(unavailable()); return; }
 				bytes = Buffer.concat([bytes, chunk]);
 				const newline = bytes.indexOf(10);
 				if (newline < 0) return;
 				try {
 					const frame: unknown = JSON.parse(bytes.subarray(0, newline).toString('utf8'));
-					if (newline !== bytes.length - 1 || !object(frame) || frame.v !== 1 || typeof frame.port !== 'number' || !Number.isInteger(frame.port) || frame.port < 1 || frame.port > 65535 || this.stopped) throw unavailable();
-					this.port = frame.port;
+					if (newline !== bytes.length - 1 || this.stopped) throw unavailable();
+					const ready = decodeReady(frame, endpoints);
+					this.port = ready.port;
+					this.nativeEndpoints = ready.nativeEndpoints;
 					this.ready = true;
 					received = true;
 					finish();
@@ -152,6 +162,7 @@ export class RustBackendService implements OnApplicationShutdown {
 	stop(): Promise<void> { return this.transport.stop(); }
 	onApplicationShutdown(): Promise<void> { return this.stop(); }
 	isReady(): boolean { return this.transport.isReady(); }
+	isNativeEndpoint(name: string): boolean { return this.transport.isNativeEndpoint(name); }
 	async api(context: { v: 1; requestId: string; path: string; method: string; ip: string; headers: Record<string, string | string[] | undefined> }, body: ReadableStream<Uint8Array> | null, signal?: AbortSignal): Promise<Response> {
 		try { return await this.transport.api(context, body, signal); } catch {
 			const error = unavailable();

@@ -39,6 +39,7 @@ pub enum FailureStage {
     EndpointRegistry,
     EndpointMetadata,
     EndpointSchema,
+    TimeZoneConfig,
     AuthStore,
     AuthService,
     Redis,
@@ -95,6 +96,7 @@ pub struct ApiBootstrap {
     max_file_size: u64,
     enable_ip_rate_limit: bool,
     environment: String,
+    effective_time_zone: String,
     upload_directory: String,
     host: String,
     postgres_primary: Option<Target>,
@@ -123,6 +125,35 @@ struct Endpoint {
     name: String,
     meta: EndpointMeta,
     schema: Schema,
+}
+
+#[derive(Clone, Copy)]
+enum CoreEndpoint {
+    Ping,
+    Test,
+    Endpoint,
+    Endpoints,
+    OnlineUsersCount,
+}
+
+// One selection table drives both execution and the callback rejection list
+// returned at bootstrap. Names must not be copied into the TypeScript guard.
+const CORE_ENDPOINTS: &[(&str, CoreEndpoint)] = &[
+    ("ping", CoreEndpoint::Ping),
+    ("test", CoreEndpoint::Test),
+    ("endpoint", CoreEndpoint::Endpoint),
+    ("endpoints", CoreEndpoint::Endpoints),
+    ("get-online-users-count", CoreEndpoint::OnlineUsersCount),
+];
+
+fn core_endpoint(name: &str) -> Option<CoreEndpoint> {
+    CORE_ENDPOINTS
+        .iter()
+        .find_map(|(candidate, endpoint)| (*candidate == name).then_some(*endpoint))
+}
+
+fn native_endpoint(name: &str) -> bool {
+    core_endpoint(name).is_some() || business::ACTIVE_READ_ENDPOINTS.contains(&name)
 }
 
 /// Both transports use the original UTF-16 catalog. Check the API schema view
@@ -162,6 +193,24 @@ fn validate_catalog(definitions: &[EndpointDefinition], catalog: &Catalog) -> Re
                 return Err(mismatch());
             }
         }
+    }
+    Ok(())
+}
+
+// A renamed/removed TS registry entry must not silently disappear from the
+// authoritative selection returned to the callback guard.
+fn validate_native_selection(definitions: &[EndpointDefinition]) -> Result<(), Failure> {
+    let mut selected = CORE_ENDPOINTS
+        .iter()
+        .map(|(name, _)| *name)
+        .chain(business::ACTIVE_READ_ENDPOINTS.iter().copied());
+    if selected.any(|name| !definitions.iter().any(|definition| definition.name == name)) {
+        tracing::error!(
+            operation = "validate_native_selection",
+            error.kind = "unknown_endpoint",
+            "API bootstrap failed"
+        );
+        return Err(Failure::new(FailureStage::EndpointRegistry));
     }
     Ok(())
 }
@@ -288,6 +337,7 @@ impl Runtime {
             return Err(Failure::new(FailureStage::CallbackConfig));
         }
         validate_catalog(&config.endpoints, &catalog)?;
+        validate_native_selection(&config.endpoints)?;
         let mut endpoints = Vec::new();
         let mut names = std::collections::HashSet::new();
         for definition in config.endpoints {
@@ -303,8 +353,16 @@ impl Runtime {
                     .map_err(|_| Failure::new(FailureStage::EndpointSchema))?,
             });
         }
-        let mut business_config =
-            business::Config::new(&config.auth.id_method, &config.auth.default_policies);
+        let mut business_config = business::Config::new(
+            &config.auth.id_method,
+            &config.auth.default_policies,
+            &config.effective_time_zone,
+        )
+        .map_err(|error| {
+            // CalendarError contains only bounded kinds, never the supplied zone.
+            tracing::error!(operation = "configure_local_calendar", error.kind = ?error, "API bootstrap failed");
+            Failure::new(FailureStage::TimeZoneConfig)
+        })?;
         business_config.notes = config.notes;
         let database = Arc::new(online_users.database(config.postgres_primary));
         let store = Arc::new(
@@ -344,6 +402,15 @@ impl Runtime {
             production: config.environment == "production",
         })
     }
+    /// Advertise only the configured registry entries selected by native dispatch.
+    pub fn native_endpoints(&self) -> Vec<&str> {
+        self.endpoints
+            .iter()
+            .map(|endpoint| endpoint.name.as_str())
+            .filter(|name| native_endpoint(name))
+            .collect()
+    }
+
     pub async fn shutdown(&self) {
         self.redis.shutdown().await;
         self.database.shutdown().await;
@@ -539,13 +606,13 @@ impl Runtime {
         input: &mut request::Input,
         auth: &Context,
     ) -> Response<Body> {
-        match endpoint.name.as_str() {
-            "ping" => match ping_at(SystemTime::now()) {
+        match core_endpoint(&endpoint.name) {
+            Some(CoreEndpoint::Ping) => match ping_at(SystemTime::now()) {
                 Ok(pong) => response::json(200, json!({"pong":pong})),
                 Err(_) => response::internal(),
             },
-            "test" => response::value(&input.params),
-            "endpoint" => {
+            Some(CoreEndpoint::Test) => response::value(&input.params),
+            Some(CoreEndpoint::Endpoint) => {
                 let description = input
                     .params
                     .get("endpoint")
@@ -575,18 +642,20 @@ impl Runtime {
                     }
                 }
             }
-            "endpoints" => response::value(&Value::Array(
+            Some(CoreEndpoint::Endpoints) => response::value(&Value::Array(
                 self.catalog
                     .names()
                     .into_iter()
                     .map(Value::String)
                     .collect(),
             )),
-            "get-online-users-count" => match self.online_users.count_at(SystemTime::now()).await {
-                Ok(count) => response::value(&Value::object([("count", Value::Number(count))])),
-                Err(_) => response::unavailable(),
-            },
-            _ => {
+            Some(CoreEndpoint::OnlineUsersCount) => {
+                match self.online_users.count_at(SystemTime::now()).await {
+                    Ok(count) => response::value(&Value::object([("count", Value::Number(count))])),
+                    Err(_) => response::unavailable(),
+                }
+            }
+            None => {
                 if let Some(result) =
                     business::execute(self, &endpoint.name, &input.params, auth).await
                 {

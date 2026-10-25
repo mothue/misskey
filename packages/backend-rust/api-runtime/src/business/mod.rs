@@ -26,14 +26,17 @@ pub(super) struct Config {
 }
 
 impl Config {
-    pub fn new(id_method: &str, default_policies: &serde_json::Value) -> Self {
-        Self {
+    pub fn new(
+        id_method: &str,
+        default_policies: &serde_json::Value,
+        effective_time_zone: &str,
+    ) -> Result<Self, local_date::CalendarError> {
+        Ok(Self {
             id_method: id_method.to_lowercase(),
             default_policies: Value::from_json(default_policies),
             notes: notes::Config::default(),
-            // Birthday reads are held; effective-zone bootstrap must precede activation.
-            local_calendar: local_date::LocalCalendar::new("UTC").expect("bundled UTC zone"),
-        }
+            local_calendar: local_date::LocalCalendar::new(effective_time_zone)?,
+        })
     }
 }
 
@@ -248,9 +251,18 @@ mod tests {
     use super::*;
 
     #[test]
+    fn calendar_configuration_rejects_unknown_zones_without_a_utc_fallback() {
+        assert!(matches!(
+            Config::new("aidx", &serde_json::json!({}), "invalid/effective-zone"),
+            Err(local_date::CalendarError::UnknownTimeZone)
+        ));
+    }
+
+    #[test]
     fn business_id_method_is_normalized_like_the_existing_id_service() {
         for method in ["aid", "aidx", "meid", "meidg", "ulid", "objectid"] {
-            let config = Config::new(&method.to_uppercase(), &serde_json::json!({}));
+            let config = Config::new(&method.to_uppercase(), &serde_json::json!({}), "UTC")
+                .expect("UTC fixture calendar");
             assert_eq!(config.id_method, method);
         }
     }

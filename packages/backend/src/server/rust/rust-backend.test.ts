@@ -4,7 +4,7 @@
  */
 import { fileURLToPath } from 'node:url';
 import { expect, test, vi } from 'vitest';
-import { decodePing, decodeTest, decodeEndpoint, decodeEndpoints, decodeOnlineUsersCount, encodeUtf16 } from './protocol.js';
+import { decodePing, decodeTest, decodeEndpoint, decodeEndpoints, decodeOnlineUsersCount, decodeReady, encodeUtf16 } from './protocol.js';
 
 test('ping rejects unsafe numbers and wrong envelopes', () => {
  expect(decodePing({ v: 1, op: 'ping', pong: 42 })).toEqual({ pong: 42 });
@@ -53,7 +53,7 @@ test('DB credentials are supplied in the bootstrap and operation responses are d
 		dbReplications: false, dbSlaves: undefined,
 	});
 	expect(postgres).not.toBeNull();
-	const source = `let bytes='';process.stdin.on('data',chunk=>{bytes+=chunk;if(!bytes.includes('\\n'))return;const b=JSON.parse(bytes);if(typeof b.postgres?.targets?.[0]?.password!=='string')process.exit(8);const s=require('node:http').createServer((q,r)=>r.end(JSON.stringify({v:1,op:'get-online-users-count',count:7})));s.listen(0,'127.0.0.1',()=>console.log(JSON.stringify({v:1,port:s.address().port})));process.stdin.removeAllListeners('data');process.stdin.on('end',()=>s.close());});`;
+	const source = `let bytes='';process.stdin.on('data',chunk=>{bytes+=chunk;if(!bytes.includes('\\n'))return;const b=JSON.parse(bytes);if(typeof b.postgres?.targets?.[0]?.password!=='string')process.exit(8);const s=require('node:http').createServer((q,r)=>r.end(JSON.stringify({v:1,op:'get-online-users-count',count:7})));s.listen(0,'127.0.0.1',()=>console.log(JSON.stringify({v:1,port:s.address().port,nativeEndpoints:[]})));process.stdin.removeAllListeners('data');process.stdin.on('end',()=>s.close());});`;
 	const transport = new RustBackendTransport(process.execPath, ['-e', source]);
 	try {
 		await transport.start([], postgres);
@@ -176,7 +176,7 @@ test('endpoints service uses the real child catalog and does not fall back after
 
 test('transport starts one child and stop is terminal', async () => {
  const { RustBackendTransport } = await import('./RustBackendService.js');
- const source = `const http=require('node:http');let bytes='';process.stdin.on('data',c=>{bytes+=c;if(!bytes.includes('\\n'))return;const b=JSON.parse(bytes);if(b.v!==1||!/^[a-f0-9]{64}$/.test(b.token)||!Array.isArray(b.endpoints))process.exit(8);const s=http.createServer((q,r)=>{if(q.headers.authorization!=='Bearer '+b.token){r.statusCode=401;r.end();return;}let t='';q.on('data',c=>t+=c);q.on('end',()=>{const x=JSON.parse(t);r.end(JSON.stringify({v:1,op:x.op,pong:123}));});});s.listen(0,'127.0.0.1',()=>console.log(JSON.stringify({v:1,port:s.address().port})));process.stdin.removeAllListeners('data');process.stdin.on('end',()=>s.close());});`;
+ const source = `const http=require('node:http');let bytes='';process.stdin.on('data',c=>{bytes+=c;if(!bytes.includes('\\n'))return;const b=JSON.parse(bytes);if(b.v!==1||!/^[a-f0-9]{64}$/.test(b.token)||!Array.isArray(b.endpoints))process.exit(8);const s=http.createServer((q,r)=>{if(q.headers.authorization!=='Bearer '+b.token){r.statusCode=401;r.end();return;}let t='';q.on('data',c=>t+=c);q.on('end',()=>{const x=JSON.parse(t);r.end(JSON.stringify({v:1,op:x.op,pong:123}));});});s.listen(0,'127.0.0.1',()=>console.log(JSON.stringify({v:1,port:s.address().port,nativeEndpoints:[]})));process.stdin.removeAllListeners('data');process.stdin.on('end',()=>s.close());});`;
  const transport = new RustBackendTransport(process.execPath, ['-e', source]);
  try {
   await Promise.all([transport.start([]), transport.start([])]);
@@ -202,7 +202,7 @@ test('source root is independent of current working directory and bundle depth',
 
 test('child exit removes readiness and aborts selected API calls', async () => {
 	const { RustBackendTransport } = await import('./RustBackendService.js');
-	const source = `process.stdin.once('data',()=>{const s=require('node:http').createServer(()=>process.exit(7));s.listen(0,'127.0.0.1',()=>console.log(JSON.stringify({v:1,port:s.address().port})));});`;
+	const source = `process.stdin.once('data',()=>{const s=require('node:http').createServer(()=>process.exit(7));s.listen(0,'127.0.0.1',()=>console.log(JSON.stringify({v:1,port:s.address().port,nativeEndpoints:[]})));});`;
 	const transport = new RustBackendTransport(process.execPath, ['-e', source]);
 	try {
 		await transport.start([]);
@@ -212,7 +212,7 @@ test('child exit removes readiness and aborts selected API calls', async () => {
 });
 test('call timeout leaves a live child ready', async () => {
 	const { RustBackendTransport } = await import('./RustBackendService.js');
-	const source = `process.stdin.once('data',()=>{let count=0;const s=require('node:http').createServer((q,r)=>{count++;if(count>1)r.end(JSON.stringify({v:1,op:'ping',pong:count}));});s.listen(0,'127.0.0.1',()=>console.log(JSON.stringify({v:1,port:s.address().port})));});process.stdin.on('end',()=>process.exit(0));`;
+	const source = `process.stdin.once('data',()=>{let count=0;const s=require('node:http').createServer((q,r)=>{count++;if(count>1)r.end(JSON.stringify({v:1,op:'ping',pong:count}));});s.listen(0,'127.0.0.1',()=>console.log(JSON.stringify({v:1,port:s.address().port,nativeEndpoints:[]})));});process.stdin.on('end',()=>process.exit(0));`;
 	const transport = new RustBackendTransport(process.execPath, ['-e', source]);
 	try {
 		await transport.start([]);
@@ -223,7 +223,7 @@ test('call timeout leaves a live child ready', async () => {
 });
 test('oversized ready frame is rejected and stop during startup is safe', async () => {
 	const { RustBackendTransport } = await import('./RustBackendService.js');
-	const oversized = new RustBackendTransport(process.execPath, ['-e', `process.stdin.resume();process.stdout.write('x'.repeat(4097));`]);
+	const oversized = new RustBackendTransport(process.execPath, ['-e', `process.stdin.resume();process.stdout.write('x'.repeat(4099));`]);
 	await expect(oversized.start([])).rejects.toMatchObject({ httpStatusCode: 503 });
 	await oversized.stop();
 	const waiting = new RustBackendTransport(process.execPath, ['-e', `process.stdin.resume();`]);
@@ -286,7 +286,7 @@ for (const mode of ['malformed JSON', 'oversized streamed JSON'] as const) {
 	test(`${mode} RPC fails without retry and leaves live child ready`, async () => {
 		const { RustBackendTransport } = await import('./RustBackendService.js');
 		const firstResponse = mode === 'malformed JSON' ? "r.end('{');" : "r.write('\"');for(let i=0;i<15;i++)r.write('x'.repeat(1024*1024));r.write('x'.repeat(1024*1024-1));r.end('\"');";
-		const source = `process.stdin.once('data',()=>{let count=0;const s=require('node:http').createServer((q,r)=>{count++;if(count===1){${firstResponse}}else r.end(JSON.stringify({v:1,op:'ping',pong:count}));});s.listen(0,'127.0.0.1',()=>console.log(JSON.stringify({v:1,port:s.address().port})));});process.stdin.on('end',()=>process.exit(0));`;
+		const source = `process.stdin.once('data',()=>{let count=0;const s=require('node:http').createServer((q,r)=>{count++;if(count===1){${firstResponse}}else r.end(JSON.stringify({v:1,op:'ping',pong:count}));});s.listen(0,'127.0.0.1',()=>console.log(JSON.stringify({v:1,port:s.address().port,nativeEndpoints:[]})));});process.stdin.on('end',()=>process.exit(0));`;
 		const transport = new RustBackendTransport(process.execPath, ['-e', source]);
 		try {
 			await transport.start([]);
@@ -299,7 +299,7 @@ for (const mode of ['malformed JSON', 'oversized streamed JSON'] as const) {
 
 test('RPC accepts a streamed JSON response exactly16MiB before rejecting larger responses', async () => {
 	const { RustBackendTransport } = await import('./RustBackendService.js');
-	const source = `process.stdin.once('data',()=>{const s=require('node:http').createServer((q,r)=>{r.write('"');for(let i=0;i<15;i++)r.write('x'.repeat(1024*1024));r.write('x'.repeat(1024*1024-2));r.end('"');});s.listen(0,'127.0.0.1',()=>console.log(JSON.stringify({v:1,port:s.address().port})));});process.stdin.on('end',()=>process.exit(0));`;
+	const source = `process.stdin.once('data',()=>{const s=require('node:http').createServer((q,r)=>{r.write('"');for(let i=0;i<15;i++)r.write('x'.repeat(1024*1024));r.write('x'.repeat(1024*1024-2));r.end('"');});s.listen(0,'127.0.0.1',()=>console.log(JSON.stringify({v:1,port:s.address().port,nativeEndpoints:[]})));});process.stdin.on('end',()=>process.exit(0));`;
 	const transport = new RustBackendTransport(process.execPath, ['-e', source]);
 	try {
 		await transport.start([]);
@@ -309,4 +309,33 @@ test('RPC accepts a streamed JSON response exactly16MiB before rejecting larger 
 		expect(result.length).toBe(16 * 1024 * 1024 - 2);
 		expect(transport.isReady()).toBe(true);
 	} finally { await transport.stop(); }
+});
+
+test('readiness validates the Rust native selection against the supplied catalog', () => {
+	const catalog = ['native', 'legacy'].map(name => ({ nameUtf16: encodeUtf16(name), properties: [] }));
+	const ready = { v: 1, port: 1234, nativeEndpoints: ['native'] };
+	expect(decodeReady(ready, catalog)).toEqual({ port: 1234, nativeEndpoints: new Set(['native']) });
+	expect(decodeReady({ ...ready, nativeEndpoints: [] }, catalog).nativeEndpoints.size).toBe(0);
+	for (const value of [
+		{ v: 1, port: 1234 },
+		{ ...ready, nativeEndpoints: null },
+		{ ...ready, nativeEndpoints: ['unknown'] },
+		{ ...ready, nativeEndpoints: ['native', 'native'] },
+		{ ...ready, nativeEndpoints: [1] },
+		{ ...ready, nativeEndpoints: new Array(1) },
+		{ ...ready, unexpected: true },
+	]) expect(() => decodeReady(value, catalog)).toThrow();
+});
+
+test('callback selection comes from readiness and fails closed outside the child lifetime', async () => {
+	const { RustBackendTransport } = await import('./RustBackendService.js');
+	const source = `process.stdin.once('data',()=>console.log(JSON.stringify({v:1,port:1234,nativeEndpoints:['native']})));process.stdin.on('end',()=>process.exit(0));`;
+	const transport = new RustBackendTransport(process.execPath, ['-e', source]);
+	try {
+		expect(() => transport.isNativeEndpoint('native')).toThrow();
+		await transport.start(['native', 'legacy'].map(name => ({ nameUtf16: encodeUtf16(name), properties: [] })));
+		expect(transport.isNativeEndpoint('native')).toBe(true);
+		expect(transport.isNativeEndpoint('legacy')).toBe(false);
+	} finally { await transport.stop(); }
+	expect(() => transport.isNativeEndpoint('legacy')).toThrow();
 });

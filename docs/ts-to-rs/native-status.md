@@ -8,7 +8,7 @@ Native means the complete business handler is selected in Rust; the public TS li
 | ---: | ---: | ---: | ---: |
 | 438 | 32 | 395 | 11 |
 
-Names and enumeration order come from the API registry. Native core match arms and the business allowlist are read from Rust source and must match the TS callback rejection guard. Hold reasons come from the hold manifest.
+Names and enumeration order come from the API registry. Native core selection and the business allowlist are read from Rust source. Rust advertises those selections at bootstrap; the TS callback guard consumes the validated names without a second list. Hold reasons come from the hold manifest.
 
 | Endpoint | Status | Hold reason |
 | --- | --- | --- |
@@ -398,7 +398,7 @@ Names and enumeration order come from the API registry. Native core match arms a
 | `users/flashs` | TS |  |
 | `users/followers` | TS |  |
 | `users/following` | TS |  |
-| `users/get-following-users-by-birthday` | Held (TS) | compatibility: Accepted single-day inputs can carry extra begin/end fields that the TS handler coerces as a range; the strict native candidate rejects them. HTTP differential fails, so retain the TS body. Effective local-time-zone bootstrap and a paired measured gate are also pending. ([evidence](users-birthdays-validation.md)) |
+| `users/get-following-users-by-birthday` | Held (TS) | performance: Accepted-extra-field compatibility is fixed, but paired scoped application-token 18-user throughput regressed 4.85% (p95 improved 6.62%). All-scenario activation gate failed; retain TS body. ([evidence](users-birthdays-validation.md)) |
 | `users/gallery/posts` | TS |  |
 | `users/get-frequently-replied-users` | TS |  |
 | `users/lists/create` | TS |  |
@@ -456,7 +456,7 @@ Names and enumeration order come from the API registry. Native core match arms a
 | Source | SHA-256 |
 | --- | --- |
 | `packages/backend/src/server/api/endpoint-list.ts` | `f6adc6070df862e7544a92bafc001a9339bfe1e746a856b602c505a248ae5470` |
-| `packages/backend-rust/api-runtime/src/lib.rs` | `b574ff5047304af46bca93ecca36246026cc6e82fdc0e657b284d437851305c8` |
-| `packages/backend-rust/api-runtime/src/business/mod.rs` | `70842c0209838113465a45d3c8ee9f46e81d2e684cbec107cfda3cb18b7fb419` |
-| `packages/backend/src/server/api/ApiServerService.ts` | `78a46b41ab553c5041b9afa559aaeaba55a9a0fb71539b441b028e92e8f11ee7` |
-| `scripts/ts-to-rs/native-holds.json` | `02e45d1885d346f05621b23511ebc4550133e213bdbf789c77ff93154033b721` |
+| `packages/backend-rust/api-runtime/src/lib.rs` | `c14f1fb6f209f6e30993b25c59d9c3a9d7914991bba86fd4d3918269a3d15cdc` |
+| `packages/backend-rust/api-runtime/src/business/mod.rs` | `cb8ce937e4f982cb71466e3746435a7c860fdb14db2e71d5ea3c618ca534bf51` |
+| `packages/backend/src/server/api/ApiServerService.ts` | `99b864a8ba7d2d60f839c0a398b0a641f6b4f3be0fb0246dc89ab5e5fe0f8cee` |
+| `scripts/ts-to-rs/native-holds.json` | `15afb2cd870908b8ccdb1e16bd018ff96a6f8cc96b24b91d2891025198007fd7` |

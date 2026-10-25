@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 import { expect, test } from 'bun:test';
-import { businessNames, classify, coreNames, decodeHolds, guardNames, registryNames } from './native-status.js';
+import { businessNames, classify, coreNames, decodeHolds, validateCallbackGuard, registryNames } from './native-status.js';
 import type { Hold } from './native-status.js';
 
 const hold: Hold = { endpoint: 'held', kind: 'compatibility', reason: 'Boundaries differ.', evidence: 'evidence.md' };
@@ -15,28 +15,24 @@ test('registry order determines every row and counts are derived', () => {
 		export * as 'a-native' from './a.js';
 		export * as 'held' from './h.js';
 	`);
-	const inventory = classify(names, ['a-native'], ['z-native'], ['z-native', 'a-native'], [hold]);
+	const inventory = classify(names, ['a-native'], ['z-native'], [hold]);
 	expect(inventory.counts).toEqual({ total: 4, native: 2, ts: 1, held: 1 });
 	expect(inventory.rows.map(row => [row.endpoint, row.status])).toEqual([
 		['z-native', 'Native'], ['unported', 'TS'], ['a-native', 'Native'], ['held', 'Held (TS)'],
 	]);
 	expect(inventory.rows[3]?.hold).toEqual(hold);
-	expect(classify([], [], [], [], []).counts).toEqual({ total: 0, native: 0, ts: 0, held: 0 });
+	expect(classify([], [], [], []).counts).toEqual({ total: 0, native: 0, ts: 0, held: 0 });
 });
 
-test('Rust core names come from outer dispatch arms, ignoring nested strings and comments', () => {
-	const source = `async fn dispatch_endpoint(&self) {
-		match endpoint.name.as_str() {
-			"first" => match value { "not-an-endpoint" => value, _ => value },
-			/* "comment" => foo, /* nested */ */
-			"second" => { call("also-not-an-endpoint", "}"); }
-			_ => { business::execute(); }
-		}
-	}`;
+test('Rust core names come from the authoritative dispatch selection table', () => {
+	const source = `const CORE_ENDPOINTS: &[(&str, CoreEndpoint)] = &[
+		("first", CoreEndpoint::First), /* nested /* comment */ */
+		("second", CoreEndpoint::Second),
+	];`;
 	expect(coreNames(source)).toEqual(['first', 'second']);
-	expect(coreNames('async fn dispatch_endpoint() { match endpoint.name.as_str() { _ => {} } }')).toEqual([]);
-	expect(() => coreNames('async fn dispatch_endpoint() { match endpoint.name.as_str() { "a" | "b" => {}, _ => {} } }')).toThrow('Unsupported');
-	expect(() => coreNames('async fn dispatch_endpoint() { match endpoint.name.as_str() { "a" => {} } }')).toThrow('fallback');
+	expect(coreNames('const CORE_ENDPOINTS: &[(&str, CoreEndpoint)] = &[];')).toEqual([]);
+	expect(() => coreNames('const CORE_ENDPOINTS: &[(&str, CoreEndpoint)] = &[("a", other)];')).toThrow('Unsupported');
+	expect(() => coreNames('const CORE_ENDPOINTS: &[(&str, CoreEndpoint)] = &[("a", CoreEndpoint::A), ("a", CoreEndpoint::B)];')).toThrow('Duplicate');
 });
 
 test('business allowlist is literal source data, not a second endpoint list', () => {
@@ -46,28 +42,25 @@ test('business allowlist is literal source data, not a second endpoint list', ()
 	expect(() => businessNames('const ACTIVE_READ_ENDPOINTS: &[&str] = &["a", "a"];')).toThrow('Duplicate');
 });
 
-test('callback guard is AST-selected inside executeLegacy', () => {
-	const source = `class Service {
-		other() { if (['irrelevant'].includes(invocation.endpoint)) throw new Error('Native API cannot execute through TS'); }
-		executeLegacy() {
-			if (['first', 'second'].includes(invocation.endpoint)) throw new Error('Native API cannot execute through TS');
-		}
-	}`;
-	expect(guardNames(source)).toEqual(['first', 'second']);
-	expect(guardNames("class S { executeLegacy() { if ([].includes(invocation.endpoint)) throw new Error('Native API cannot execute through TS'); } }")).toEqual([]);
-	expect(() => guardNames("class S { executeLegacy() { if ([...other].includes(invocation.endpoint)) throw new Error('Native API cannot execute through TS'); } }")).toThrow('string literals');
-	expect(() => guardNames('class S { executeLegacy() {} }')).toThrow('exactly one');
+test('callback guard consumes bootstrap names only inside executeLegacy', () => {
+	const guard = "if (this.rustBackendService.isNativeEndpoint(invocation.endpoint)) throw new Error('Native API cannot execute through TS');";
+	expect(() => validateCallbackGuard(`class Service { executeLegacy() { ${guard} } }`)).not.toThrow();
+	for (const source of [
+		`class Service { other() { ${guard} } executeLegacy() {} }`,
+		`class Service { executeLegacy() { ${guard.replace('invocation.endpoint', 'other')} } }`,
+		`class Service { executeLegacy() { ${guard.replace('throw', 'return')} } }`,
+		`class Service { executeLegacy() { ${guard} ${guard} } }`,
+		"class Service { executeLegacy() { if (['a'].includes(invocation.endpoint)) throw new Error('Native API cannot execute through TS'); } }",
+	]) expect(() => validateCallbackGuard(source)).toThrow('exactly one');
 });
 
-test('unknown, duplicate, overlapping and unguarded classifications fail closed', () => {
-	expect(() => classify(['a'], ['unknown'], [], ['unknown'], [])).toThrow('Unknown');
-	expect(() => classify(['a'], ['a'], ['a'], ['a'], [])).toThrow('Duplicate');
-	expect(() => classify(['a', 'a'], [], [], [], [])).toThrow('Duplicate');
-	expect(() => classify(['a'], ['a'], [], [], [])).toThrow('mismatch');
-	expect(() => classify(['a'], [], [], ['a'], [])).toThrow('mismatch');
-	expect(() => classify(['held'], ['held'], [], ['held'], [hold])).toThrow('Held endpoint is active');
-	expect(() => classify([], [], [], [], [hold])).toThrow('Unknown');
-	expect(() => classify(['held'], [], [], [], [hold, hold])).toThrow('Duplicate');
+test('unknown, duplicate and overlapping classifications fail closed', () => {
+	expect(() => classify(['a'], ['unknown'], [], [])).toThrow('Unknown');
+	expect(() => classify(['a'], ['a'], ['a'], [])).toThrow('Duplicate');
+	expect(() => classify(['a', 'a'], [], [], [])).toThrow('Duplicate');
+	expect(() => classify(['held'], ['held'], [], [hold])).toThrow('Held endpoint is active');
+	expect(() => classify([], [], [], [hold])).toThrow('Unknown');
+	expect(() => classify(['held'], [], [], [hold, hold])).toThrow('Duplicate');
 });
 
 test('hold manifest validates runtime JSON and registry export forms are explicit', () => {

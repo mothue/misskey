@@ -63,8 +63,8 @@
     },
     {
       "endpoint": "users/get-following-users-by-birthday",
-      "kind": "compatibility",
-      "reason": "Accepted single-day inputs can carry extra begin/end fields that the TS handler coerces as a range; the strict native candidate rejects them. HTTP differential fails, so retain the TS body. Effective local-time-zone bootstrap and a paired measured gate are also pending.",
+      "kind": "performance",
+      "reason": "Accepted-extra-field compatibility is fixed, but paired scoped application-token 18-user throughput regressed 4.85% (p95 improved 6.62%). All-scenario activation gate failed; retain TS body.",
       "evidence": "users-birthdays-validation.md"
     }
   ]

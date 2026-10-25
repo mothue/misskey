@@ -1,22 +1,159 @@
-//! Dormant followed-user birthday candidate, reusing the native UserLite packer.
-//! Held: accepted single-day inputs can carry unvalidated range extras. Preserve
-//! their JS coercion/error semantics and wire effective local time before activation.
-use super::{Error, notes};
+//! Followed-user birthday selection, reusing the native UserLite packer.
+use super::{Error, js_value, local_date::CalendarError, notes};
 use crate::Runtime;
+use bytes::BytesMut;
 use misskey_api_validation::Value;
 use misskey_backend_api_auth::Context;
-use std::collections::HashMap;
-use tokio_postgres::types::ToSql;
+use serde_json::Value as Json;
+use std::{collections::HashMap, fmt};
+use tokio_postgres::types::{Format, IsNull, ToSql, Type, to_sql_checked};
+
+#[derive(Debug)]
+enum BirthdayFailure {
+    BirthdayShape,
+    ValidatedInteger,
+    ArithmeticResult,
+    Pagination,
+    Viewer,
+    UserIdColumn,
+    BirthdayColumn,
+    Calendar(CalendarError),
+}
+
+impl BirthdayFailure {
+    fn into_error(self) -> Error {
+        // Only typed failure kinds are logged, never values or driver diagnostics.
+        match self {
+            Self::Calendar(kind) => tracing::error!(
+                operation = "users.get-following-users-by-birthday.calendar",
+                error.kind = ?kind,
+                "birthday conversion failed"
+            ),
+            kind => tracing::error!(
+                operation = "users.get-following-users-by-birthday",
+                error.kind = ?kind,
+                "birthday operation failed"
+            ),
+        }
+        Error::Internal
+    }
+}
+
+/// JS arithmetic may produce a Number or a UTF-16 string even though the valid
+/// schema branch contains month/day integers: its extra begin/end fields are open.
+#[derive(PartialEq)]
+enum Bound {
+    Number(f64),
+    String(Vec<u16>),
+}
+
+impl fmt::Debug for Bound {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("BirthdayBound")
+    }
+}
+
+impl Bound {
+    fn from_value(value: &Value) -> Result<Self, Error> {
+        match value {
+            Value::Number(number) => Ok(Self::Number(*number)),
+            Value::String(units) => Ok(Self::String(units.clone())),
+            _ => Err(BirthdayFailure::ArithmeticResult.into_error()),
+        }
+    }
+
+    fn to_number(&self) -> Result<f64, Error> {
+        match self {
+            Self::Number(number) => Ok(*number),
+            Self::String(units) => js_value::number(&Value::String(units.clone())),
+        }
+    }
+
+    fn less_equal(&self, other: &Self) -> Result<bool, Error> {
+        match (self, other) {
+            (Self::String(left), Self::String(right)) => Ok(left <= right),
+            _ => Ok(self.to_number()? <= other.to_number()?),
+        }
+    }
+
+    fn to_parameter_text(&self) -> String {
+        match self {
+            Self::Number(number) if *number == 0. => "0".to_owned(),
+            Self::Number(number) => ryu_js::Buffer::new().format(*number).to_owned(),
+            // node-postgres encodes JS strings as UTF-8, replacing lone surrogates.
+            Self::String(units) => String::from_utf16_lossy(units),
+        }
+    }
+}
+
+impl ToSql for Bound {
+    fn to_sql(
+        &self,
+        _: &Type,
+        output: &mut BytesMut,
+    ) -> Result<IsNull, Box<dyn std::error::Error + Sync + Send>> {
+        // pg's prepareValue sends JS Number/String values as parameter text. Let
+        // PostgreSQL's original inferred type reject NaN/fractions/out-of-range
+        // values and produce the same QueryFailedError, rather than narrowing here.
+        output.extend_from_slice(self.to_parameter_text().as_bytes());
+        Ok(IsNull::No)
+    }
+
+    fn accepts(kind: &Type) -> bool {
+        matches!(*kind, Type::INT2 | Type::INT4)
+    }
+
+    fn encode_format(&self, _: &Type) -> Format {
+        Format::Text
+    }
+
+    to_sql_checked!();
+}
+
+#[derive(Clone, Copy)]
+enum RangeSide {
+    Begin,
+    End,
+}
+
+fn range_bound(value: &Value, side: RangeSide) -> Result<Bound, Error> {
+    if matches!(value, Value::Null | Value::Undefined) {
+        // Captured from the pinned production Bun bundle (baseline 21b810d).
+        // The source-only oracle says `range.begin.month`; the bundle says `t`.
+        let expression = match side {
+            RangeSide::Begin => "t.begin.month",
+            RangeSide::End => "t.end.month",
+        };
+        let receiver = match value {
+            Value::Null => "null",
+            _ => "undefined",
+        };
+        return Err(Error::legacy(
+            format!("{receiver} is not an object (evaluating '{expression}')"),
+            "TypeError",
+        ));
+    }
+    // Original body: range.begin.month * 100 + range.begin.day. Primitive
+    // receivers have neither field. Multiplication coerces; addition may concat.
+    let undefined = Value::Undefined;
+    let month = js_value::number(value.get("month").unwrap_or(&undefined))?;
+    let day = value.get("day").unwrap_or(&undefined);
+    Bound::from_value(&js_value::add(&Value::Number(month * 100.), day)?)
+}
 
 #[derive(Debug, PartialEq)]
 enum Selection {
-    Day(i16),
-    Range { begin: i16, end: i16 },
+    Day(Bound),
+    Range {
+        begin: Bound,
+        end: Bound,
+        wraps: bool,
+    },
 }
 
 impl Selection {
     fn wraps(&self) -> bool {
-        matches!(self, Self::Range { begin, end } if begin > end)
+        matches!(self, Self::Range { wraps: true, .. })
     }
 }
 
@@ -37,13 +174,13 @@ fn bounded_integer(value: Option<&Value>, minimum: i16, maximum: i16) -> Result<
             // Exact within the explicitly checked small integer interval.
             Ok(*value as i16)
         }
-        _ => Err(Error::Internal),
+        _ => Err(BirthdayFailure::ValidatedInteger.into_error()),
     }
 }
 
 fn mmdd(value: &Value) -> Result<i16, Error> {
     if !matches!(value, Value::Object(_)) {
-        return Err(Error::Internal);
+        return Err(BirthdayFailure::BirthdayShape.into_error());
     }
     let month = bounded_integer(value.get("month"), 1, 12)?;
     let day = bounded_integer(value.get("day"), 1, 31)?;
@@ -58,10 +195,12 @@ struct SqlInteger(String);
 impl SqlInteger {
     fn decode(value: &Value) -> Result<Self, Error> {
         match value {
-            Value::Number(number) if number.is_finite() && number.fract() == 0. => {
-                Ok(Self(value.stringify().ok_or(Error::Internal)?))
-            }
-            _ => Err(Error::Internal),
+            Value::Number(number) if number.is_finite() && number.fract() == 0. => Ok(Self(
+                value
+                    .stringify()
+                    .ok_or_else(|| BirthdayFailure::Pagination.into_error())?,
+            )),
+            _ => Err(BirthdayFailure::Pagination.into_error()),
         }
     }
 
@@ -83,17 +222,21 @@ fn offset(value: Option<&Value>) -> Result<SqlInteger, Error> {
 
 impl Input {
     fn decode(params: &Value) -> Result<Self, Error> {
-        let birthday = params.get("birthday").ok_or(Error::Internal)?;
+        let birthday = params
+            .get("birthday")
+            .ok_or_else(|| BirthdayFailure::BirthdayShape.into_error())?;
         if !matches!(birthday, Value::Object(_)) {
-            return Err(Error::Internal);
+            return Err(BirthdayFailure::BirthdayShape.into_error());
         }
         // Value::get sees own fields only, matching both Object.hasOwn tests.
         let selection = match (birthday.get("begin"), birthday.get("end")) {
-            (Some(begin), Some(end)) => Selection::Range {
-                begin: mmdd(begin)?,
-                end: mmdd(end)?,
-            },
-            _ => Selection::Day(mmdd(birthday)?),
+            (Some(begin), Some(end)) => {
+                let begin = range_bound(begin, RangeSide::Begin)?;
+                let end = range_bound(end, RangeSide::End)?;
+                let wraps = !begin.less_equal(&end)?;
+                Selection::Range { begin, end, wraps }
+            }
+            _ => Selection::Day(Bound::Number(f64::from(mmdd(birthday)?))),
         };
         let limit = match params.get("limit") {
             None | Some(Value::Undefined) => 10,
@@ -112,9 +255,9 @@ struct BirthdayRow {
     birthday_date: i16,
 }
 
-const SINGLE: &str = "SELECT \"following\".\"followeeId\" AS \"user_id\", get_birthday_date(\"followeeProfile\".\"birthday\") AS \"birthday_date\" FROM \"following\" \"following\" INNER JOIN \"user_profile\" \"followeeProfile\" ON \"followeeProfile\".\"userId\" = \"following\".\"followeeId\" WHERE \"following\".\"followerId\" = $1 AND get_birthday_date(\"followeeProfile\".\"birthday\") BETWEEN $2::smallint AND $2::smallint ORDER BY birthday_date ASC";
-const RANGE: &str = "SELECT \"following\".\"followeeId\" AS \"user_id\", get_birthday_date(\"followeeProfile\".\"birthday\") AS \"birthday_date\" FROM \"following\" \"following\" INNER JOIN \"user_profile\" \"followeeProfile\" ON \"followeeProfile\".\"userId\" = \"following\".\"followeeId\" WHERE \"following\".\"followerId\" = $1 AND get_birthday_date(\"followeeProfile\".\"birthday\") BETWEEN $2::smallint AND $3::smallint ORDER BY birthday_date ASC";
-const WRAPPED: &str = "SELECT \"following\".\"followeeId\" AS \"user_id\", get_birthday_date(\"followeeProfile\".\"birthday\") AS \"birthday_date\" FROM \"following\" \"following\" INNER JOIN \"user_profile\" \"followeeProfile\" ON \"followeeProfile\".\"userId\" = \"following\".\"followeeId\" WHERE \"following\".\"followerId\" = $1 AND (get_birthday_date(\"followeeProfile\".\"birthday\") BETWEEN $2::smallint AND 1231 OR get_birthday_date(\"followeeProfile\".\"birthday\") BETWEEN 101 AND $3::smallint) ORDER BY birthday_date ASC";
+const SINGLE: &str = r#"SELECT "following"."followeeId" AS "user_id", get_birthday_date("followeeProfile"."birthday") AS "birthday_date" FROM "following" "following" INNER JOIN "user_profile" "followeeProfile" ON "followeeProfile"."userId" = "following"."followeeId" WHERE "following"."followerId" = $1 AND get_birthday_date("followeeProfile"."birthday") BETWEEN $2 AND $2 ORDER BY birthday_date ASC"#;
+const RANGE: &str = r#"SELECT "following"."followeeId" AS "user_id", get_birthday_date("followeeProfile"."birthday") AS "birthday_date" FROM "following" "following" INNER JOIN "user_profile" "followeeProfile" ON "followeeProfile"."userId" = "following"."followeeId" WHERE "following"."followerId" = $1 AND get_birthday_date("followeeProfile"."birthday") BETWEEN $2 AND $3 ORDER BY birthday_date ASC"#;
+const WRAPPED: &str = r#"SELECT "following"."followeeId" AS "user_id", get_birthday_date("followeeProfile"."birthday") AS "birthday_date" FROM "following" "following" INNER JOIN "user_profile" "followeeProfile" ON "followeeProfile"."userId" = "following"."followeeId" WHERE "following"."followerId" = $1 AND (get_birthday_date("followeeProfile"."birthday") BETWEEN $2 AND 1231 OR get_birthday_date("followeeProfile"."birthday") BETWEEN 101 AND $3) ORDER BY birthday_date ASC"#;
 
 async fn selected_rows(
     runtime: &Runtime,
@@ -127,7 +270,7 @@ async fn selected_rows(
             params.push(day);
             SINGLE
         }
-        Selection::Range { begin, end } => {
+        Selection::Range { begin, end, .. } => {
             params.extend([begin as &(dyn ToSql + Sync), end]);
             if input.selection.wraps() {
                 WRAPPED
@@ -150,12 +293,24 @@ async fn selected_rows(
         .database
         .query_typed(true, &sql, &params)
         .await
-        .map_err(Error::query)?
+        .map_err(|kind| {
+            // QueryError's Debug deliberately exposes only its typed variant.
+            tracing::error!(
+                operation = "users.get-following-users-by-birthday.select",
+                error.kind = ?kind,
+                "birthday query failed"
+            );
+            Error::query(kind)
+        })?
         .into_iter()
         .map(|row| {
             Ok(BirthdayRow {
-                user_id: row.try_get("user_id").map_err(|_| Error::Internal)?,
-                birthday_date: row.try_get("birthday_date").map_err(|_| Error::Internal)?,
+                user_id: row
+                    .try_get("user_id")
+                    .map_err(|_| BirthdayFailure::UserIdColumn.into_error())?,
+                birthday_date: row
+                    .try_get("birthday_date")
+                    .map_err(|_| BirthdayFailure::BirthdayColumn.into_error())?,
             })
         })
         .collect()
@@ -191,8 +346,8 @@ pub(super) async fn birthdays(
         .user
         .as_ref()
         .and_then(|user| user.get("id"))
-        .and_then(serde_json::Value::as_str)
-        .ok_or(Error::Internal)?;
+        .and_then(Json::as_str)
+        .ok_or_else(|| BirthdayFailure::Viewer.into_error())?;
     let rows = selected_rows(runtime, &input, viewer).await?;
     let ids = rows
         .iter()
@@ -206,7 +361,7 @@ pub(super) async fn birthdays(
             .local_calendar
             .birthday(mmdd, crate::now_ms)
             .map(|value| value.text)
-            .map_err(|_| Error::Internal)
+            .map_err(|kind| BirthdayFailure::Calendar(kind).into_error())
     })
 }
 
@@ -221,7 +376,7 @@ mod tests {
     #[test]
     fn typed_selection_keeps_single_range_wrap_and_calendar_overflow() {
         let single = input(r#"{"birthday":{"month":2,"day":31}}"#);
-        assert_eq!(single.selection, Selection::Day(231));
+        assert_eq!(single.selection, Selection::Day(Bound::Number(231.)));
         assert_eq!(single.limit.as_sql(), "10");
         assert_eq!(single.offset.as_sql(), "0");
         let wrapped = input(
@@ -243,6 +398,266 @@ mod tests {
             r#"{"birthday":null}"#,
         ] {
             assert!(Input::decode(&Value::parse_json(json).unwrap()).is_err());
+        }
+    }
+
+    #[test]
+    fn accepted_extra_fields_match_original_ts_arithmetic_and_range_branch() {
+        // Captured by executing this endpoint's actual TS selection body with
+        // Bun 1.4.4 + its AJV schema; these extras all pass the single-day branch.
+        let cases = [
+            (
+                "extra-string-month",
+                r##"{"birthday":{"month":10,"day":24,"begin":{"month":"1","day":1},"end":{"month":"12","day":31}}}"##,
+                "101",
+                "1231",
+                false,
+            ),
+            (
+                "extra-zero-day",
+                r##"{"birthday":{"month":10,"day":24,"begin":{"month":1,"day":0},"end":{"month":12,"day":31}}}"##,
+                "100",
+                "1231",
+                false,
+            ),
+            (
+                "review-string-day",
+                r##"{"birthday":{"month":10,"day":24,"begin":{"month":1,"day":"1"},"end":{"month":12,"day":"31"}}}"##,
+                "1001",
+                "120031",
+                false,
+            ),
+            (
+                "review-fractional",
+                r##"{"birthday":{"month":10,"day":24,"begin":{"month":1.5,"day":1},"end":{"month":12,"day":31}}}"##,
+                "151",
+                "1231",
+                false,
+            ),
+            (
+                "review-huge-month",
+                r##"{"birthday":{"month":10,"day":24,"begin":{"month":1000,"day":1},"end":{"month":12,"day":31}}}"##,
+                "100001",
+                "1231",
+                true,
+            ),
+            (
+                "review-negative-month",
+                r##"{"birthday":{"month":10,"day":24,"begin":{"month":-1,"day":1},"end":{"month":12,"day":31}}}"##,
+                "-99",
+                "1231",
+                false,
+            ),
+            (
+                "review-boolean-month",
+                r##"{"birthday":{"month":10,"day":24,"begin":{"month":true,"day":1},"end":{"month":12,"day":31}}}"##,
+                "101",
+                "1231",
+                false,
+            ),
+            (
+                "review-null-month",
+                r##"{"birthday":{"month":10,"day":24,"begin":{"month":null,"day":1},"end":{"month":12,"day":31}}}"##,
+                "1",
+                "1231",
+                false,
+            ),
+            (
+                "review-array-month",
+                r##"{"birthday":{"month":10,"day":24,"begin":{"month":["1"],"day":1},"end":{"month":12,"day":31}}}"##,
+                "101",
+                "1231",
+                false,
+            ),
+            (
+                "review-array-day",
+                r##"{"birthday":{"month":10,"day":24,"begin":{"month":1,"day":["1"]},"end":{"month":12,"day":31}}}"##,
+                "1001",
+                "1231",
+                false,
+            ),
+            (
+                "review-object-month",
+                r##"{"birthday":{"month":10,"day":24,"begin":{"month":{},"day":1},"end":{"month":12,"day":31}}}"##,
+                "NaN",
+                "1231",
+                true,
+            ),
+            (
+                "review-object-day",
+                r##"{"birthday":{"month":10,"day":24,"begin":{"month":1,"day":{}},"end":{"month":12,"day":31}}}"##,
+                "100[object Object]",
+                "1231",
+                true,
+            ),
+            (
+                "review-missing-month",
+                r##"{"birthday":{"month":10,"day":24,"begin":{"day":1},"end":{"month":12,"day":31}}}"##,
+                "NaN",
+                "1231",
+                true,
+            ),
+            (
+                "review-missing-day",
+                r##"{"birthday":{"month":10,"day":24,"begin":{"month":1},"end":{"month":12,"day":31}}}"##,
+                "NaN",
+                "1231",
+                true,
+            ),
+            (
+                "review-begin-number",
+                r##"{"birthday":{"month":10,"day":24,"begin":3,"end":{"month":12,"day":31}}}"##,
+                "NaN",
+                "1231",
+                true,
+            ),
+            (
+                "review-begin-string",
+                r##"{"birthday":{"month":10,"day":24,"begin":"abc","end":{"month":12,"day":31}}}"##,
+                "NaN",
+                "1231",
+                true,
+            ),
+            (
+                "review-begin-array",
+                r##"{"birthday":{"month":10,"day":24,"begin":[],"end":{"month":12,"day":31}}}"##,
+                "NaN",
+                "1231",
+                true,
+            ),
+            (
+                "review-infinite-month",
+                r##"{"birthday":{"month":10,"day":24,"begin":{"month":"Infinity","day":1},"end":{"month":12,"day":31}}}"##,
+                "Infinity",
+                "1231",
+                true,
+            ),
+            (
+                "review-lexical-range",
+                r##"{"birthday":{"month":10,"day":24,"begin":{"month":1,"day":"1"},"end":{"month":2,"day":"2"}}}"##,
+                "1001",
+                "2002",
+                false,
+            ),
+            (
+                "review-null-day",
+                r##"{"birthday":{"month":10,"day":24,"begin":{"month":1,"day":null},"end":{"month":12,"day":31}}}"##,
+                "100",
+                "1231",
+                false,
+            ),
+            (
+                "review-boolean-day",
+                r##"{"birthday":{"month":10,"day":24,"begin":{"month":1,"day":false},"end":{"month":12,"day":31}}}"##,
+                "100",
+                "1231",
+                false,
+            ),
+            (
+                "review-hex-month",
+                r##"{"birthday":{"month":10,"day":24,"begin":{"month":"0x1","day":1},"end":{"month":12,"day":31}}}"##,
+                "101",
+                "1231",
+                false,
+            ),
+            (
+                "month-shadowed-valueOf",
+                r##"{"birthday":{"month":10,"day":24,"begin":{"month":{"valueOf":1},"day":1},"end":{"month":12,"day":31}}}"##,
+                "NaN",
+                "1231",
+                true,
+            ),
+            (
+                "day-shadowed-valueOf",
+                r##"{"birthday":{"month":10,"day":24,"begin":{"month":1,"day":{"valueOf":1}},"end":{"month":12,"day":31}}}"##,
+                "100[object Object]",
+                "1231",
+                true,
+            ),
+            (
+                "string-lexical-wrap",
+                r##"{"birthday":{"month":10,"day":24,"begin":{"month":2,"day":"2"},"end":{"month":1,"day":"1"}}}"##,
+                "2002",
+                "1001",
+                true,
+            ),
+            (
+                "string-lexical-not-numeric",
+                r##"{"birthday":{"month":10,"day":24,"begin":{"month":10,"day":"1"},"end":{"month":2,"day":"1"}}}"##,
+                "10001",
+                "2001",
+                false,
+            ),
+            (
+                "fractional-result",
+                r##"{"birthday":{"month":10,"day":24,"begin":{"month":1.005,"day":1},"end":{"month":12,"day":31}}}"##,
+                "101.49999999999999",
+                "1231",
+                false,
+            ),
+            (
+                "day-unpaired-surrogate",
+                r##"{"birthday":{"month":10,"day":24,"begin":{"month":1,"day":"\ud800"},"end":{"month":12,"day":31}}}"##,
+                "100�",
+                "1231",
+                true,
+            ),
+            (
+                "month-negative-infinity",
+                r##"{"birthday":{"month":10,"day":24,"begin":{"month":"-Infinity","day":1},"end":{"month":12,"day":31}}}"##,
+                "-Infinity",
+                "1231",
+                false,
+            ),
+        ];
+        for (label, json, expected_begin, expected_end, expected_wraps) in cases {
+            let decoded = input(json);
+            assert_eq!(decoded.selection.wraps(), expected_wraps, "{label}");
+            let Selection::Range { begin, end, .. } = decoded.selection else {
+                panic!("expected range: {label}");
+            };
+            assert_eq!(begin.to_parameter_text(), expected_begin, "{label}");
+            assert_eq!(end.to_parameter_text(), expected_end, "{label}");
+        }
+    }
+
+    #[test]
+    fn accepted_extra_field_errors_match_pinned_production_http() {
+        // null property messages come from the production bundle's HTTP output;
+        // the same source without bundling has a different local variable name.
+        let cases = [
+            (
+                "extra-null",
+                r##"{"birthday":{"month":10,"day":24,"begin":null,"end":{}}}"##,
+                "TypeError",
+                "null is not an object (evaluating 't.begin.month')",
+            ),
+            (
+                "review-end-null",
+                r##"{"birthday":{"month":10,"day":24,"begin":{"month":1,"day":1},"end":null}}"##,
+                "TypeError",
+                "null is not an object (evaluating 't.end.month')",
+            ),
+            (
+                "review-shadowed-toString",
+                r##"{"birthday":{"month":10,"day":24,"begin":{"month":{"toString":null},"day":1},"end":{"month":12,"day":31}}}"##,
+                "TypeError",
+                "No default value",
+            ),
+            (
+                "day-shadowed-toString",
+                r##"{"birthday":{"month":10,"day":24,"begin":{"month":1,"day":{"toString":null}},"end":{"month":12,"day":31}}}"##,
+                "TypeError",
+                "No default value",
+            ),
+        ];
+        for (label, json, expected_code, expected_message) in cases {
+            let decoded = Input::decode(&Value::parse_json(json).unwrap());
+            let Err(Error::Legacy { message, code, .. }) = decoded else {
+                panic!("expected legacy error: {label}");
+            };
+            assert_eq!(code, expected_code, "{label}");
+            assert_eq!(message, expected_message, "{label}");
         }
     }
 

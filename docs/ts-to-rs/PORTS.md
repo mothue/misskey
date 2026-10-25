@@ -2,7 +2,7 @@
 
 ## Authority and scope
 
-The [followed-user birthday candidate](users-birthdays-validation.md) remains on TS: an actual HTTP differential found three accepted-extra-field differences. Its ordinary-path/date work is retained, but activation, effective-zone bootstrap and measurement remain pending.
+The [followed-user birthday candidate](users-birthdays-validation.md) now matches89HTTPcases in three zones, including accepted extra fields and Bun radix arithmetic. It remains on TS after scoped18-user throughput regressed4.85%. Canonical-zone bootstrap and authoritative Rust native-selection readiness replace the duplicated TS guard list.
 
 The complete [users/achievements slice](users-achievements-validation.md) passed its six-case measured gate, preserving raw JSON achievement values and existing missing-profile errors. Remaining acceptance checks are recorded there.
 

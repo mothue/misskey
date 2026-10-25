@@ -135,7 +135,7 @@ async fn mismatching_api_catalog_fails_before_auth_store_or_redis_startup() {
     let config: ApiBootstrap = serde_json::from_value(json!({
         "callback":{"url":"http://127.0.0.1:1/execute", "token":"a".repeat(64)},
         "endpoints":[{"name":"endpoint", "meta":{}, "params":{"type":"object"}}],
-        "maxFileSize":1, "enableIpRateLimit":false, "environment":"test",
+        "maxFileSize":1, "enableIpRateLimit":false, "environment":"test", "effectiveTimeZone":"UTC",
         "uploadDirectory":"/unused", "host":"must-not-connect.invalid", "postgresPrimary":null,
         "redis":{"host":"must-not-connect.invalid", "port":1, "db":0, "keyPrefix":"", "connectTimeoutMs":1},
         "redisPubsub":{"host":"must-not-connect.invalid", "port":1, "db":0, "keyPrefix":"", "connectTimeoutMs":1},
@@ -152,4 +152,39 @@ async fn mismatching_api_catalog_fails_before_auth_store_or_redis_startup() {
         Err(failure) => assert_eq!(failure.stage(), FailureStage::EndpointRegistry),
         Ok(_) => panic!("inconsistent registry became ready"),
     }
+}
+
+#[test]
+fn native_selection_uses_the_same_core_and_business_dispatch_tables() {
+    let names: Vec<_> = CORE_ENDPOINTS
+        .iter()
+        .map(|(name, _)| *name)
+        .chain(business::ACTIVE_READ_ENDPOINTS.iter().copied())
+        .collect();
+    let unique: std::collections::HashSet<_> = names.iter().copied().collect();
+    assert_eq!(names.len(), unique.len(), "native selections overlap");
+    assert!(names.into_iter().all(native_endpoint));
+    assert!(!native_endpoint("unknown"));
+}
+
+#[test]
+fn every_native_selection_must_exist_in_the_bootstrap_registry() {
+    let mut definitions: Vec<_> = CORE_ENDPOINTS
+        .iter()
+        .map(|(name, _)| *name)
+        .chain(business::ACTIVE_READ_ENDPOINTS.iter().copied())
+        .map(|name| EndpointDefinition {
+            name: name.to_owned(),
+            meta: json!({}),
+            params: json!({}),
+        })
+        .collect();
+    assert!(validate_native_selection(&definitions).is_ok());
+    definitions.remove(0);
+    assert_eq!(
+        validate_native_selection(&definitions)
+            .expect_err("missing core endpoint")
+            .stage(),
+        FailureStage::EndpointRegistry
+    );
 }

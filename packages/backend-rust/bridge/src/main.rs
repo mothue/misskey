@@ -22,6 +22,13 @@ const LIMIT: usize = 16 * 1024 * 1024;
 #[derive(Debug, thiserror::Error)]
 #[error("Rust backend unavailable")]
 struct Failure;
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct Ready<'a> {
+    v: u8,
+    port: u16,
+    native_endpoints: Vec<&'a str>,
+}
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Bootstrap {
@@ -292,7 +299,25 @@ async fn serve(mut app: App, eof: tokio::sync::oneshot::Receiver<()>) -> Result<
         .route("/api-request", post(api_request))
         .fallback(|| async { unavailable(StatusCode::NOT_FOUND) })
         .with_state(app.clone());
-    writeln!(io::stdout().lock(), "{{\"v\":1,\"port\":{port}}}").map_err(|_| Failure)?;
+    let ready = Ready {
+        v: 1,
+        port,
+        native_endpoints: app
+            .api
+            .as_ref()
+            .map_or_else(Vec::new, ApiRuntime::native_endpoints),
+    };
+    {
+        let mut stdout = io::stdout().lock();
+        serde_json::to_writer(&mut stdout, &ready).map_err(|error| {
+            tracing::error!(operation = "encode_readiness", error.kind = ?error.classify(), "Rust bootstrap failed");
+            Failure
+        })?;
+        writeln!(stdout).map_err(|error| {
+            tracing::error!(operation = "write_readiness", error.kind = ?error.kind(), "Rust bootstrap failed");
+            Failure
+        })?;
+    }
     io::stdout().flush().map_err(|_| Failure)?;
     let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel();
     let server = axum::serve(listener, router).with_graceful_shutdown(async {

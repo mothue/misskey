@@ -74,3 +74,23 @@ export function decodeEndpoint(value: unknown): { params: { name: string; type: 
 		return { name: decodeUtf16(param.nameUtf16), type: param.type };
 	}) };
 }
+
+/** Readiness is trusted only after every advertised name belongs to our catalog. */
+export function decodeReady(value: unknown, catalog: readonly CatalogEndpoint[]): { port: number; nativeEndpoints: ReadonlySet<string> } {
+	if (!object(value) || value.v !== 1 || typeof value.port !== 'number'
+		|| !Number.isInteger(value.port) || value.port < 1 || value.port > 65535
+		|| !Array.isArray(value.nativeEndpoints)
+		|| Object.keys(value).some(key => !['v', 'port', 'nativeEndpoints'].includes(key))) {
+		throw new Error('Invalid Rust readiness');
+	}
+	const known = new Set(catalog.map(endpoint => decodeUtf16(endpoint.nameUtf16)));
+	const nativeEndpoints = new Set<string>();
+	const selected: readonly unknown[] = value.nativeEndpoints;
+	for (const name of selected) {
+		if (typeof name !== 'string' || !known.has(name) || nativeEndpoints.has(name)) {
+			throw new Error('Invalid native endpoint selection');
+		}
+		nativeEndpoints.add(name);
+	}
+	return { port: value.port, nativeEndpoints };
+}

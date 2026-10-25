@@ -1309,13 +1309,29 @@ describe('followed-user birthday response compatibility', () => {
 			// These extra fields pass the single-day schema branch, but the TS
 			// handler selects a range whenever both own keys exist. Keep this
 			// regression check before considering native activation again.
-			for (const begin of [{ month: '1', day: 1 }, { month: 1, day: 0 }]) {
+			for (const begin of [
+				{ month: '1', day: 1 },
+				{ month: 1, day: 0 },
+				{ month: '0x03b7a7cc3f68a79d386f', day: -1.755494472291609e24 },
+			]) {
 				const acceptedExtraRange = await api('users/get-following-users-by-birthday', {
 					birthday: { month: 10, day: 24, begin, end: { month: 12, day: 31 } },
 				}, viewer);
 				assert.strictEqual(acceptedExtraRange.status, 200);
 				assert.deepStrictEqual(acceptedExtraRange.body.map(row => row.id), [january.id, december.id]);
 			}
+			const nullRange = await api('users/get-following-users-by-birthday', {
+				birthday: { month: 10, day: 24, begin: null, end: {} },
+			}, viewer);
+			assert.strictEqual(nullRange.status, 500);
+			const nullError: unknown = nullRange.body;
+			runtimeObject(nullError);
+			runtimeObject(nullError.error);
+			assert.strictEqual(nullError.error.code, 'INTERNAL_ERROR');
+			runtimeObject(nullError.error.info);
+			runtimeObject(nullError.error.info.e);
+			assert.strictEqual(nullError.error.info.e.code, 'TypeError');
+			assert.strictEqual(typeof nullError.error.info.e.message, 'string');
 		});
 	});
 

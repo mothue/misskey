@@ -41,21 +41,21 @@ export function registryNames(text: string): string[] {
 	return unique(names, 'registry');
 }
 
-export function guardNames(text: string): string[] {
-	const candidates: string[][] = [];
+export function validateCallbackGuard(text: string): void {
+	let candidates = 0;
 	function visit(node: ts.Node) {
 		if (ts.isMethodDeclaration(node) && node.name.getText() === 'executeLegacy' && node.body) {
 			function findGuard(child: ts.Node) {
 				if (ts.isIfStatement(child) && ts.isCallExpression(child.expression)) {
 					const call = child.expression;
-					if (ts.isPropertyAccessExpression(call.expression) && call.expression.name.text === 'includes'
-						&& ts.isArrayLiteralExpression(call.expression.expression)
+					const rejection = child.thenStatement;
+					if (call.expression.getText() === 'this.rustBackendService.isNativeEndpoint'
 						&& call.arguments.length === 1 && call.arguments[0]?.getText() === 'invocation.endpoint'
-						&& child.thenStatement.getText().includes('Native API cannot execute through TS')) {
-						candidates.push(call.expression.expression.elements.map(element => {
-							if (!ts.isStringLiteral(element)) throw new Error('Callback guard must contain endpoint string literals.');
-							return element.text;
-						}));
+						&& ts.isThrowStatement(rejection) && ts.isNewExpression(rejection.expression)
+						&& rejection.expression.expression.getText() === 'Error'
+						&& rejection.expression.arguments?.length === 1
+						&& rejection.expression.arguments[0]?.getText() === "'Native API cannot execute through TS'") {
+						candidates++;
 					}
 				}
 				ts.forEachChild(child, findGuard);
@@ -65,8 +65,7 @@ export function guardNames(text: string): string[] {
 		ts.forEachChild(node, visit);
 	}
 	visit(sourceFile(text));
-	if (candidates.length !== 1) throw new Error('Expected exactly one native callback rejection guard.');
-	return unique(candidates[0]!, 'callback guard');
+	if (candidates !== 1) throw new Error('Expected exactly one bootstrap-backed native callback rejection guard.');
 }
 
 type RustToken = { kind: 'string' | 'other'; text: string };
@@ -122,31 +121,38 @@ function afterUniqueMarker(text: string, marker: string): string {
 }
 
 export function coreNames(text: string): string[] {
-	const functionTail = afterUniqueMarker(text, 'async fn dispatch_endpoint(');
-	const matchTail = afterUniqueMarker(functionTail, 'match endpoint.name.as_str()');
-	const nextMethod = matchTail.indexOf('\n    async fn ');
-	const tokens = rustTokens(nextMethod < 0 ? matchTail : matchTail.slice(0, nextMethod));
-	if (tokens[0]?.text !== '{') throw new Error('Native dispatch must start with a match block.');
-	const names: string[] = [];
-	let depth = 0;
-	let foundFallback = false;
-	for (let i = 0; i < tokens.length; i++) {
-		const token = tokens[i]!;
-		if (token.kind === 'other' && token.text === '{') depth++;
-		else if (token.kind === 'other' && token.text === '}') {
-			if (--depth === 0) {
-				if (!foundFallback) throw new Error('Native dispatch fallback not found.');
-				return unique(names, 'native core dispatch');
-			}
-		} else if (depth === 1 && token.kind === 'other' && token.text === '|') {
-			throw new Error('Unsupported native dispatch alternatives; update the status generator.');
-		} else if (depth === 1 && tokens[i + 1]?.text === '=>') {
-			if (token.kind === 'string') names.push(token.text);
-			else if (token.text === '_' && !foundFallback) foundFallback = true;
-			else throw new Error('Unsupported native dispatch pattern; update the status generator.');
-		}
+	const tail = afterUniqueMarker(text, 'const CORE_ENDPOINTS:');
+	const end = tail.indexOf(';');
+	if (end < 0) throw new Error('Unclosed native core selection.');
+	const expression = tail.slice(0, end);
+	const assignment = expression.indexOf('=');
+	if (assignment < 0) throw new Error('Native core selection assignment not found.');
+	const tokens = rustTokens(expression.slice(assignment + 1));
+	if (tokens[0]?.text !== '&' || tokens[1]?.text !== '[' || tokens.at(-1)?.text !== ']') {
+		throw new Error('Unsupported native core selection expression.');
 	}
-	throw new Error('Native dispatch match block is unclosed.');
+	const entries = tokens.slice(2, -1);
+	const names: string[] = [];
+	for (let at = 0; at < entries.length;) {
+		const name = entries[at + 1];
+		if (entries[at]?.text !== '(' || name?.kind !== 'string' || entries[at + 2]?.text !== ',') {
+			throw new Error('Unsupported native core selection entry.');
+		}
+		at += 3;
+		let variant = '';
+		while (at < entries.length && entries[at]?.text !== ')') {
+			const token = entries[at++];
+			if (token?.kind !== 'other') throw new Error('Unsupported native core dispatch variant.');
+			variant += token.text;
+		}
+		if (!/^CoreEndpoint::[A-Z][A-Za-z0-9]*$/.test(variant) || entries[at]?.text !== ')') {
+			throw new Error('Unsupported native core dispatch variant.');
+		}
+		names.push(name.text);
+		at++;
+		if (at < entries.length && entries[at++]?.text !== ',') throw new Error('Expected native core selection separator.');
+	}
+	return unique(names, 'native core dispatch');
 }
 
 export function businessNames(text: string): string[] {
@@ -192,16 +198,12 @@ export function decodeHolds(value: unknown): Hold[] {
 	return holds;
 }
 
-export function classify(registry: string[], core: string[], business: string[], guard: string[], holds: Hold[]): Inventory {
+export function classify(registry: string[], core: string[], business: string[], holds: Hold[]): Inventory {
 	const known = new Set(unique(registry, 'registry'));
 	const active = new Set(unique([...core, ...business], 'combined native selection'));
-	const rejected = new Set(unique(guard, 'callback guard'));
 	const held = new Map(decodeHolds({ version: 1, holds }).map(hold => [hold.endpoint, hold]));
-	for (const endpoint of [...active, ...rejected, ...held.keys()]) {
+	for (const endpoint of [...active, ...held.keys()]) {
 		if (!known.has(endpoint)) throw new Error(`Unknown classified endpoint: ${endpoint}`);
-	}
-	for (const endpoint of new Set([...active, ...rejected])) {
-		if (active.has(endpoint) !== rejected.has(endpoint)) throw new Error(`Native/callback guard mismatch: ${endpoint}`);
 	}
 	for (const endpoint of held.keys()) {
 		if (active.has(endpoint)) throw new Error(`Held endpoint is active: ${endpoint}`);
@@ -221,14 +223,15 @@ export async function generate(root: string): Promise<{ markdown: string; invent
 	const [registry, core, business, guard, holds] = files;
 	if (!registry || !core || !business || !guard || !holds) throw new Error('Missing status sources.');
 	const manifest: unknown = JSON.parse(holds.text);
-	const inventory = classify(registryNames(registry.text), coreNames(core.text), businessNames(business.text), guardNames(guard.text), decodeHolds(manifest));
+	validateCallbackGuard(guard.text);
+	const inventory = classify(registryNames(registry.text), coreNames(core.text), businessNames(business.text), decodeHolds(manifest));
 	const { counts } = inventory;
 	const lines = [
 		'# Generated native API status', '',
 		'Generated by `bun scripts/ts-to-rs/native-status.ts`. Verify with `bun scripts/ts-to-rs/native-status.ts --check`. Do not edit this table manually.', '',
 		'Native means the complete business handler is selected in Rust; the public TS listener remains. Held endpoints still execute their TS body. Unported endpoints are marked TS. This records source selection, not test or CI acceptance.', '',
 		'| Total | Native | TS | Held (TS) |', '| ---: | ---: | ---: | ---: |', `| ${counts.total} | ${counts.native} | ${counts.ts} | ${counts.held} |`, '',
-		'Names and enumeration order come from the API registry. Native core match arms and the business allowlist are read from Rust source and must match the TS callback rejection guard. Hold reasons come from the hold manifest.', '',
+		'Names and enumeration order come from the API registry. Native core selection and the business allowlist are read from Rust source. Rust advertises those selections at bootstrap; the TS callback guard consumes the validated names without a second list. Hold reasons come from the hold manifest.', '',
 		'| Endpoint | Status | Hold reason |', '| --- | --- | --- |',
 		...inventory.rows.map(row => `| \`${row.endpoint}\` | ${row.status} | ${row.hold ? `${row.hold.kind}: ${markdown(row.hold.reason)} ([evidence](${row.hold.evidence}))` : ''} |`), '',
 		'## Source fingerprints', '', '| Source | SHA-256 |', '| --- | --- |',

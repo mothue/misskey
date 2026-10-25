@@ -78,6 +78,7 @@ export class ApiServerService implements OnApplicationShutdown {
 					maxFileSize: this.config.maxFileSize,
 					enableIpRateLimit: this.config.enableIpRateLimit ?? false,
 					environment: process.env.NODE_ENV ?? '',
+					effectiveTimeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 					uploadDirectory: this.uploadDirectory,
 					host: this.config.host,
 					postgresPrimary: await resolveRustPrimaryTarget(this.config),
@@ -159,40 +160,7 @@ export class ApiServerService implements OnApplicationShutdown {
 		if (decodeURIComponent(endpointPath) !== invocation.endpoint) throw new Error('API callback endpoint mismatch');
 		if (invocation.kind === 'special') return this.executeSpecial(invocation, original);
 		if (!endpoints.some(endpoint => endpoint.name === invocation.endpoint)) throw new Error('Unknown legacy callback');
-		if ([
-			'ping',
-			'test',
-			'endpoint',
-			'endpoints',
-			'get-online-users-count',
-			'admin/relays/list',
-			'admin/roles/list',
-			'admin/roles/show',
-			'app/show',
-			'emoji',
-			'emojis',
-			'hashtags/list',
-			'hashtags/search',
-			'hashtags/show',
-			'i/apps',
-			'i/authorized-apps',
-			'i/registry/get',
-			'i/registry/get-all',
-			'i/registry/get-detail',
-			'i/registry/keys',
-			'i/registry/keys-with-type',
-			'i/registry/scopes-with-domain',
-			'my/apps',
-			'retention',
-			'roles/list',
-			'roles/show',
-			'username/available',
-			'users/achievements',
-			'users/lists/list',
-			'users/lists/show',
-			'notes/show',
-			'notes/show-partial-bulk',
-		].includes(invocation.endpoint)) throw new Error('Native API cannot execute through TS');
+		if (this.rustBackendService.isNativeEndpoint(invocation.endpoint)) throw new Error('Native API cannot execute through TS');
 		const userRecord = invocation.user === null ? null : hydrateApiEntity(this.db.getMetadata('user'), invocation.user);
 		if (userRecord !== null && typeof userRecord.id !== 'string') throw new Error('Invalid API user');
 		let tokenRecord: Record<string, unknown> | null = null;
