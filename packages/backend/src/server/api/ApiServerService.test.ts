@@ -77,7 +77,7 @@ test('request-bound legacy callback uses invokeValidated only and preserves spec
 	};
 	const metadata = { columns: [], create: () => ({}) };
 	const service = new ApiServerService(...[
-		moduleRef, { maxFileSize: 1024, id: 'aidx', host: 'local.test' }, { policies: {}, enableIpLogging: false }, { getMetadata: () => metadata }, {}, { findOneBy: findToken }, {}, span, {}, { signin: businessSignin }, {}, { api, configureApi },
+		moduleRef, { maxFileSize: 1024, id: 'aidx', host: 'local.test' }, { policies: {}, enableIpLogging: false }, { getMetadata: () => metadata }, {}, { findOneBy: findToken }, {}, span, {}, { signin: businessSignin }, {}, { api, configureApi, isNativeEndpoint: () => false },
 	] as unknown as ConstructorParameters<typeof ApiServerService>);
 	const server = Fastify();
 	try {
