@@ -551,6 +551,170 @@ describe('Endpoints', () => {
 		});
 	});
 
+	describe('flash/show', () => {
+		const script = 'Ui:render([Ui:C:text({ text: "Flash E2E 雲😀" })])';
+		const badgeName = 'Flash private badge';
+		let owner: misskey.entities.SignupResponse;
+		let reader: misskey.entities.SignupResponse;
+		let flash: misskey.entities.Flash;
+		let flashId: string | null = null;
+		let badgeRoleId: string | null = null;
+		let badgeAssigned = false;
+		const likedFlashIds = new Set<string>();
+
+		beforeAll(async () => {
+			owner = await signup({ username: 'flash_show_owner' });
+			reader = await signup({ username: 'flash_show_reader' });
+			const badge = await api('admin/roles/create', {
+				name: badgeName,
+				description: '',
+				color: null,
+				iconUrl: null,
+				target: 'manual',
+				condFormula: {},
+				isPublic: false,
+				isModerator: false,
+				isAdministrator: false,
+				asBadge: true,
+				canEditMembersByModerator: false,
+				displayOrder: 0,
+				policies: {},
+			}, alice);
+			assert.strictEqual(badge.status, 200);
+			badgeRoleId = badge.body.id;
+			const assigned = await api('admin/roles/assign', { roleId: badgeRoleId, userId: owner.id }, alice);
+			assert.strictEqual(assigned.status, 204);
+			badgeAssigned = true;
+			const created = await api('flash/create', {
+				title: 'Flash detail 雲😀 e\u0301',
+				summary: '',
+				script,
+				permissions: [],
+				visibility: 'public',
+			}, owner);
+			assert.strictEqual(created.status, 200);
+			flash = created.body;
+			flashId = created.body.id;
+		});
+
+		afterAll(async () => {
+			const failures: unknown[] = [];
+			for (const id of likedFlashIds) {
+				try {
+					const unliked = await api('flash/unlike', { flashId: id }, reader);
+					assert.strictEqual(unliked.status, 204);
+				} catch (error) { failures.push(error); }
+			}
+			if (flashId !== null) {
+				try {
+					const deleted = await api('flash/delete', { flashId }, owner);
+					assert.strictEqual(deleted.status, 204);
+				} catch (error) { failures.push(error); }
+			}
+			if (badgeRoleId !== null) {
+				if (badgeAssigned) {
+					try {
+						const unassigned = await api('admin/roles/unassign', { roleId: badgeRoleId, userId: owner.id }, alice);
+						assert.strictEqual(unassigned.status, 204);
+					} catch (error) { failures.push(error); }
+				}
+				try {
+					const deleted = await api('admin/roles/delete', { roleId: badgeRoleId }, alice);
+					assert.strictEqual(deleted.status, 204);
+				} catch (error) { failures.push(error); }
+			}
+			if (failures.length > 0) throw new AggregateError(failures, 'Flash fixture cleanup failed');
+		});
+
+		test('privateも詳細を公開し、実際の閲覧者で作者といいねを表示する', async () => {
+			const viewers = [
+				{ user: undefined, hasPrivateBadge: false },
+				{ user: owner, hasPrivateBadge: false },
+				{ user: reader, hasPrivateBadge: false },
+				{ user: alice, hasPrivateBadge: true },
+			];
+			const visibilities: ('public' | 'private')[] = ['public', 'private'];
+			for (const visibility of visibilities) {
+				if (visibility === 'private') {
+					const updated = await api('flash/update', { flashId: flash.id, visibility }, owner);
+					assert.strictEqual(updated.status, 204);
+				}
+				for (const viewer of viewers) {
+					const response = await api('flash/show', { flashId: flash.id }, viewer.user);
+					assert.strictEqual(response.status, 200);
+					assert.strictEqual(response.body.id, flash.id);
+					assert.strictEqual(response.body.visibility, visibility);
+					assert.strictEqual(response.body.title, flash.title);
+					assert.strictEqual(response.body.summary, '');
+					assert.strictEqual(response.body.script, script);
+					assert.strictEqual(response.body.createdAt, flash.createdAt);
+					assert.strictEqual(response.body.userId, owner.id);
+					assert.strictEqual(response.body.user.id, owner.id);
+					const badges = response.body.user.badgeRoles;
+					assert.ok(Array.isArray(badges));
+					assert.strictEqual(badges.some(badge => badge.name === badgeName), viewer.hasPrivateBadge);
+					assert.strictEqual(Object.hasOwn(response.body, 'permissions'), false);
+					assert.strictEqual(response.body.likedCount, 0);
+					if (viewer.user === undefined) assert.strictEqual(Object.hasOwn(response.body, 'isLiked'), false);
+					else assert.strictEqual(response.body.isLiked, false);
+				}
+			}
+
+			const liked = await api('flash/like', { flashId: flash.id }, reader);
+			assert.strictEqual(liked.status, 204);
+			likedFlashIds.add(flash.id);
+			// Existing TS like/unlike writes start the count update asynchronously.
+			await vi.waitFor(async () => {
+				const response = await api('flash/show', { flashId: flash.id }, reader);
+				assert.strictEqual(response.status, 200);
+				assert.strictEqual(response.body.isLiked, true);
+				assert.strictEqual(response.body.likedCount, 1);
+			}, waitForPushToTlOptions);
+			const ownerAfter = await api('flash/show', { flashId: flash.id }, owner);
+			assert.strictEqual(ownerAfter.status, 200);
+			assert.strictEqual(ownerAfter.body.isLiked, false);
+			assert.strictEqual(ownerAfter.body.likedCount, 1);
+			const anonymous = await api('flash/show', { flashId: flash.id });
+			assert.strictEqual(anonymous.status, 200);
+			assert.strictEqual(Object.hasOwn(anonymous.body, 'isLiked'), false);
+			assert.strictEqual(anonymous.body.likedCount, 1);
+			const unliked = await api('flash/unlike', { flashId: flash.id }, reader);
+			assert.strictEqual(unliked.status, 204);
+			likedFlashIds.delete(flash.id);
+			await vi.waitFor(async () => {
+				const response = await api('flash/show', { flashId: flash.id }, reader);
+				assert.strictEqual(response.status, 200);
+				assert.strictEqual(response.body.isLiked, false);
+				assert.strictEqual(response.body.likedCount, 0);
+			}, waitForPushToTlOptions);
+		});
+
+		test('未知のFlashは固有400で、不正な入力とGETを拒否する', async () => {
+			const missing = await api('flash/show', { flashId: '0000000000000000' });
+			assert.strictEqual(missing.status, 400);
+			assert.deepStrictEqual(missing.body, { error: {
+				message: 'No such flash.',
+				code: 'NO_SUCH_FLASH',
+				id: 'f0d34a1a-d29a-401d-90ba-1982122b5630',
+				kind: 'client',
+			} });
+			for (const params of [{}, { flashId: '!' }, { flashId: 0 }]) {
+				const invalid = await relativeFetch('api/flash/show', {
+					method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(params),
+				});
+				assert.strictEqual(invalid.status, 400);
+				const body: unknown = await invalid.json();
+				assert.ok(body !== null && typeof body === 'object' && 'error' in body);
+				const error = body.error;
+				assert.ok(error !== null && typeof error === 'object' && 'code' in error);
+				assert.strictEqual(error.code, 'INVALID_PARAM');
+			}
+			const get = await relativeFetch(`api/flash/show?flashId=${encodeURIComponent(flash.id)}`);
+			assert.strictEqual(get.status, 405);
+			assert.strictEqual(await get.text(), '');
+		});
+	});
+
 	describe('notes/show', () => {
 		test('投稿が取得できる', async () => {
 			const myPost = await post(alice, {
