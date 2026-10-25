@@ -715,6 +715,172 @@ describe('Endpoints', () => {
 		});
 	});
 
+	describe('flash/featured', () => {
+		const script = 'Ui:render([Ui:C:text({ text: "Featured 雲😀" })])';
+		const badgeName = 'Featured Flash private badge';
+		const flashIds = new Set<string>();
+		const likes: { flashId: string; user: misskey.entities.SignupResponse }[] = [];
+		let older: misskey.entities.Flash;
+		let newer: misskey.entities.Flash;
+		let popular: misskey.entities.Flash;
+		let badgeRoleId: string | null = null;
+		let badgeAssigned = false;
+
+		async function createFlash(title: string, visibility: 'public' | 'private' = 'public') {
+			const response = await api('flash/create', { title, summary: '', script, permissions: [], visibility }, bob);
+			assert.strictEqual(response.status, 200);
+			flashIds.add(response.body.id);
+			return response.body;
+		}
+
+		async function likeFlash(flashId: string, user: misskey.entities.SignupResponse) {
+			const response = await api('flash/like', { flashId }, user);
+			assert.strictEqual(response.status, 204);
+			likes.push({ flashId, user });
+		}
+
+		beforeAll(async () => {
+			const badge = await api('admin/roles/create', {
+				name: badgeName, description: '', color: null, iconUrl: null, target: 'manual', condFormula: {},
+				isPublic: false, isModerator: false, isAdministrator: false, asBadge: true,
+				canEditMembersByModerator: false, displayOrder: 0, policies: {},
+			}, alice);
+			assert.strictEqual(badge.status, 200);
+			badgeRoleId = badge.body.id;
+			const assigned = await api('admin/roles/assign', { roleId: badgeRoleId, userId: bob.id }, alice);
+			assert.strictEqual(assigned.status, 204);
+			badgeAssigned = true;
+			older = await createFlash('Older featured');
+			popular = await createFlash('Popular featured');
+			await setTimeout(2);
+			newer = await createFlash('Newer featured 雲😀');
+			await createFlash('Public without likes');
+			const hidden = await createFlash('Private with likes', 'private');
+			for (const flash of [older, popular, newer, hidden]) await likeFlash(flash.id, carol);
+			await likeFlash(popular.id, dave);
+			// The TS writer starts count updates asynchronously; wait before paging.
+			await vi.waitFor(async () => {
+				for (const flash of [older, popular, newer, hidden]) {
+					const response = await api('flash/show', { flashId: flash.id });
+					assert.strictEqual(response.status, 200);
+					assert.strictEqual(response.body.likedCount, flash.id === popular.id ? 2 : 1);
+				}
+			}, waitForPushToTlOptions);
+		});
+
+		afterAll(async () => {
+			const failures: unknown[] = [];
+			for (const { flashId, user } of likes) {
+				try {
+					const response = await api('flash/unlike', { flashId }, user);
+					assert.strictEqual(response.status, 204);
+				} catch (error) { failures.push(error); }
+			}
+			for (const flashId of flashIds) {
+				try {
+					const response = await api('flash/delete', { flashId }, bob);
+					assert.strictEqual(response.status, 204);
+				} catch (error) { failures.push(error); }
+			}
+			if (badgeRoleId !== null) {
+				if (badgeAssigned) {
+					try {
+						const response = await api('admin/roles/unassign', { roleId: badgeRoleId, userId: bob.id }, alice);
+						assert.strictEqual(response.status, 204);
+					} catch (error) { failures.push(error); }
+				}
+				try {
+					const response = await api('admin/roles/delete', { roleId: badgeRoleId }, alice);
+					assert.strictEqual(response.status, 204);
+				} catch (error) { failures.push(error); }
+			}
+			if (failures.length > 0) throw new AggregateError(failures, 'Featured Flash fixture cleanup failed');
+		});
+
+		test('公開かついいねがあるPlayだけを人気順・更新順で返し、offsetでページングする', async () => {
+			const all = await api('flash/featured', { limit: 100 });
+			assert.strictEqual(all.status, 200);
+			const owned = all.body.filter(flash => flashIds.has(flash.id));
+			assert.deepStrictEqual(owned.map(flash => flash.id), [popular.id, newer.id, older.id]);
+			assert.deepStrictEqual(owned.map(flash => flash.likedCount), [2, 1, 1]);
+			for (const flash of owned) {
+				const badges = flash.user.badgeRoles;
+				assert.ok(Array.isArray(badges));
+				assert.strictEqual(badges.some(badge => badge.name === badgeName), false);
+				assert.strictEqual(Object.hasOwn(flash, 'permissions'), false);
+			}
+			for (const flash of all.body) {
+				assert.strictEqual(flash.visibility, 'public');
+				assert.ok(flash.likedCount > 0);
+				assert.strictEqual(Object.hasOwn(flash, 'isLiked'), false);
+			}
+			const defaults = await api('flash/featured', {});
+			assert.strictEqual(defaults.status, 200);
+			assert.deepStrictEqual(defaults.body, all.body.slice(0, 10));
+			for (const params of [
+				{ offset: 0, limit: 10 }, { limit: 1 }, { limit: 5 },
+				{ offset: 5, limit: 30 }, { offset: 30, limit: 5 },
+			]) {
+				const response = await api('flash/featured', params);
+				assert.strictEqual(response.status, 200);
+				const offset = params.offset ?? 0;
+				assert.deepStrictEqual(response.body, all.body.slice(offset, offset + params.limit));
+			}
+		});
+
+		test('閲覧者ごとのいいねと非公開バッジを保持し、入力・メソッド・巨大offsetを扱う', async () => {
+			for (const viewer of [bob, carol, dave, alice]) {
+				const response = await api('flash/featured', { limit: 100 }, viewer);
+				assert.strictEqual(response.status, 200);
+				const owned = response.body.filter(flash => flashIds.has(flash.id));
+				assert.deepStrictEqual(owned.map(flash => flash.id), [popular.id, newer.id, older.id]);
+				for (const flash of owned) {
+					assert.strictEqual(flash.userId, bob.id);
+					assert.strictEqual(flash.user.id, bob.id);
+					assert.strictEqual(flash.script, script);
+					assert.strictEqual(flash.summary, '');
+					assert.strictEqual(flash.isLiked, viewer === carol || (viewer === dave && flash.id === popular.id));
+					const badges = flash.user.badgeRoles;
+					assert.ok(Array.isArray(badges));
+					assert.strictEqual(badges.some(badge => badge.name === badgeName), viewer === alice);
+				}
+			}
+			const empty = await api('flash/featured', { offset: Number.MAX_SAFE_INTEGER, limit: 5 }, carol);
+			assert.strictEqual(empty.status, 200);
+			assert.deepStrictEqual(empty.body, []);
+			for (const params of [{ offset: -1 }, { offset: 0.5 }, { offset: null }, { limit: 0 }, { limit: 101 }, { limit: '5' }]) {
+				const response = await relativeFetch('api/flash/featured', {
+					method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(params),
+				});
+				assert.strictEqual(response.status, 400);
+				const body: unknown = await response.json();
+				assert.ok(body !== null && typeof body === 'object' && 'error' in body);
+				const error = body.error;
+				assert.ok(error !== null && typeof error === 'object' && 'code' in error);
+				assert.strictEqual(error.code, 'INVALID_PARAM');
+			}
+			const overflow = await relativeFetch('api/flash/featured', {
+				method: 'POST', headers: { 'content-type': 'application/json' },
+				body: '{"offset":9223372036854775807,"limit":5}',
+			});
+			assert.strictEqual(overflow.status, 500);
+			const body: unknown = await overflow.json();
+			assert.ok(body !== null && typeof body === 'object' && 'error' in body);
+			const error = body.error;
+			assert.ok(error !== null && typeof error === 'object' && 'code' in error && 'info' in error);
+			assert.strictEqual(error.code, 'INTERNAL_ERROR');
+			const info = error.info;
+			assert.ok(info !== null && typeof info === 'object' && 'e' in info);
+			const cause = info.e;
+			assert.ok(cause !== null && typeof cause === 'object' && 'code' in cause && 'message' in cause);
+			assert.strictEqual(cause.code, 'QueryFailedError');
+			assert.strictEqual(cause.message, 'bigint out of range');
+			const get = await relativeFetch('api/flash/featured?limit=5');
+			assert.strictEqual(get.status, 405);
+			assert.strictEqual(await get.text(), '');
+		});
+	});
+
 	describe('notes/show', () => {
 		test('投稿が取得できる', async () => {
 			const myPost = await post(alice, {
