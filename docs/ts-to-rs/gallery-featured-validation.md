@@ -25,7 +25,7 @@ Private root `/workspace/native-queue/gallery-featured`. Root commands/cwd/exits
 | Candidate product UI/lifecycle | Main parity/lifecycle PASS; UI BASELINE |Five actual Gallery-index pairs/10 pages; cards0/3/3/12/15, images/order/links/likes/badges match. UI paginator requests15; max100 correctness is a separate HTTP case. Matching app notifications403 is the only ancillary limitation, with no500s. One child becomes zero; featured+four core APIs return503, no restart, host exits0. |
 | Paired measurement/gate | FAIL; five conditions SKIPPED |Two profiles/six conditions measured on their first attempts: empty3/3 PASS, small2/3 PASS and one throughput FAIL. Default10/max100 five conditions remain unmeasured. No retry, optimization or dependency exception. |
 | Fresh Linux federation | PASS, exit0;13 skipped |Final held29a1136e9a, fresh Linux build113.650s; nine files92 passed/13 skipped; test84.382s. This does not activate the native candidate or change the failed performance decision. |
-| Final pushed-SHA CI | PENDING |No previous/intermediate result substituted. |
+| Final pushed-SHA CI | PASS |`a13cc4ed36535d01ca729209e0e3eb83bf26d3ed`:18 successful workflows and one skipped Storybook, all first attempt. The TS performance hold remains unchanged. |
 
 The earlier Gallery-show invalid-data fixtures were restored transactionally in six owned rows, with zero deletes and unchanged historical capture/measurement evidence. Subsequent live captures use the restored data and fresh manifests; historical71-response evidence is not reused as a current result.
 

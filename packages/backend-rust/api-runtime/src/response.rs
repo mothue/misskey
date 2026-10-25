@@ -27,6 +27,7 @@ pub(crate) enum ApiFailure {
     NoSuchAntenna,
     NoSuchClip,
     NoSuchPost,
+    NoSuchFlash,
 }
 
 /// Captured from Bun 1.4.4 Date.toISOString for invalid stored dates.
@@ -189,6 +190,13 @@ impl ApiFailure {
                 "No such post.",
                 "NO_SUCH_POST",
                 "1137bf14-c5b0-4604-85bb-5b5371b1cd45",
+                "client",
+                None,
+            ),
+            Self::NoSuchFlash => (
+                "No such flash.",
+                "NO_SUCH_FLASH",
+                "f0d34a1a-d29a-401d-90ba-1982122b5630",
                 "client",
                 None,
             ),

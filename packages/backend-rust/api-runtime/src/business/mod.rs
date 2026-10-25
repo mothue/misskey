@@ -9,6 +9,9 @@ mod antennas;
 pub(super) use antennas::Queries as AntennaQueries;
 mod discovery;
 mod entity_layout;
+mod flash;
+pub use flash::FlashLayoutFailure;
+pub(super) use flash::FlashQueries;
 mod gallery;
 pub use gallery::GalleryLayoutFailure;
 pub(super) use gallery::{GalleryFeaturedCache, GalleryQueries};
@@ -55,6 +58,7 @@ pub(super) enum Error {
     Antenna(antennas::FailureKind),
     HashtagTrend(hashtag_trend::TrendFailure),
     Gallery(gallery::GalleryFailure),
+    Flash(flash::FlashFailure),
     ClipShow(ClipFailureKind),
     ClipShowQuery {
         kind: ClipFailureKind,
@@ -108,6 +112,13 @@ impl Error {
                 source.report();
                 match source {
                     gallery::GalleryFailure::Query { source, .. } => Self::query(source).response(),
+                    _ => crate::response::internal(),
+                }
+            }
+            Self::Flash(source) => {
+                source.report();
+                match source {
+                    flash::FlashFailure::Query { source, .. } => Self::query(source).response(),
                     _ => crate::response::internal(),
                 }
             }
@@ -217,6 +228,7 @@ pub(super) const ACTIVE_READ_ENDPOINTS: &[&str] = &[
     "clips/show",
     "emoji",
     "emojis",
+    "flash/show",
     "gallery/posts/show",
     "hashtags/list",
     "hashtags/search",
@@ -262,6 +274,9 @@ pub(super) async fn execute(
     }
     if name == "gallery/posts/show" {
         return Some(gallery::show(runtime, params, auth).await);
+    }
+    if name == "flash/show" {
+        return Some(flash::show(runtime, params, auth).await);
     }
     if name == "gallery/featured" {
         return Some(gallery::featured(runtime, params, auth).await);

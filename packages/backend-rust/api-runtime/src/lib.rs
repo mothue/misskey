@@ -23,6 +23,7 @@ mod meta;
 pub mod redis;
 pub mod request;
 mod response;
+pub use business::FlashLayoutFailure;
 pub use business::GalleryLayoutFailure;
 use meta::EndpointMeta;
 use response::ApiFailure;
@@ -44,6 +45,7 @@ pub enum FailureStage {
     AntennaLayout,
     ClipLayout,
     GalleryLayout(GalleryLayoutFailure),
+    FlashLayout(FlashLayoutFailure),
     AuthStore,
     AuthService,
     Redis,
@@ -317,6 +319,7 @@ pub struct Runtime {
     antenna_queries: business::AntennaQueries,
     clip_queries: business::ClipQueries,
     gallery_queries: business::GalleryQueries,
+    flash_queries: business::FlashQueries,
     gallery_featured_cache: business::GalleryFeaturedCache,
     max_file_size: u64,
     upload_directory: String,
@@ -387,6 +390,11 @@ impl Runtime {
                 tracing::error!(operation = "configure_gallery_queries", error.kind = ?kind, "API bootstrap failed");
                 Failure::new(FailureStage::GalleryLayout(kind))
             })?;
+        let flash_queries = business::FlashQueries::new(&config.auth.entity_layouts)
+            .map_err(|kind| {
+                tracing::error!(operation = "configure_flash_queries", error.kind = ?kind, "API bootstrap failed");
+                Failure::new(FailureStage::FlashLayout(kind))
+            })?;
         let database = Arc::new(online_users.database(config.postgres_primary));
         let store = Arc::new(
             PostgresAuthStore::new(database.clone(), config.auth.entity_layouts.clone())
@@ -422,6 +430,7 @@ impl Runtime {
             antenna_queries,
             clip_queries,
             gallery_queries,
+            flash_queries,
             gallery_featured_cache: business::GalleryFeaturedCache::default(),
             max_file_size: config.max_file_size,
             upload_directory: config.upload_directory,
