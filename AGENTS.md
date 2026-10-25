@@ -55,6 +55,7 @@
 14. **`working-on-frontend` スキルを参照せずに `packages/frontend/` 配下のファイルを編集・追加しない**
 15. **`shipping-misskey-change` スキルを参照せずに commit / PR 作成 / 作業をユーザーに返さない**
 16. **`creating-issues-and-prs` スキルを参照せずに Issue / PR を起票しない** (脆弱性報告のルールも含む)
+17. **`working-on-backend-rust` スキルを参照せずに `packages/backend-rust/` 配下、または `packages/backend/src/server/rust/` 配下のファイルを編集・追加しない** (TS → Rust 移行の契約 `docs/ts-to-rs/PORTS.md` と互換性ルールを含む)
 
 ---
 
@@ -84,6 +85,9 @@
 | Frontend unit test | `bun run --filter frontend test` |
 | Migration 差分検査 (pending DDL) | `bun run --filter backend check-migrations` |
 | `misskey-js` 再生成 (API 変更後必須) | `bun run generate:api-types` |
+| Rust format 検査 (`packages/backend-rust/` で実行) | `cargo fmt --all --check` |
+| Rust lint (`packages/backend-rust/` で実行) | `cargo clippy --locked --workspace --all-targets -- -D warnings` |
+| Rust test (`packages/backend-rust/` で実行) | `cargo test --locked --workspace` |
 | 全体ビルド | `bun run build` |
 | 開発サーバー (backend + frontend watch) | `bun run dev` |
 
