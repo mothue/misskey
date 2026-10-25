@@ -7,6 +7,7 @@ use tokio_postgres::types::ToSql;
 
 mod discovery;
 mod id;
+mod js_value;
 mod local_date;
 pub(crate) mod notes;
 mod registry_apps;
