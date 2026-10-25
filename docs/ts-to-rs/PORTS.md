@@ -2,6 +2,8 @@
 
 ## Authority and scope
 
+The complete [clips/show slice](clips-show-validation.md) reuses native Clip/UserLite packing and passes all six paired throughput/p95 conditions. The same batch corrects the shared UserLite decoration-filter ordering regression after actual pure-TS/published-native HTTP reproduction. `notes/clips` retains its separate performance hold.
+
 The complete [antenna list/show slices](antennas-read-validation.md) preserve owner filtering and opaque stored values, reuse existing ID parsing, and pass all ten paired throughput/p95 conditions. Fresh batch acceptance is recorded there.
 
 The [followed-user birthday candidate](users-birthdays-validation.md) now matches89HTTPcases in three zones, including accepted extra fields and Bun radix arithmetic. It remains on TS after scoped18-user throughput regressed4.85%. Canonical-zone bootstrap and authoritative Rust native-selection readiness replace the duplicated TS guard list.

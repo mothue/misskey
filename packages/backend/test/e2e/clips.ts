@@ -8,7 +8,7 @@ process.env.NODE_ENV = 'test';
 import * as assert from 'assert';
 import { describe, beforeAll, beforeEach, afterEach, test, vi } from 'vitest';
 import { DEFAULT_POLICIES } from '@/core/RoleService.js';
-import { api, ApiRequest, failedApiCall, hiddenNote, post, signup, successfulApiCall } from '../utils.js';
+import { api, ApiRequest, createAppToken, failedApiCall, hiddenNote, post, signup, successfulApiCall } from '../utils.js';
 import type * as Misskey from 'misskey-js';
 
 type Optional<T, K extends keyof T> = Pick<Partial<T>, K> & Omit<T, K>;
@@ -328,7 +328,7 @@ describe('クリップ', () => {
 
 	test('のID指定取得は他人のPrivateなクリップは取得できない', async () => {
 		const clip = await create({ isPublic: false }, { user: bob } );
-		failedApiCall({
+		await failedApiCall({
 			endpoint: 'clips/show',
 			parameters: { clipId: clip.id },
 			user: alice,
@@ -337,6 +337,55 @@ describe('クリップ', () => {
 			code: 'NO_SUCH_CLIP',
 			id: 'c3c5fe33-d62c-44d2-9ea5-d997703f5c20',
 		});
+	});
+
+	test('のID指定取得は匿名と非所有者の所有者専用フィールドを省略する', async () => {
+		const clip = await create({ isPublic: true });
+		assert.strictEqual((await show({ clipId: clip.id })).notesCount, 0);
+		await successfulApiCall({
+			endpoint: 'clips/add-note',
+			parameters: { clipId: clip.id, noteId: aliceNote.id },
+			user: alice,
+		}, { status: 204 });
+		assert.strictEqual((await show({ clipId: clip.id })).notesCount, 1);
+		const anonymous = await show({ clipId: clip.id }, { user: undefined });
+		assert.strictEqual(anonymous.favoritedCount, 0);
+		assert.strictEqual(Object.hasOwn(anonymous, 'notesCount'), false);
+		assert.strictEqual(Object.hasOwn(anonymous, 'isFavorited'), false);
+		const other = await show({ clipId: clip.id }, { user: bob });
+		assert.strictEqual(other.isFavorited, false);
+		assert.strictEqual(Object.hasOwn(other, 'notesCount'), false);
+	});
+
+	test('の非公開ID指定取得は匿名にも存在を返さない', async () => {
+		const clip = await create({ isPublic: false });
+		await failedApiCall({
+			endpoint: 'clips/show',
+			parameters: { clipId: clip.id },
+			user: undefined,
+		}, {
+			status: 400,
+			code: 'NO_SUCH_CLIP',
+			id: 'c3c5fe33-d62c-44d2-9ea5-d997703f5c20',
+		});
+	});
+
+	test('のID指定取得はread:accountアプリ権限とアカウントで同じ表現を返す', async () => {
+		const clip = await create({ isPublic: true });
+		const allowed = await createAppToken(alice, ['read:account']);
+		const denied = await createAppToken(alice, ['read:notifications']);
+		const account = await api('clips/show', { clipId: clip.id }, alice);
+		const app = await api('clips/show', { clipId: clip.id }, { token: allowed, bearer: true });
+		assert.strictEqual(account.status, 200);
+		assert.strictEqual(app.status, 200);
+		assert.deepStrictEqual(app.body, account.body);
+		const forbidden = await api('clips/show', { clipId: clip.id }, { token: denied, bearer: true });
+		assert.strictEqual(forbidden.status, 403);
+		const body: unknown = forbidden.body;
+		assert.ok(body !== null && typeof body === 'object' && 'error' in body);
+		const error = body.error;
+		assert.ok(error !== null && typeof error === 'object' && 'code' in error);
+		assert.strictEqual(error.code, 'PERMISSION_DENIED');
 	});
 
 	test.each([

@@ -6,7 +6,7 @@ Native means the complete business handler is selected in Rust; the public TS li
 
 | Total | Native | TS | Held (TS) |
 | ---: | ---: | ---: | ---: |
-| 438 | 34 | 393 | 11 |
+| 438 | 35 | 392 | 11 |
 
 Names and enumeration order come from the API registry. Native core selection and the business allowlist are read from Rust source. Rust advertises those selections at bootstrap; the TS callback guard consumes the validated names without a second list. Hold reasons come from the hold manifest.
 
@@ -172,7 +172,7 @@ Names and enumeration order come from the API registry. Native core selection an
 | `clips/my-favorites` | TS |  |
 | `clips/notes` | TS |  |
 | `clips/remove-note` | TS |  |
-| `clips/show` | TS |  |
+| `clips/show` | Native |  |
 | `clips/unfavorite` | TS |  |
 | `clips/update` | TS |  |
 | `drive` | TS |  |
@@ -456,7 +456,7 @@ Names and enumeration order come from the API registry. Native core selection an
 | Source | SHA-256 |
 | --- | --- |
 | `packages/backend/src/server/api/endpoint-list.ts` | `f6adc6070df862e7544a92bafc001a9339bfe1e746a856b602c505a248ae5470` |
-| `packages/backend-rust/api-runtime/src/lib.rs` | `50af0736418ff51db035e56791d5ccd055cda53bda95aafa9b8382e4bc0366c7` |
-| `packages/backend-rust/api-runtime/src/business/mod.rs` | `2aca1c3253472946875bf80aee31fe4aef3a96e067d5531083ee1cda08ff8564` |
-| `packages/backend/src/server/api/ApiServerService.ts` | `44c1f2055df5b127186345a5d8496c16503b6756d55534acd86571fbcd7c4b31` |
+| `packages/backend-rust/api-runtime/src/lib.rs` | `0cb475b41595bc79970b978e0282478a0a601a3892cc1d7f6275d96cf83ef81d` |
+| `packages/backend-rust/api-runtime/src/business/mod.rs` | `bd34fd25964d2f5661a002509e9c6c69f4c18a3596e014b079263990132ee0ec` |
+| `packages/backend/src/server/api/ApiServerService.ts` | `80a11b307c84c00e6f39931d9b0be63b4cdac24cc83a175c7df39a44c9ccfdc3` |
 | `scripts/ts-to-rs/native-holds.json` | `15afb2cd870908b8ccdb1e16bd018ff96a6f8cc96b24b91d2891025198007fd7` |

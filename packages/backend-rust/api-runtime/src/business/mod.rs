@@ -12,6 +12,7 @@ mod id;
 mod js_value;
 mod local_date;
 pub(crate) mod notes;
+pub(super) use notes::{ClipFailureKind, ClipQueries};
 mod registry_apps;
 mod roles_admin;
 mod user_achievements;
@@ -46,6 +47,11 @@ impl Config {
 pub(super) enum Error {
     Internal,
     Antenna(antennas::FailureKind),
+    ClipShow(ClipFailureKind),
+    ClipShowQuery {
+        kind: ClipFailureKind,
+        source: QueryError,
+    },
     Fixed(crate::response::ApiFailure),
     Legacy {
         message: String,
@@ -85,6 +91,14 @@ impl Error {
             Self::Antenna(kind) => {
                 tracing::error!(operation = "read_antenna", error.kind = ?kind, "endpoint failed");
                 crate::response::internal()
+            }
+            Self::ClipShow(kind) => {
+                tracing::error!(operation = "read_clip_show", error.kind = ?kind, "endpoint failed");
+                crate::response::internal()
+            }
+            Self::ClipShowQuery { kind, source } => {
+                tracing::error!(operation = "read_clip_show", error.kind = ?kind, "endpoint failed");
+                Self::query(source).response()
             }
             Self::Fixed(failure) => crate::response::fixed(failure, None),
             Self::Legacy { message, code, id } => {
@@ -181,6 +195,7 @@ pub(super) const ACTIVE_READ_ENDPOINTS: &[&str] = &[
     "admin/roles/list",
     "admin/roles/show",
     "app/show",
+    "clips/show",
     "emoji",
     "emojis",
     "hashtags/list",
@@ -238,6 +253,9 @@ pub(super) async fn execute(
     }
     if name == "notes/drafts/count" {
         return Some(notes::count_drafts(runtime, auth).await);
+    }
+    if name == "clips/show" {
+        return Some(notes::show_clip(runtime, params, auth).await);
     }
     if name == "notes/clips" {
         return Some(notes::clips(runtime, params, auth).await);

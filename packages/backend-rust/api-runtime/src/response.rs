@@ -25,6 +25,7 @@ pub(crate) enum ApiFailure {
     RequiredRole,
     AppPermissionDenied,
     NoSuchAntenna,
+    NoSuchClip,
 }
 
 /// Captured from Bun 1.4.4 Date.toISOString for invalid stored dates.
@@ -35,6 +36,13 @@ pub(crate) struct LegacyErrorDef {
 pub(crate) const INVALID_DATE: LegacyErrorDef = LegacyErrorDef {
     message: "Invalid Date",
     code: "RangeError",
+};
+
+// Captured from the pinned TS production Clip.pack. PostgreSQL infinity is a
+// primitive, rather than a hydrated Date; differential tests guard this text.
+pub(crate) const NON_DATE_CLIP_TIMESTAMP: LegacyErrorDef = LegacyErrorDef {
+    message: "i.lastClippedAt.toISOString is not a function. (In 'i.lastClippedAt.toISOString()', 'i.lastClippedAt.toISOString' is undefined)",
+    code: "TypeError",
 };
 
 // Actual UserEntityService filter callback in the pinned production build;
@@ -159,6 +167,13 @@ impl ApiFailure {
                 "No such antenna.",
                 "NO_SUCH_ANTENNA",
                 "c06569fb-b025-4f23-b22d-1fcd20d2816b",
+                "client",
+                None,
+            ),
+            Self::NoSuchClip => (
+                "No such clip.",
+                "NO_SUCH_CLIP",
+                "c3c5fe33-d62c-44d2-9ea5-d997703f5c20",
                 "client",
                 None,
             ),
@@ -512,6 +527,25 @@ mod tests {
             assert_eq!(body["error"]["id"], id);
             assert!(body["error"].get("info").is_none());
         }
+    }
+
+    #[tokio::test]
+    async fn no_such_clip_matches_captured_typescript_show_response() {
+        // Fresh clips/show TS HTTP baseline: unknown-anon and private-anon.
+        let reply = fixed(ApiFailure::NoSuchClip, None);
+        assert_eq!(reply.status(), 400);
+        assert_eq!(
+            reply.headers()["content-type"],
+            "application/json; charset=utf-8"
+        );
+        assert_eq!(
+            reply.headers()["www-authenticate"],
+            "Bearer realm=\"Misskey\", error=\"invalid_request\", error_description=\"No such clip.\""
+        );
+        assert_eq!(
+            text(reply).await,
+            "{\"error\":{\"message\":\"No such clip.\",\"code\":\"NO_SUCH_CLIP\",\"id\":\"c3c5fe33-d62c-44d2-9ea5-d997703f5c20\",\"kind\":\"client\"}}"
+        );
     }
 
     #[tokio::test]
