@@ -8,7 +8,7 @@ process.env.NODE_ENV = 'test';
 import * as assert from 'assert';
 import { randomUUID } from 'node:crypto';
 import { setTimeout } from 'node:timers/promises';
-import { describe, beforeAll, test, expect, vi } from 'vitest';
+import { describe, beforeAll, afterAll, test, expect, vi } from 'vitest';
 // node-fetch only supports it's own Blob yet
 // https://github.com/node-fetch/node-fetch/pull/1664
 import { Blob } from 'node-fetch';
@@ -292,6 +292,112 @@ describe('Endpoints', () => {
 				userId: 'kyoppie',
 			});
 			assert.strictEqual(res.status, 404);
+		});
+	});
+
+	describe('gallery/posts/show', () => {
+		let gallery: misskey.entities.GalleryPost;
+		let fileIds: string[];
+		let galleryId: string | null = null;
+		const uploadedFileIds: string[] = [];
+
+		beforeAll(async () => {
+			const first = await uploadFile(alice);
+			assert.strictEqual(first.status, 200);
+			assert.ok(first.body !== null);
+			uploadedFileIds.push(first.body.id);
+			const second = await uploadFile(alice, { path: '192.png' });
+			assert.strictEqual(second.status, 200);
+			assert.ok(second.body !== null);
+			uploadedFileIds.push(second.body.id);
+			fileIds = [second.body.id, first.body.id];
+			const created = await api('gallery/posts/create', {
+				title: 'Gallery detail test',
+				description: null,
+				fileIds,
+				isSensitive: true,
+			}, alice);
+			assert.strictEqual(created.status, 200);
+			gallery = created.body;
+			galleryId = created.body.id;
+		});
+
+		afterAll(async () => {
+			// Later tests expect Alice's drive to be empty. Reclaim only the
+			// resources created here, including uploads if setup fails partway.
+			try {
+				if (galleryId !== null) {
+					const deleted = await api('gallery/posts/delete', { postId: galleryId }, alice);
+					assert.strictEqual(deleted.status, 204);
+				}
+			} finally {
+				for (const fileId of uploadedFileIds) {
+					const deleted = await api('drive/files/delete', { fileId }, alice);
+					assert.strictEqual(deleted.status, 204);
+				}
+			}
+		});
+
+		test('匿名の詳細で添付順序と作者を保持し、空のタグとisLikedを省略する', async () => {
+			const response = await api('gallery/posts/show', { postId: gallery.id });
+			assert.strictEqual(response.status, 200);
+			assert.strictEqual(response.body.id, gallery.id);
+			assert.strictEqual(response.body.title, gallery.title);
+			assert.strictEqual(response.body.description, null);
+			assert.strictEqual(response.body.isSensitive, true);
+			assert.strictEqual(response.body.userId, alice.id);
+			assert.strictEqual(response.body.user.id, alice.id);
+			assert.deepStrictEqual(response.body.fileIds, fileIds);
+			const files = response.body.files;
+			assert.ok(Array.isArray(files));
+			assert.deepStrictEqual(files, gallery.files);
+			assert.deepStrictEqual(files.map(file => file.id), fileIds);
+			for (const file of files) {
+				assert.strictEqual(file.userId, alice.id);
+				assert.strictEqual(file.user, null);
+				assert.strictEqual(file.folder, null);
+			}
+			assert.strictEqual(Object.hasOwn(response.body, 'tags'), false);
+			assert.strictEqual(Object.hasOwn(response.body, 'isLiked'), false);
+		});
+
+		test('いいねした閲覧者だけisLikedがtrueになり、保存済み件数を返す', async () => {
+			const ownerBefore = await api('gallery/posts/show', { postId: gallery.id }, alice);
+			assert.strictEqual(ownerBefore.status, 200);
+			assert.strictEqual(ownerBefore.body.isLiked, false);
+			assert.strictEqual(ownerBefore.body.likedCount, 0);
+			const liked = await api('gallery/posts/like', { postId: gallery.id }, bob);
+			assert.strictEqual(liked.status, 204);
+			// The existing TS writer starts the counter increment without awaiting
+			// it. Wait for that stored value through the public read contract.
+			await vi.waitFor(async () => {
+				const viewer = await api('gallery/posts/show', { postId: gallery.id }, bob);
+				assert.strictEqual(viewer.status, 200);
+				assert.strictEqual(viewer.body.isLiked, true);
+				assert.strictEqual(viewer.body.likedCount, 1);
+			}, waitForPushToTlOptions);
+			const owner = await api('gallery/posts/show', { postId: gallery.id }, alice);
+			assert.strictEqual(owner.status, 200);
+			assert.strictEqual(owner.body.isLiked, false);
+			assert.strictEqual(owner.body.likedCount, 1);
+			const anonymous = await api('gallery/posts/show', { postId: gallery.id });
+			assert.strictEqual(anonymous.status, 200);
+			assert.strictEqual(anonymous.body.likedCount, 1);
+			assert.strictEqual(Object.hasOwn(anonymous.body, 'isLiked'), false);
+		});
+
+		test('存在しない投稿はNO_SUCH_POSTになり、GETは405のままになる', async () => {
+			const missing = await api('gallery/posts/show', { postId: '0000000000000000' });
+			assert.strictEqual(missing.status, 400);
+			assert.deepStrictEqual(missing.body, { error: {
+				message: 'No such post.',
+				code: 'NO_SUCH_POST',
+				id: '1137bf14-c5b0-4604-85bb-5b5371b1cd45',
+				kind: 'client',
+			} });
+			const get = await relativeFetch(`api/gallery/posts/show?postId=${encodeURIComponent(gallery.id)}`);
+			assert.strictEqual(get.status, 405);
+			assert.strictEqual(await get.text(), '');
 		});
 	});
 

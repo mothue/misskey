@@ -23,6 +23,7 @@ mod meta;
 pub mod redis;
 pub mod request;
 mod response;
+pub use business::GalleryLayoutFailure;
 use meta::EndpointMeta;
 use response::ApiFailure;
 
@@ -42,6 +43,7 @@ pub enum FailureStage {
     TimeZoneConfig,
     AntennaLayout,
     ClipLayout,
+    GalleryLayout(GalleryLayoutFailure),
     AuthStore,
     AuthService,
     Redis,
@@ -314,6 +316,7 @@ pub struct Runtime {
     business_config: business::Config,
     antenna_queries: business::AntennaQueries,
     clip_queries: business::ClipQueries,
+    gallery_queries: business::GalleryQueries,
     max_file_size: u64,
     upload_directory: String,
     enable_ip_rate_limit: bool,
@@ -378,6 +381,11 @@ impl Runtime {
                 tracing::error!(operation = "configure_clip_queries", error.kind = ?kind, "API bootstrap failed");
                 Failure::new(FailureStage::ClipLayout)
             })?;
+        let gallery_queries = business::GalleryQueries::new(&config.auth.entity_layouts)
+            .map_err(|kind| {
+                tracing::error!(operation = "configure_gallery_queries", error.kind = ?kind, "API bootstrap failed");
+                Failure::new(FailureStage::GalleryLayout(kind))
+            })?;
         let database = Arc::new(online_users.database(config.postgres_primary));
         let store = Arc::new(
             PostgresAuthStore::new(database.clone(), config.auth.entity_layouts.clone())
@@ -412,6 +420,7 @@ impl Runtime {
             business_config,
             antenna_queries,
             clip_queries,
+            gallery_queries,
             max_file_size: config.max_file_size,
             upload_directory: config.upload_directory,
             enable_ip_rate_limit: config.enable_ip_rate_limit,

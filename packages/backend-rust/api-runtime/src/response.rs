@@ -26,6 +26,7 @@ pub(crate) enum ApiFailure {
     AppPermissionDenied,
     NoSuchAntenna,
     NoSuchClip,
+    NoSuchPost,
 }
 
 /// Captured from Bun 1.4.4 Date.toISOString for invalid stored dates.
@@ -42,6 +43,13 @@ pub(crate) const INVALID_DATE: LegacyErrorDef = LegacyErrorDef {
 // primitive, rather than a hydrated Date; differential tests guard this text.
 pub(crate) const NON_DATE_CLIP_TIMESTAMP: LegacyErrorDef = LegacyErrorDef {
     message: "i.lastClippedAt.toISOString is not a function. (In 'i.lastClippedAt.toISOString()', 'i.lastClippedAt.toISOString' is undefined)",
+    code: "TypeError",
+};
+
+// Actual pinned production GalleryPost.pack: the PG driver returns infinity
+// as a primitive. Public HTTP fixtures guard the minifier-specific wording.
+pub(crate) const NON_DATE_GALLERY_TIMESTAMP: LegacyErrorDef = LegacyErrorDef {
+    message: "i.updatedAt.toISOString is not a function. (In 'i.updatedAt.toISOString()', 'i.updatedAt.toISOString' is undefined)",
     code: "TypeError",
 };
 
@@ -174,6 +182,13 @@ impl ApiFailure {
                 "No such clip.",
                 "NO_SUCH_CLIP",
                 "c3c5fe33-d62c-44d2-9ea5-d997703f5c20",
+                "client",
+                None,
+            ),
+            Self::NoSuchPost => (
+                "No such post.",
+                "NO_SUCH_POST",
+                "1137bf14-c5b0-4604-85bb-5b5371b1cd45",
                 "client",
                 None,
             ),

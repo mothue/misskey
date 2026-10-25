@@ -2,6 +2,8 @@
 
 ## Authority and scope
 
+The complete [Gallery post read](gallery-posts-show-validation.md) reuses native UserLite/public-file packing and passes all eight paired performance conditions. Legal stored array shapes and Date error behavior match actual TS HTTP; a separate shared attachment Date repair restores published notes/show parity. Final batch acceptance is recorded there.
+
 The complete [hashtag trend slice](hashtags-trend-validation.md) reuses the native Redis read lane and local calendar. Its ordered ranking union, twenty-slot chart and per-command errors match actual TS HTTP; all nine paired throughput/p95 conditions pass. Existing cumulative chart-window behavior is preserved and separately reported in issue61.
 
 The complete [clips/show slice](clips-show-validation.md) reuses native Clip/UserLite packing and passes all six paired throughput/p95 conditions. The same batch corrects the shared UserLite decoration-filter ordering regression after actual pure-TS/published-native HTTP reproduction. `notes/clips` retains its separate performance hold.

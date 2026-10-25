@@ -24,6 +24,22 @@ use row::{Note, Visibility, boolean, field, null_string, optional_string, string
 pub(super) use state::state;
 pub(super) use users::pack_many_users;
 
+pub(in crate::business) async fn pack_user_lite_by_id(
+    runtime: &Runtime,
+    user_id: &str,
+    auth: &Context,
+) -> Result<Value, Error> {
+    // Gallery forwards its actual viewer, unlike Clip's anonymous UserLite pack.
+    users::pack_user_by_id(runtime, user_id, auth).await
+}
+
+pub(in crate::business) async fn pack_public_files_map(
+    runtime: &Runtime,
+    file_ids: &[Option<&str>],
+) -> Result<HashMap<String, Value>, Error> {
+    files::pack_files_map(runtime, file_ids).await
+}
+
 struct Graph {
     notes: HashMap<String, Note>,
     users: HashMap<String, Value>,

@@ -8,6 +8,9 @@ use tokio_postgres::types::ToSql;
 mod antennas;
 pub(super) use antennas::Queries as AntennaQueries;
 mod discovery;
+mod gallery;
+pub use gallery::GalleryLayoutFailure;
+pub(super) use gallery::GalleryQueries;
 mod hashtag_trend;
 mod id;
 mod js_value;
@@ -49,6 +52,7 @@ pub(super) enum Error {
     Internal,
     Antenna(antennas::FailureKind),
     HashtagTrend(hashtag_trend::TrendFailure),
+    Gallery(gallery::GalleryFailure),
     ClipShow(ClipFailureKind),
     ClipShowQuery {
         kind: ClipFailureKind,
@@ -97,6 +101,13 @@ impl Error {
             Self::HashtagTrend(source) => {
                 source.report();
                 crate::response::internal()
+            }
+            Self::Gallery(source) => {
+                source.report();
+                match source {
+                    gallery::GalleryFailure::Query { source, .. } => Self::query(source).response(),
+                    _ => crate::response::internal(),
+                }
             }
             Self::ClipShow(kind) => {
                 tracing::error!(operation = "read_clip_show", error.kind = ?kind, "endpoint failed");
@@ -204,6 +215,7 @@ pub(super) const ACTIVE_READ_ENDPOINTS: &[&str] = &[
     "clips/show",
     "emoji",
     "emojis",
+    "gallery/posts/show",
     "hashtags/list",
     "hashtags/search",
     "hashtags/show",
@@ -245,6 +257,9 @@ pub(super) async fn execute(
     }
     if name == "hashtags/trend" {
         return Some(hashtag_trend::trend(runtime).await);
+    }
+    if name == "gallery/posts/show" {
+        return Some(gallery::show(runtime, params, auth).await);
     }
     if name == "users/get-following-users-by-birthday" {
         return Some(user_birthdays::birthdays(runtime, params, auth).await);
