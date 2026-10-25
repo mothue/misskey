@@ -6,7 +6,7 @@ Native means the complete business handler is selected in Rust; the public TS li
 
 | Total | Native | TS | Held (TS) |
 | ---: | ---: | ---: | ---: |
-| 438 | 37 | 390 | 11 |
+| 438 | 37 | 389 | 12 |
 
 Names and enumeration order come from the API registry. Native core selection and the business allowlist are read from Rust source. Rust advertises those selections at bootstrap; the TS callback guard consumes the validated names without a second list. Hold reasons come from the hold manifest.
 
@@ -231,7 +231,7 @@ Names and enumeration order come from the API registry. Native core selection an
 | `following/requests/sent` | TS |  |
 | `following/update` | TS |  |
 | `following/update-all` | TS |  |
-| `gallery/featured` | TS |  |
+| `gallery/featured` | Held (TS) | performance: Complete native candidate matches 81 HTTP cases, but paired small-list application-token throughput regressed 4.4147% while p95 improved 2.0426%. Keep the complete TS body; default-list and maximum-list measurement remain skipped after the valid gate failure. ([evidence](gallery-featured-validation.md)) |
 | `gallery/popular` | TS |  |
 | `gallery/posts` | TS |  |
 | `gallery/posts/create` | TS |  |
@@ -456,7 +456,7 @@ Names and enumeration order come from the API registry. Native core selection an
 | Source | SHA-256 |
 | --- | --- |
 | `packages/backend/src/server/api/endpoint-list.ts` | `f6adc6070df862e7544a92bafc001a9339bfe1e746a856b602c505a248ae5470` |
-| `packages/backend-rust/api-runtime/src/lib.rs` | `76e94fd883a72256238d69f382091fe59f619b19955372cb7218bae6b740a47e` |
-| `packages/backend-rust/api-runtime/src/business/mod.rs` | `d31fe7aa43b2a2694883e20e0d3d03e029d61e24771d18e40cf2c22b9155fe67` |
+| `packages/backend-rust/api-runtime/src/lib.rs` | `f71bd79e3081491b91bc27c8ec24db92d1f3b1f86095eec1cfc0f5bcadd92414` |
+| `packages/backend-rust/api-runtime/src/business/mod.rs` | `ed455d29242cc786758454a8d6bf5f1b92a4116de1755c19362b572d5416452c` |
 | `packages/backend/src/server/api/ApiServerService.ts` | `e895e57000d3ec572cc87c1fee99f446b80e798161416a918edca5e95f08cc79` |
-| `scripts/ts-to-rs/native-holds.json` | `15afb2cd870908b8ccdb1e16bd018ff96a6f8cc96b24b91d2891025198007fd7` |
+| `scripts/ts-to-rs/native-holds.json` | `ccfb4a957deed74f5cf1280cdced1424dc10dfb1db326d0e5225673a074d1722` |

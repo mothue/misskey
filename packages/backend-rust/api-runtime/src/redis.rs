@@ -1223,17 +1223,20 @@ pub(crate) enum HashtagCount {
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum RankingKind {
     Hashtag,
+    GalleryPosts,
 }
 impl RankingKind {
     fn inclusive_end(self) -> usize {
         match self {
             Self::Hashtag => 10,
+            Self::GalleryPosts => 100,
         }
     }
 
     fn operation(self) -> &'static str {
         match self {
             Self::Hashtag => "hashtags.trend.ranking",
+            Self::GalleryPosts => "gallery.featured.ranking",
         }
     }
 }
@@ -1269,7 +1272,7 @@ impl<T> CommandBatch<T> {
             // key/tag/member text, reply data and credentials stay private.
             tracing::warn!(operation = error.operation.name(),
                 command_index = error.command_index, error.kind = ?error.source.kind(),
-                "native hashtag command returned an error");
+                "native Redis command returned an error");
         }
     }
 }
@@ -1461,6 +1464,13 @@ impl RedisState {
     ) -> Result<CommandBatch<[Vec<String>; 2]>, CommandReadFailure> {
         self.ranking_windows(keys, RankingKind::Hashtag).await
     }
+    pub(crate) async fn gallery_rankings(
+        &self,
+        keys: &[String; 2],
+    ) -> Result<CommandBatch<[Vec<String>; 2]>, CommandReadFailure> {
+        self.ranking_windows(keys, RankingKind::GalleryPosts).await
+    }
+
     pub(crate) async fn hashtag_counts(
         &self,
         keys: &[String],
@@ -1610,6 +1620,71 @@ mod hashtag_trend_source_tests {
                 fixture["sourceJson"].as_str(),
                 "{decimal}"
             );
+        }
+    }
+}
+
+#[cfg(test)]
+mod gallery_ranking_source_tests {
+    use super::*;
+    use serde_json::Value as Json;
+
+    #[test]
+    fn gallery_ranking_members_match_actual_source_order_without_score_narrowing() {
+        let oracle: Json = serde_json::from_str(include_str!(
+            "business/fixtures/gallery-featured-ranking-order-source-oracle.json"
+        ))
+        .unwrap();
+        for fixture in oracle["cases"].as_array().unwrap() {
+            let replies = fixture["inputs"]["rankingReplies"].as_array().unwrap();
+            let observed: Vec<&Json> = fixture["trace"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter(|entry| entry["operation"] == "actual.featured.rankingResult")
+                .collect();
+            assert_eq!(replies.len(), observed.len(), "{}", fixture["name"]);
+            for (reply, expected) in replies.iter().zip(observed) {
+                let window = |name: &str| {
+                    RedisValue::Array(
+                        reply[name]
+                            .as_array()
+                            .unwrap()
+                            .iter()
+                            .flat_map(|pair| {
+                                [
+                                    RedisValue::BulkString(
+                                        pair[0].as_str().unwrap().as_bytes().to_vec(),
+                                    ),
+                                    RedisValue::BulkString(
+                                        pair[1].as_str().unwrap().as_bytes().to_vec(),
+                                    ),
+                                ]
+                            })
+                            .collect(),
+                    )
+                };
+                let decoded = decode_ranking(
+                    &[window("current"), window("previous")],
+                    RankingKind::GalleryPosts,
+                )
+                .unwrap();
+                let mut seen = HashSet::new();
+                let members: Vec<&str> = decoded
+                    .values
+                    .iter()
+                    .flatten()
+                    .filter_map(|member| seen.insert(member.as_str()).then_some(member.as_str()))
+                    .collect();
+                let source: Vec<&str> = expected["ids"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|member| member.as_str().unwrap())
+                    .collect();
+                assert_eq!(members, source, "{}", fixture["name"]);
+                assert!(decoded.command_errors.is_empty());
+            }
         }
     }
 }

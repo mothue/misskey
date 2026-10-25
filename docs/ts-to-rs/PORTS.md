@@ -2,6 +2,8 @@
 
 ## Authority and scope
 
+The complete [Gallery featured candidate](gallery-featured-validation.md) matches81 public HTTP comparisons and reuses native Gallery/UserLite/file packing, but remains on TS after small-list application-token throughput regresses4.41%. Six conditions are measured; five remain skipped. No performance exception is taken.
+
 The complete [Gallery post read](gallery-posts-show-validation.md) reuses native UserLite/public-file packing and passes all eight paired performance conditions. Legal stored array shapes and Date error behavior match actual TS HTTP; a separate shared attachment Date repair restores published notes/show parity. Final batch acceptance is recorded there.
 
 The complete [hashtag trend slice](hashtags-trend-validation.md) reuses the native Redis read lane and local calendar. Its ordered ranking union, twenty-slot chart and per-command errors match actual TS HTTP; all nine paired throughput/p95 conditions pass. Existing cumulative chart-window behavior is preserved and separately reported in issue61.

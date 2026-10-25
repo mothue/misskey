@@ -2,6 +2,12 @@
   "version": 1,
   "holds": [
     {
+      "endpoint": "gallery/featured",
+      "kind": "performance",
+      "reason": "Complete native candidate matches 81 HTTP cases, but paired small-list application-token throughput regressed 4.4147% while p95 improved 2.0426%. Keep the complete TS body; default-list and maximum-list measurement remain skipped after the valid gate failure.",
+      "evidence": "gallery-featured-validation.md"
+    },
+    {
       "endpoint": "admin/get-index-stats",
       "kind": "performance",
       "reason": "The complete native candidate failed its paired measurement gate; continue using the TS body.",

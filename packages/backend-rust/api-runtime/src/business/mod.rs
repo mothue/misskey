@@ -10,7 +10,7 @@ pub(super) use antennas::Queries as AntennaQueries;
 mod discovery;
 mod gallery;
 pub use gallery::GalleryLayoutFailure;
-pub(super) use gallery::GalleryQueries;
+pub(super) use gallery::{GalleryFeaturedCache, GalleryQueries};
 mod hashtag_trend;
 mod id;
 mod js_value;
@@ -260,6 +260,9 @@ pub(super) async fn execute(
     }
     if name == "gallery/posts/show" {
         return Some(gallery::show(runtime, params, auth).await);
+    }
+    if name == "gallery/featured" {
+        return Some(gallery::featured(runtime, params, auth).await);
     }
     if name == "users/get-following-users-by-birthday" {
         return Some(user_birthdays::birthdays(runtime, params, auth).await);

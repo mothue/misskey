@@ -24,7 +24,7 @@ Private root: `/workspace/native-queue/gallery-posts-show`. `results.jsonl` reco
 | Independent review | PASS | Fresh-context source, runtime, metrics, docs and federation evidence reviewed; all56 metric rows/eight gates independently recomputed, frozen federation source/artifact/harness hashes independently verified. |
 | Paired measurement/gate | PASS, exit0 | Eight actual normal POST scenarios;48,000 measured +4,800 warm-up +6 cold responses all match. All eight median throughput/p95 gates pass on the first attempt. |
 | Fresh Linux federation | PASS, exit0 | Fresh Linux build113.106s; nine files,92 passed/13 skipped; test84.611s. Frozen1319d080e3 HEAD,1,208 selected sources,195 host JS artifacts and harness remain unchanged. |
-| Final pushed-SHA CI | PENDING | No previous/intermediate result substituted. |
+| Final pushed-SHA CI | PASS | `8b8d2adb53bd0ed3b4dbc1f4ef2116cbf50db991`:18 successful workflows and1 skipped Storybook, all first attempt. No previous/intermediate result substituted. |
 
 No new compatibility exception is taken. SDK declaration mismatches and deliberately corrupted stored-fixture failures remain visible as BASELINE rather than being filtered out. The shared attachment Date fix restores ordinary published response parity; it is not the approved infrastructure-detail exception.
 
