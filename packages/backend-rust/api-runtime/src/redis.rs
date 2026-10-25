@@ -1221,30 +1221,48 @@ pub(crate) enum HashtagCount {
 }
 
 #[derive(Clone, Copy, Debug)]
-pub(crate) enum HashtagOperation {
-    Ranking,
-    Chart,
+pub(crate) enum RankingKind {
+    Hashtag,
 }
-impl HashtagOperation {
+impl RankingKind {
+    fn inclusive_end(self) -> usize {
+        match self {
+            Self::Hashtag => 10,
+        }
+    }
+
+    fn operation(self) -> &'static str {
+        match self {
+            Self::Hashtag => "hashtags.trend.ranking",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum CommandOperation {
+    Ranking(RankingKind),
+    HashtagChart,
+}
+impl CommandOperation {
     fn name(self) -> &'static str {
         match self {
-            Self::Ranking => "hashtags.trend.ranking",
-            Self::Chart => "hashtags.trend.chart",
+            Self::Ranking(kind) => kind.operation(),
+            Self::HashtagChart => "hashtags.trend.chart",
         }
     }
 }
 #[derive(Debug)]
-pub(crate) struct HashtagCommandError {
-    pub operation: HashtagOperation,
+pub(crate) struct CommandError {
+    pub operation: CommandOperation,
     pub command_index: usize,
     pub source: redis::RedisError,
 }
 #[derive(Debug)]
-pub(crate) struct HashtagBatch<T> {
+pub(crate) struct CommandBatch<T> {
     pub values: T,
-    pub command_errors: Vec<HashtagCommandError>,
+    pub command_errors: Vec<CommandError>,
 }
-impl<T> HashtagBatch<T> {
+impl<T> CommandBatch<T> {
     pub(crate) fn report(&self) {
         for error in &self.command_errors {
             // Only a typed Redis error category is logged. ServerError details,
@@ -1257,7 +1275,7 @@ impl<T> HashtagBatch<T> {
 }
 
 #[derive(Clone, Copy, Debug)]
-pub(crate) enum HashtagResponseKind {
+pub(crate) enum CommandResponseKind {
     RankingOuter,
     RankingWindow,
     RankingPairs,
@@ -1266,31 +1284,31 @@ pub(crate) enum HashtagResponseKind {
     CountElement,
 }
 #[derive(Debug)]
-pub(crate) enum HashtagReadFailure {
+pub(crate) enum CommandReadFailure {
     Read(ReadExecutionFailure),
     Unavailable,
-    Response(HashtagResponseKind),
+    Response(CommandResponseKind),
 }
-impl HashtagReadFailure {
+impl CommandReadFailure {
     pub(crate) fn safe_kind(&self) -> &'static str {
         match self {
             Self::Read(source) => source.safe_kind(),
             Self::Unavailable => "redis_unavailable",
-            Self::Response(HashtagResponseKind::RankingOuter) => "ranking_outer_shape",
-            Self::Response(HashtagResponseKind::RankingWindow) => "ranking_window_shape",
-            Self::Response(HashtagResponseKind::RankingPairs) => "ranking_pair_shape",
-            Self::Response(HashtagResponseKind::RankingMember) => "ranking_member_shape",
-            Self::Response(HashtagResponseKind::CountsOuter) => "chart_outer_shape",
-            Self::Response(HashtagResponseKind::CountElement) => "chart_count_shape",
+            Self::Response(CommandResponseKind::RankingOuter) => "ranking_outer_shape",
+            Self::Response(CommandResponseKind::RankingWindow) => "ranking_window_shape",
+            Self::Response(CommandResponseKind::RankingPairs) => "ranking_pair_shape",
+            Self::Response(CommandResponseKind::RankingMember) => "ranking_member_shape",
+            Self::Response(CommandResponseKind::CountsOuter) => "chart_outer_shape",
+            Self::Response(CommandResponseKind::CountElement) => "chart_count_shape",
         }
     }
 }
-impl fmt::Display for HashtagReadFailure {
+impl fmt::Display for CommandReadFailure {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.safe_kind())
     }
 }
-impl std::error::Error for HashtagReadFailure {
+impl std::error::Error for CommandReadFailure {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::Read(source) => Some(source),
@@ -1299,8 +1317,9 @@ impl std::error::Error for HashtagReadFailure {
     }
 }
 
-fn hashtag_ranking_pipeline(
+fn ranking_pipeline(
     keys: &[String; 2],
+    kind: RankingKind,
     mut prefix: impl FnMut(&str) -> String,
 ) -> redis::Pipeline {
     let mut pipeline = redis::pipe(); // Non-transactional: never call atomic().
@@ -1309,7 +1328,7 @@ fn hashtag_ranking_pipeline(
             .cmd("ZRANGE")
             .arg(prefix(key))
             .arg(0)
-            .arg(10)
+            .arg(kind.inclusive_end())
             .arg("REV")
             .arg("WITHSCORES");
     }
@@ -1326,15 +1345,16 @@ fn hashtag_count_pipeline(
     pipeline
 }
 
-fn decode_hashtag_ranking(
+fn decode_ranking(
     values: &[RedisValue],
-) -> Result<HashtagBatch<[Vec<String>; 2]>, HashtagReadFailure> {
+    kind: RankingKind,
+) -> Result<CommandBatch<[Vec<String>; 2]>, CommandReadFailure> {
     let [current, previous] = values else {
-        return Err(HashtagReadFailure::Response(
-            HashtagResponseKind::RankingOuter,
+        return Err(CommandReadFailure::Response(
+            CommandResponseKind::RankingOuter,
         ));
     };
-    let mut result = HashtagBatch {
+    let mut result = CommandBatch {
         values: [Vec::new(), Vec::new()],
         command_errors: Vec::new(),
     };
@@ -1342,21 +1362,21 @@ fn decode_hashtag_ranking(
         if let RedisValue::ServerError(source) = reply {
             // Actual ioredis Pipeline.fillResult([error], position); actual
             // FeaturedService maps tuple[1] ?? [] to an empty window only.
-            result.command_errors.push(HashtagCommandError {
-                operation: HashtagOperation::Ranking,
+            result.command_errors.push(CommandError {
+                operation: CommandOperation::Ranking(kind),
                 command_index: index,
                 source: source.clone().into(),
             });
             continue;
         }
         let RedisValue::Array(pairs) = reply else {
-            return Err(HashtagReadFailure::Response(
-                HashtagResponseKind::RankingWindow,
+            return Err(CommandReadFailure::Response(
+                CommandResponseKind::RankingWindow,
             ));
         };
         if pairs.len() % 2 != 0 {
-            return Err(HashtagReadFailure::Response(
-                HashtagResponseKind::RankingPairs,
+            return Err(CommandReadFailure::Response(
+                CommandResponseKind::RankingPairs,
             ));
         }
         for pair in pairs.as_chunks::<2>().0 {
@@ -1364,8 +1384,8 @@ fn decode_hashtag_ranking(
                 RedisValue::BulkString(bytes) => String::from_utf8_lossy(bytes).into_owned(),
                 RedisValue::SimpleString(text) => text.clone(),
                 _ => {
-                    return Err(HashtagReadFailure::Response(
-                        HashtagResponseKind::RankingMember,
+                    return Err(CommandReadFailure::Response(
+                        CommandResponseKind::RankingMember,
                     ));
                 }
             };
@@ -1382,13 +1402,13 @@ fn decode_hashtag_ranking(
 fn decode_hashtag_counts(
     expected: usize,
     values: &[RedisValue],
-) -> Result<HashtagBatch<Vec<HashtagCount>>, HashtagReadFailure> {
+) -> Result<CommandBatch<Vec<HashtagCount>>, CommandReadFailure> {
     if values.len() != expected {
-        return Err(HashtagReadFailure::Response(
-            HashtagResponseKind::CountsOuter,
+        return Err(CommandReadFailure::Response(
+            CommandResponseKind::CountsOuter,
         ));
     }
-    let mut result = HashtagBatch {
+    let mut result = CommandBatch {
         values: Vec::with_capacity(expected),
         command_errors: Vec::new(),
     };
@@ -1401,15 +1421,15 @@ fn decode_hashtag_counts(
                 // HashtagService pushes tuple[1], which is undefined for [error].
                 // Preserve this until Math.max and JSON projection (null in arrays).
                 result.values.push(HashtagCount::Undefined);
-                result.command_errors.push(HashtagCommandError {
-                    operation: HashtagOperation::Chart,
+                result.command_errors.push(CommandError {
+                    operation: CommandOperation::HashtagChart,
                     command_index: index,
                     source: source.clone().into(),
                 });
             }
             _ => {
-                return Err(HashtagReadFailure::Response(
-                    HashtagResponseKind::CountElement,
+                return Err(CommandReadFailure::Response(
+                    CommandResponseKind::CountElement,
                 ));
             }
         }
@@ -1418,34 +1438,42 @@ fn decode_hashtag_counts(
 }
 
 impl RedisState {
-    pub(crate) async fn hashtag_rankings(
+    async fn ranking_windows(
         &self,
         keys: &[String; 2],
-    ) -> Result<HashtagBatch<[Vec<String>; 2]>, HashtagReadFailure> {
+        kind: RankingKind,
+    ) -> Result<CommandBatch<[Vec<String>; 2]>, CommandReadFailure> {
         if !self.ready() {
-            return Err(HashtagReadFailure::Unavailable);
+            return Err(CommandReadFailure::Unavailable);
         }
-        let pipeline = hashtag_ranking_pipeline(keys, |key| self.reads.key(key));
+        let pipeline = ranking_pipeline(keys, kind, |key| self.reads.key(key));
         let values = self
             .reads
             .execute_per_command(&pipeline)
             .await
-            .map_err(HashtagReadFailure::Read)?;
-        decode_hashtag_ranking(&values)
+            .map_err(CommandReadFailure::Read)?;
+        decode_ranking(&values, kind)
+    }
+
+    pub(crate) async fn hashtag_rankings(
+        &self,
+        keys: &[String; 2],
+    ) -> Result<CommandBatch<[Vec<String>; 2]>, CommandReadFailure> {
+        self.ranking_windows(keys, RankingKind::Hashtag).await
     }
     pub(crate) async fn hashtag_counts(
         &self,
         keys: &[String],
-    ) -> Result<HashtagBatch<Vec<HashtagCount>>, HashtagReadFailure> {
+    ) -> Result<CommandBatch<Vec<HashtagCount>>, CommandReadFailure> {
         if !self.ready() {
-            return Err(HashtagReadFailure::Unavailable);
+            return Err(CommandReadFailure::Unavailable);
         }
         let pipeline = hashtag_count_pipeline(keys, |key| self.reads.key(key));
         let values = self
             .reads
             .execute_per_command(&pipeline)
             .await
-            .map_err(HashtagReadFailure::Read)?;
+            .map_err(CommandReadFailure::Read)?;
         decode_hashtag_counts(keys.len(), &values)
     }
 }
@@ -1497,10 +1525,10 @@ mod hashtag_trend_source_tests {
                 if fixture["input"]["rankingNull"] == true {
                     continue;
                 } // Source-only null-exec control.
-                let decoded = decode_hashtag_ranking(&[
-                    reply(fixture, "current"),
-                    reply(fixture, "previous"),
-                ])
+                let decoded = decode_ranking(
+                    &[reply(fixture, "current"), reply(fixture, "previous")],
+                    RankingKind::Hashtag,
+                )
                 .unwrap();
                 let mut seen = HashSet::new();
                 let tags: Vec<&str> = decoded

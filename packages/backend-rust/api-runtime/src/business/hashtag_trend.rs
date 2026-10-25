@@ -9,7 +9,7 @@ use super::{
 };
 use crate::{
     Runtime,
-    redis::{HashtagBatch, HashtagCount, HashtagReadFailure, RedisState},
+    redis::{CommandBatch, CommandReadFailure, HashtagCount, RedisState},
 };
 use misskey_api_validation::Value;
 use std::{collections::HashSet, future::Future};
@@ -22,7 +22,7 @@ const CHART_RANGE: usize = 20;
 pub(crate) enum TrendFailure {
     RankingClockOverflow,
     Calendar(CalendarError),
-    Redis(HashtagReadFailure),
+    Redis(CommandReadFailure),
     CountShape { expected: usize, actual: usize },
 }
 
@@ -59,25 +59,25 @@ trait TrendStore {
     fn ranking<'a>(
         &'a self,
         keys: &'a [String; 2],
-    ) -> impl Future<Output = Result<HashtagBatch<[Vec<String>; 2]>, HashtagReadFailure>> + Send + 'a;
+    ) -> impl Future<Output = Result<CommandBatch<[Vec<String>; 2]>, CommandReadFailure>> + Send + 'a;
     fn counts<'a>(
         &'a self,
         keys: &'a [String],
-    ) -> impl Future<Output = Result<HashtagBatch<Vec<HashtagCount>>, HashtagReadFailure>> + Send + 'a;
+    ) -> impl Future<Output = Result<CommandBatch<Vec<HashtagCount>>, CommandReadFailure>> + Send + 'a;
 }
 
 impl TrendStore for RedisState {
     fn ranking<'a>(
         &'a self,
         keys: &'a [String; 2],
-    ) -> impl Future<Output = Result<HashtagBatch<[Vec<String>; 2]>, HashtagReadFailure>> + Send + 'a
+    ) -> impl Future<Output = Result<CommandBatch<[Vec<String>; 2]>, CommandReadFailure>> + Send + 'a
     {
         self.hashtag_rankings(keys)
     }
     fn counts<'a>(
         &'a self,
         keys: &'a [String],
-    ) -> impl Future<Output = Result<HashtagBatch<Vec<HashtagCount>>, HashtagReadFailure>> + Send + 'a
+    ) -> impl Future<Output = Result<CommandBatch<Vec<HashtagCount>>, CommandReadFailure>> + Send + 'a
     {
         self.hashtag_counts(keys)
     }
@@ -220,7 +220,7 @@ mod tests {
         fn ranking<'a>(
             &'a self,
             keys: &'a [String; 2],
-        ) -> impl Future<Output = Result<HashtagBatch<[Vec<String>; 2]>, HashtagReadFailure>> + Send + 'a
+        ) -> impl Future<Output = Result<CommandBatch<[Vec<String>; 2]>, CommandReadFailure>> + Send + 'a
         {
             self.calls.lock().unwrap().push(Call::Ranking(keys.clone()));
             let members = |name: &str| {
@@ -231,7 +231,7 @@ mod tests {
                     .map(|pair| pair[0].as_str().unwrap().to_owned())
                     .collect()
             };
-            ready(Ok(HashtagBatch {
+            ready(Ok(CommandBatch {
                 values: if self.fixture["input"]["rankingNull"] == true {
                     [Vec::new(), Vec::new()]
                 } else if self.fixture["input"]["rankingErrorCurrent"] == true {
@@ -245,10 +245,10 @@ mod tests {
         fn counts<'a>(
             &'a self,
             keys: &'a [String],
-        ) -> impl Future<Output = Result<HashtagBatch<Vec<HashtagCount>>, HashtagReadFailure>> + Send + 'a
+        ) -> impl Future<Output = Result<CommandBatch<Vec<HashtagCount>>, CommandReadFailure>> + Send + 'a
         {
             self.calls.lock().unwrap().push(Call::Counts(keys.to_vec()));
-            ready(Ok(HashtagBatch {
+            ready(Ok(CommandBatch {
                 values: self.fixture["chartResponse"]
                     .as_array()
                     .unwrap()
