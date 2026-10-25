@@ -34,7 +34,8 @@ Private evidence: `/workspace/native-queue/user-birthdays-resume`, results.jsonl
 | Activation gate | FAIL,exit1 | Five conditions PASS; scoped18-user RPS-4.85%,p95-6.62%. Keep TS. No favorable-run retry. |
 | Independent source/metrics review | PASS | Radix P2 resolved after actual green HTTP; all42CSVrows independently recomputed,0discrepancy. Final held recheck retained privately. |
 | Final held HTTP/SDK/widget/E2E | PASS / BASELINE | 89HTTPcases PASS;32native SDK coverage PASS with105PASS+19identical BASELINE rows;3widget pages PASS;E2E299PASS,1skip,10todo. This verifies TS retention, not native birthday activation. |
-| Fresh Linux federation | PENDING | Required for shared-bootstrap changes; freeze commit/source and build container-native artifacts. |
+| Fresh Linux federation | PASS,exit0 | Fresh native container build at5852041cac:92passed,13skipped,9files. All1263frozen source/test files and HEAD unchanged; dedicated containers/volumes removed. |
+| Rust subprocess lifecycle | PASS,exit0 | One child starts; stopping it produces503 for birthday/core APIs; host survives, no restart, all test processes reaped. |
 | Final pushed-SHA CI | PENDING | Check actual final push; record initial failures and retries separately. |
 
 [All metrics and variation](users-birthdays-benchmark.csv) retain the failed gate. The metrics formatter supplies statistics; benchmark-gate.json separately applies the strict all-scenario gate. Skipped/ignored/todo cases are not successes. The first compile failed on a temporary borrow and was corrected. The initial SDK harness free-port probe rejected TIME_WAIT; SO_REUSEADDR corrected that harness check before fresh capture, without sharing a live listener.
