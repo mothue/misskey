@@ -30,7 +30,10 @@ Private evidence: `/workspace/native-queue/clips-show`, including command/cwd/ex
 | Child lifecycle | PASS, exit 0 | One Rust child; after termination new handler and four core APIs return fixed 503; host survives, measured live Rust children 0, no restart. |
 | Measurement / activation gate | PASS, exit 0 | Six throughput/p95 conditions; all measured responses match captured TS responses. |
 | Independent source/metrics review | PASS | Source, all 50 HTTP pairs, date fixture tuples and five UI pairs checked; all 42 metric rows, 1,008 numeric summary/CSV fields and six gates independently recomputed without discrepancies. Request-level latency samples are not retained. |
-| Fresh federation / final pushed-SHA CI | PENDING at this evidence stage | Earlier successes do not replace checks for this batch. |
+| Fresh local federation | PASS, exit 0 | Native Linux build 114.472s; nine files, 92 passed, 13 skipped; test command 84.861s. All 1,162 frozen files and 971d5da436 HEAD unchanged; owned containers/volumes removed. |
+| Final pushed-SHA CI | PENDING at this evidence commit | Earlier and intermediate-commit results do not replace checks on the final pushed SHA. |
+
+The intermediate `48165e43bb` CI had a frontend E2E startup failure before browser tests: PostgreSQL 40P01 between test-reset DROP TABLE and an INSERT into used_username. The same lock cycle was already observed on pure-TS d875 startup in [issue #60](https://github.com/mothue/misskey/issues/60). This is retained as an existing initialization failure, not a successful CI run or evidence of a new API regression. Final pushed-SHA checks remain separate.
 
 ## Paired cloud measurement
 
