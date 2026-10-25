@@ -176,6 +176,62 @@ struct RedisReads {
     cache: Mutex<ReadCache>,
 }
 
+#[derive(Clone, Copy)]
+enum ReplyErrors {
+    Extract,
+    PerCommand,
+}
+
+/// The legacy callers keep their existing stage projection. New operations
+/// retain concrete causes internally without exposing Redis details in logs.
+#[derive(Debug)]
+pub(crate) enum ReadExecutionFailure {
+    Shutdown,
+    ConnectionTimeout(tokio::time::error::Elapsed),
+    Connection(redis::RedisError),
+    MissingConnection,
+    Command(redis::RedisError),
+    UnexpectedTransaction,
+}
+
+impl ReadExecutionFailure {
+    fn legacy_failure(&self) -> Failure {
+        Failure::new(match self {
+            Self::Shutdown => FailureStage::Shutdown,
+            Self::ConnectionTimeout(_) => FailureStage::ConnectionTimeout,
+            Self::Connection(_) | Self::MissingConnection => FailureStage::Connection,
+            Self::Command(_) | Self::UnexpectedTransaction => FailureStage::Command,
+        })
+    }
+
+    fn safe_kind(&self) -> &'static str {
+        match self {
+            Self::Shutdown => "redis_shutdown",
+            Self::ConnectionTimeout(_) => "redis_connection_timeout",
+            Self::Connection(_) => "redis_connection",
+            Self::MissingConnection => "redis_connection_invariant",
+            Self::Command(_) => "redis_command",
+            Self::UnexpectedTransaction => "redis_unexpected_transaction",
+        }
+    }
+}
+
+impl fmt::Display for ReadExecutionFailure {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.safe_kind())
+    }
+}
+
+impl std::error::Error for ReadExecutionFailure {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::ConnectionTimeout(source) => Some(source),
+            Self::Connection(source) | Self::Command(source) => Some(source),
+            Self::Shutdown | Self::MissingConnection | Self::UnexpectedTransaction => None,
+        }
+    }
+}
+
 impl RedisReads {
     fn new(config: RedisConfig) -> Result<Self, Failure> {
         let (stop, _) = watch::channel(false);
@@ -190,8 +246,32 @@ impl RedisReads {
     }
 
     async fn execute(&self, pipeline: &redis::Pipeline) -> Result<Vec<RedisValue>, Failure> {
+        self.execute_with(pipeline, ReplyErrors::Extract)
+            .await
+            .map_err(|source| source.legacy_failure())
+    }
+
+    async fn execute_per_command(
+        &self,
+        pipeline: &redis::Pipeline,
+    ) -> Result<Vec<RedisValue>, ReadExecutionFailure> {
+        if pipeline.is_transaction() {
+            return Err(ReadExecutionFailure::UnexpectedTransaction);
+        }
+        self.execute_with(pipeline, ReplyErrors::PerCommand).await
+    }
+
+    async fn execute_with(
+        &self,
+        pipeline: &redis::Pipeline,
+        reply_errors: ReplyErrors,
+    ) -> Result<Vec<RedisValue>, ReadExecutionFailure> {
         if self.stopped.load(Ordering::Acquire) {
-            return Err(Failure::new(FailureStage::Shutdown));
+            return Err(ReadExecutionFailure::Shutdown);
+        }
+        // No command means no reply to wake the raw pipeline collector.
+        if pipeline.is_empty() && matches!(reply_errors, ReplyErrors::PerCommand) {
+            return Ok(Vec::new());
         }
         let mut stop = self.stop.subscribe();
         let operation = async {
@@ -203,18 +283,23 @@ impl RedisReads {
                         self.client.get_multiplexed_async_connection(),
                     )
                     .await
-                    .map_err(|_| Failure::new(FailureStage::ConnectionTimeout))?
-                    .map_err(|_| Failure::new(FailureStage::Connection))?,
+                    .map_err(ReadExecutionFailure::ConnectionTimeout)?
+                    .map_err(ReadExecutionFailure::Connection)?,
                 );
             }
-            let result = pipeline
-                .query_async(
-                    connection
-                        .as_mut()
-                        .ok_or_else(|| Failure::new(FailureStage::Connection))?,
-                )
-                .await
-                .map_err(|_| Failure::new(FailureStage::Command));
+            let live = connection
+                .as_mut()
+                .ok_or(ReadExecutionFailure::MissingConnection)?;
+            let result = match reply_errors {
+                ReplyErrors::Extract => pipeline.query_async(live).await,
+                // ioredis pipeline.exec keeps [error] alongside successful
+                // siblings. query_async would extract ANY ServerError and
+                // reject the whole pipeline before the business decoder.
+                ReplyErrors::PerCommand => {
+                    live.req_packed_commands(pipeline, 0, pipeline.len()).await
+                }
+            }
+            .map_err(ReadExecutionFailure::Command);
             if result.is_err() {
                 *connection = None;
             }
@@ -222,7 +307,7 @@ impl RedisReads {
         };
         tokio::select! {
             biased;
-            _ = stop.changed() => Err(Failure::new(FailureStage::Shutdown)),
+            _ = stop.changed() => Err(ReadExecutionFailure::Shutdown),
             result = operation => result,
         }
     }
@@ -1128,3 +1213,375 @@ fn parse_int_reply(value: &RedisValue) -> f64 {
 
 #[cfg(test)]
 mod tests;
+
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum HashtagCount {
+    Number(f64),
+    Undefined,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum HashtagOperation {
+    Ranking,
+    Chart,
+}
+impl HashtagOperation {
+    fn name(self) -> &'static str {
+        match self {
+            Self::Ranking => "hashtags.trend.ranking",
+            Self::Chart => "hashtags.trend.chart",
+        }
+    }
+}
+#[derive(Debug)]
+pub(crate) struct HashtagCommandError {
+    pub operation: HashtagOperation,
+    pub command_index: usize,
+    pub source: redis::RedisError,
+}
+#[derive(Debug)]
+pub(crate) struct HashtagBatch<T> {
+    pub values: T,
+    pub command_errors: Vec<HashtagCommandError>,
+}
+impl<T> HashtagBatch<T> {
+    pub(crate) fn report(&self) {
+        for error in &self.command_errors {
+            // Only a typed Redis error category is logged. ServerError details,
+            // key/tag/member text, reply data and credentials stay private.
+            tracing::warn!(operation = error.operation.name(),
+                command_index = error.command_index, error.kind = ?error.source.kind(),
+                "native hashtag command returned an error");
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum HashtagResponseKind {
+    RankingOuter,
+    RankingWindow,
+    RankingPairs,
+    RankingMember,
+    CountsOuter,
+    CountElement,
+}
+#[derive(Debug)]
+pub(crate) enum HashtagReadFailure {
+    Read(ReadExecutionFailure),
+    Unavailable,
+    Response(HashtagResponseKind),
+}
+impl HashtagReadFailure {
+    pub(crate) fn safe_kind(&self) -> &'static str {
+        match self {
+            Self::Read(source) => source.safe_kind(),
+            Self::Unavailable => "redis_unavailable",
+            Self::Response(HashtagResponseKind::RankingOuter) => "ranking_outer_shape",
+            Self::Response(HashtagResponseKind::RankingWindow) => "ranking_window_shape",
+            Self::Response(HashtagResponseKind::RankingPairs) => "ranking_pair_shape",
+            Self::Response(HashtagResponseKind::RankingMember) => "ranking_member_shape",
+            Self::Response(HashtagResponseKind::CountsOuter) => "chart_outer_shape",
+            Self::Response(HashtagResponseKind::CountElement) => "chart_count_shape",
+        }
+    }
+}
+impl fmt::Display for HashtagReadFailure {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.safe_kind())
+    }
+}
+impl std::error::Error for HashtagReadFailure {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Read(source) => Some(source),
+            Self::Unavailable | Self::Response(_) => None,
+        }
+    }
+}
+
+fn hashtag_ranking_pipeline(
+    keys: &[String; 2],
+    mut prefix: impl FnMut(&str) -> String,
+) -> redis::Pipeline {
+    let mut pipeline = redis::pipe(); // Non-transactional: never call atomic().
+    for key in keys {
+        pipeline
+            .cmd("ZRANGE")
+            .arg(prefix(key))
+            .arg(0)
+            .arg(10)
+            .arg("REV")
+            .arg("WITHSCORES");
+    }
+    pipeline
+}
+fn hashtag_count_pipeline(
+    keys: &[String],
+    mut prefix: impl FnMut(&str) -> String,
+) -> redis::Pipeline {
+    let mut pipeline = redis::pipe();
+    for key in keys {
+        pipeline.cmd("PFCOUNT").arg(prefix(key));
+    }
+    pipeline
+}
+
+fn decode_hashtag_ranking(
+    values: &[RedisValue],
+) -> Result<HashtagBatch<[Vec<String>; 2]>, HashtagReadFailure> {
+    let [current, previous] = values else {
+        return Err(HashtagReadFailure::Response(
+            HashtagResponseKind::RankingOuter,
+        ));
+    };
+    let mut result = HashtagBatch {
+        values: [Vec::new(), Vec::new()],
+        command_errors: Vec::new(),
+    };
+    for (index, reply) in [current, previous].into_iter().enumerate() {
+        if let RedisValue::ServerError(source) = reply {
+            // Actual ioredis Pipeline.fillResult([error], position); actual
+            // FeaturedService maps tuple[1] ?? [] to an empty window only.
+            result.command_errors.push(HashtagCommandError {
+                operation: HashtagOperation::Ranking,
+                command_index: index,
+                source: source.clone().into(),
+            });
+            continue;
+        }
+        let RedisValue::Array(pairs) = reply else {
+            return Err(HashtagReadFailure::Response(
+                HashtagResponseKind::RankingWindow,
+            ));
+        };
+        if pairs.len() % 2 != 0 {
+            return Err(HashtagReadFailure::Response(
+                HashtagResponseKind::RankingPairs,
+            ));
+        }
+        for pair in pairs.as_chunks::<2>().0 {
+            let member = match &pair[0] {
+                RedisValue::BulkString(bytes) => String::from_utf8_lossy(bytes).into_owned(),
+                RedisValue::SimpleString(text) => text.clone(),
+                _ => {
+                    return Err(HashtagReadFailure::Response(
+                        HashtagResponseKind::RankingMember,
+                    ));
+                }
+            };
+            // Scores are deliberately NOT parsed or narrowed. Every legal RESP2
+            // ZRANGE WITHSCORES score, including +/-inf, has the same key-order
+            // behavior: TS parseInt gives a Number (possibly NaN), never throws
+            // for Redis-decoded strings, and only changes unused Map values.
+            result.values[index].push(member);
+        }
+    }
+    Ok(result)
+}
+
+fn decode_hashtag_counts(
+    expected: usize,
+    values: &[RedisValue],
+) -> Result<HashtagBatch<Vec<HashtagCount>>, HashtagReadFailure> {
+    if values.len() != expected {
+        return Err(HashtagReadFailure::Response(
+            HashtagResponseKind::CountsOuter,
+        ));
+    }
+    let mut result = HashtagBatch {
+        values: Vec::with_capacity(expected),
+        command_errors: Vec::new(),
+    };
+    for (index, reply) in values.iter().enumerate() {
+        match reply {
+            RedisValue::Int(value) => result
+                .values
+                .push(HashtagCount::Number(hashtag_integer(*value))),
+            RedisValue::ServerError(source) => {
+                // HashtagService pushes tuple[1], which is undefined for [error].
+                // Preserve this until Math.max and JSON projection (null in arrays).
+                result.values.push(HashtagCount::Undefined);
+                result.command_errors.push(HashtagCommandError {
+                    operation: HashtagOperation::Chart,
+                    command_index: index,
+                    source: source.clone().into(),
+                });
+            }
+            _ => {
+                return Err(HashtagReadFailure::Response(
+                    HashtagResponseKind::CountElement,
+                ));
+            }
+        }
+    }
+    Ok(result)
+}
+
+impl RedisState {
+    pub(crate) async fn hashtag_rankings(
+        &self,
+        keys: &[String; 2],
+    ) -> Result<HashtagBatch<[Vec<String>; 2]>, HashtagReadFailure> {
+        if !self.ready() {
+            return Err(HashtagReadFailure::Unavailable);
+        }
+        let pipeline = hashtag_ranking_pipeline(keys, |key| self.reads.key(key));
+        let values = self
+            .reads
+            .execute_per_command(&pipeline)
+            .await
+            .map_err(HashtagReadFailure::Read)?;
+        decode_hashtag_ranking(&values)
+    }
+    pub(crate) async fn hashtag_counts(
+        &self,
+        keys: &[String],
+    ) -> Result<HashtagBatch<Vec<HashtagCount>>, HashtagReadFailure> {
+        if !self.ready() {
+            return Err(HashtagReadFailure::Unavailable);
+        }
+        let pipeline = hashtag_count_pipeline(keys, |key| self.reads.key(key));
+        let values = self
+            .reads
+            .execute_per_command(&pipeline)
+            .await
+            .map_err(HashtagReadFailure::Read)?;
+        decode_hashtag_counts(keys.len(), &values)
+    }
+}
+
+// redis-parser@3.0.0 parseSimpleNumbers accumulates decimal digits as JS
+// Number. Integer-to-f64 casting rounds only once and differs above 2^53.
+fn hashtag_integer(value: i64) -> f64 {
+    let text = value.to_string();
+    let mut number = 0_f64;
+    for byte in text.bytes().filter(|byte| *byte != b'-') {
+        number = number * 10. + f64::from(byte - b'0');
+    }
+    if value.is_negative() { -number } else { number }
+}
+
+#[cfg(test)]
+mod hashtag_trend_source_tests {
+    use super::*;
+    use serde_json::Value as Json;
+    const SOURCE: &str = include_str!("business/fixtures/hashtag-trend-source-oracle.json");
+    const ERRORS: &str = include_str!("business/fixtures/hashtag-trend-errors-oracle.json");
+
+    fn error() -> RedisValue {
+        redis::parse_redis_value(b"-ERR source fixture\r\n").unwrap()
+    }
+    fn reply(fixture: &Json, name: &str) -> RedisValue {
+        if name == "current" && fixture["input"]["rankingErrorCurrent"] == true {
+            return error();
+        }
+        RedisValue::Array(
+            fixture["input"][name]
+                .as_array()
+                .unwrap()
+                .iter()
+                .flat_map(|pair| {
+                    [
+                        RedisValue::BulkString(pair[0].as_str().unwrap().as_bytes().to_vec()),
+                        RedisValue::BulkString(pair[1].as_str().unwrap().as_bytes().to_vec()),
+                    ]
+                })
+                .collect(),
+        )
+    }
+    #[test]
+    fn ranking_decode_keeps_member_order_and_command_errors_from_actual_source_cases() {
+        for text in [SOURCE, ERRORS] {
+            let oracle: Json = serde_json::from_str(text).unwrap();
+            for fixture in oracle["cases"].as_array().unwrap() {
+                if fixture["input"]["rankingNull"] == true {
+                    continue;
+                } // Source-only null-exec control.
+                let decoded = decode_hashtag_ranking(&[
+                    reply(fixture, "current"),
+                    reply(fixture, "previous"),
+                ])
+                .unwrap();
+                let mut seen = HashSet::new();
+                let tags: Vec<&str> = decoded
+                    .values
+                    .iter()
+                    .flatten()
+                    .filter_map(|tag| {
+                        if seen.insert(tag.as_str()) {
+                            Some(tag.as_str())
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                let expected: Vec<&str> = fixture["observed"]["ranking"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|tag| tag.as_str().unwrap())
+                    .collect();
+                assert_eq!(tags, expected, "{}", fixture["name"]);
+                assert_eq!(
+                    decoded.command_errors.len(),
+                    usize::from(fixture["input"]["rankingErrorCurrent"] == true)
+                );
+            }
+        }
+    }
+    #[test]
+    fn chart_command_error_remains_undefined_and_retains_the_concrete_server_error() {
+        let oracle: Json = serde_json::from_str(ERRORS).unwrap();
+        let fixture = oracle["cases"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|x| x["input"]["chartErrorAtIndex"].is_number())
+            .unwrap();
+        let raw: Vec<RedisValue> = fixture["chartResponse"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|x| {
+                if x.is_null() {
+                    error()
+                } else {
+                    RedisValue::Int(x.as_i64().unwrap())
+                }
+            })
+            .collect();
+        let result = decode_hashtag_counts(raw.len(), &raw).unwrap();
+        assert_eq!(result.command_errors.len(), 1);
+        for (value, source) in result.values.iter().zip(
+            fixture["observed"]["chartValueKinds"][0]["values"]
+                .as_array()
+                .unwrap(),
+        ) {
+            match value {
+                HashtagCount::Undefined => assert_eq!(source["type"], "undefined"),
+                HashtagCount::Number(number) => assert_eq!(Some(*number), source["value"].as_f64()),
+            }
+        }
+    }
+
+    #[test]
+    fn cardinalities_match_actual_ioredis_parser_number_rounding() {
+        let oracle: Json = serde_json::from_str(include_str!(
+            "business/fixtures/hashtag-trend-integer-oracle.json"
+        ))
+        .unwrap();
+        for fixture in oracle["cases"].as_array().unwrap() {
+            let decimal = fixture["decimal"].as_str().unwrap();
+            let input: i64 = decimal.parse().unwrap();
+            let actual = hashtag_integer(input);
+            let expected =
+                u64::from_str_radix(fixture["sourceBits"].as_str().unwrap(), 16).unwrap();
+            assert_eq!(actual.to_bits(), expected, "{decimal}");
+            assert_eq!(
+                JsValue::Number(actual).stringify().as_deref(),
+                fixture["sourceJson"].as_str(),
+                "{decimal}"
+            );
+        }
+    }
+}

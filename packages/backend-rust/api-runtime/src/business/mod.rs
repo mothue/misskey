@@ -8,6 +8,7 @@ use tokio_postgres::types::ToSql;
 mod antennas;
 pub(super) use antennas::Queries as AntennaQueries;
 mod discovery;
+mod hashtag_trend;
 mod id;
 mod js_value;
 mod local_date;
@@ -47,6 +48,7 @@ impl Config {
 pub(super) enum Error {
     Internal,
     Antenna(antennas::FailureKind),
+    HashtagTrend(hashtag_trend::TrendFailure),
     ClipShow(ClipFailureKind),
     ClipShowQuery {
         kind: ClipFailureKind,
@@ -90,6 +92,10 @@ impl Error {
             Self::Internal => crate::response::internal(),
             Self::Antenna(kind) => {
                 tracing::error!(operation = "read_antenna", error.kind = ?kind, "endpoint failed");
+                crate::response::internal()
+            }
+            Self::HashtagTrend(source) => {
+                source.report();
                 crate::response::internal()
             }
             Self::ClipShow(kind) => {
@@ -201,6 +207,7 @@ pub(super) const ACTIVE_READ_ENDPOINTS: &[&str] = &[
     "hashtags/list",
     "hashtags/search",
     "hashtags/show",
+    "hashtags/trend",
     "i/apps",
     "i/authorized-apps",
     "i/registry/get",
@@ -235,6 +242,9 @@ pub(super) async fn execute(
     }
     if name == "antennas/show" {
         return Some(antennas::show(runtime, params, auth).await);
+    }
+    if name == "hashtags/trend" {
+        return Some(hashtag_trend::trend(runtime).await);
     }
     if name == "users/get-following-users-by-birthday" {
         return Some(user_birthdays::birthdays(runtime, params, auth).await);

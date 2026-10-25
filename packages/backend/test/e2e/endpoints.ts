@@ -6,15 +6,124 @@
 process.env.NODE_ENV = 'test';
 
 import * as assert from 'assert';
+import { randomUUID } from 'node:crypto';
+import { setTimeout } from 'node:timers/promises';
 import { describe, beforeAll, test, expect, vi } from 'vitest';
 // node-fetch only supports it's own Blob yet
 // https://github.com/node-fetch/node-fetch/pull/1664
 import { Blob } from 'node-fetch';
-import { api, castAsError, initTestDb, post, role, signup, simpleGet, uploadFile } from '../utils.js';
+import { Redis } from 'ioredis';
+import { api, castAsError, initTestDb, post, relativeFetch, role, signup, simpleGet, uploadFile } from '../utils.js';
 import type * as misskey from 'misskey-js';
+import { loadConfig } from '@/config.js';
 import { MiUser } from '@/models/_.js';
 
 const waitForPushToTlOptions = { timeout: 3000, interval: 25 };
+
+describe('hashtags/trend', () => {
+	const epoch = Date.parse('2023-01-01T00:00:00Z');
+	const hour = 60 * 60 * 1000;
+
+	async function withRanking(run: (redis: Redis, ranking: [string, string], owned: Set<string>) => Promise<void>) {
+		// Avoid changing ranking windows halfway through a small fixture request.
+		const remaining = hour - ((Date.now() - epoch) % hour);
+		if (remaining < 2000) await setTimeout(remaining + 100);
+		const window = Math.floor((Date.now() - epoch) / hour);
+		const ranking: [string, string] = [`featuredHashtagsRanking:${window}`, `featuredHashtagsRanking:${window - 1}`];
+		const redis = new Redis(loadConfig().redis);
+		const owned = new Set<string>();
+		const saved: { key: string; value: Buffer | null; expires: number }[] = [];
+		try {
+			// Other files share this dedicated test Redis. Restore their ranking
+			// data and expiry instead of flushing the DB or deleting unrelated keys.
+			for (const key of ranking) {
+				const value = await redis.dumpBuffer(key);
+				const ttl = await redis.pttl(key);
+				saved.push({ key, value, expires: ttl >= 0 ? Date.now() + ttl : ttl });
+			}
+			await redis.del(...ranking);
+			await run(redis, ranking, owned);
+		} finally {
+			try {
+				if (owned.size > 0) await redis.del(...owned);
+				for (const { key, value, expires } of saved) {
+					await redis.del(key);
+					if (value === null || expires === -2) continue;
+					const ttl = expires < 0 ? 0 : expires - Date.now();
+					if (expires >= 0 && ttl <= 0) continue;
+					await redis.restore(key, ttl, value, 'REPLACE');
+				}
+			} finally {
+				await redis.quit();
+			}
+		}
+	}
+
+	test('空のランキングを匿名GET/POSTで取得でき、GETのキャッシュ期限を保持する', async () => {
+		await withRanking(async () => {
+			const get = await relativeFetch('api/hashtags/trend?extra=accepted');
+			assert.strictEqual(get.status, 200);
+			assert.deepStrictEqual(await get.json(), []);
+			assert.strictEqual(get.headers.get('cache-control'), 'public, max-age=60');
+			const response = await api('hashtags/trend', { extra: { accepted: true } });
+			assert.strictEqual(response.status, 200);
+			assert.deepStrictEqual(response.body, []);
+			assert.strictEqual(response.headers.get('cache-control'), 'private, max-age=0, must-revalidate');
+		});
+	});
+
+	test('両期間の上位11件を現在期間からの順序で列挙し、重複だけを除く', async () => {
+		await withRanking(async (redis, ranking) => {
+			const prefix = `trend-${randomUUID()}`;
+			const current = Array.from({ length: 12 }, (_, i) => `${prefix}-current-${i}`);
+			const previous = Array.from({ length: 12 }, (_, i) => `${prefix}-previous-${i}`);
+			for (const [key, tags] of [[ranking[0], current], [ranking[1], previous]] as const) {
+				await redis.zadd(key, ...tags.flatMap((tag, index) => [100 - index, tag]));
+			}
+			const response = await api('hashtags/trend', {});
+			assert.strictEqual(response.status, 200);
+			const included = [...current.slice(0, 11), ...previous.slice(0, 11)];
+			assert.deepStrictEqual(response.body, included.map(tag => ({ tag, chart: Array(20).fill(0), usersCount: 0 })));
+
+			await redis.zadd(ranking[1], 101, current[0]);
+			const overlapping = await api('hashtags/trend', {});
+			assert.strictEqual(overlapping.status, 200);
+			assert.deepStrictEqual(overlapping.body.map(row => row.tag), [...current.slice(0, 11), ...previous.slice(0, 10)]);
+		});
+	});
+
+	test('実際のHyperLogLogから20点のチャートと最大利用者数を返す', async () => {
+		await withRanking(async (redis, ranking, owned) => {
+			const tags = [`trend-${randomUUID()}`, `trend-${randomUUID()}`];
+			await redis.zadd(ranking[0], 2, tags[0], 1, tags[1]);
+			const rounded = new Date();
+			rounded.setMinutes(Math.floor(rounded.getMinutes() / 10) * 10, 0, 0);
+			const pipeline = redis.pipeline();
+			// Fill the whole read horizon. Recent windows have a larger count,
+			// so the last chart point cannot stand in for Math.max(...chart).
+			// Native inline fixtures separately cover local setters and DST.
+			for (let offset = -1; offset <= 32 * 6; offset++) {
+				const date = new Date(rounded.getTime() - offset * 10 * 60 * 1000);
+				const window = date.toISOString().slice(0, 16).replace(/\D/g, '');
+				for (const [index, tag] of tags.entries()) {
+					const key = `hashtagUsers:${tag}:${window}`;
+					owned.add(key);
+					pipeline.pfadd(key, ...Array.from({ length: index + 1 }, (_, i) => `user-${i}`));
+					if (offset <= 1) pipeline.pfadd(key, 'recent-user');
+				}
+			}
+			const seeded = await pipeline.exec();
+			assert.ok(seeded !== null && seeded.every(([error]) => error === null));
+			const response = await api('hashtags/trend', {});
+			assert.strictEqual(response.status, 200);
+			assert.deepStrictEqual(response.body, tags.map((tag, index) => ({
+				tag,
+				chart: [...Array(3).fill(index + 2), ...Array(17).fill(index + 1)],
+				usersCount: index + 2,
+			})));
+		});
+	});
+});
 
 describe('Endpoints', () => {
 	let alice: misskey.entities.SignupResponse;

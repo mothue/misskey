@@ -10,6 +10,7 @@ Authentication, authorization/roles/scopes, rate limits, validation, HTTP status
 | Anonymous required-role policies / root identity | Previously approved: evaluate anonymous base policies, deny with ROLE_PERMISSION_DENIED403; root bypass requires an authenticated id |
 | Unevaluable role policy | Previously approved: structured INTERNAL_ERROR500 rather than engine-dependent message-only500 |
 | DB/Redis connection refusal, DNS/TLS and driver-specific details | Approved best-effort infrastructure parity. Missing/different legacy `info.e` is an approved baseline exception and does not block the24native read candidates. Ordinary status/error-code/security contracts remain strict |
+| Hashtag chart windows | Existing TS duplicate/cumulative local-Date intervals are preserved exactly; [issue61](https://github.com/mothue/misskey/issues/61). This is a retained baseline defect rather than a new compatibility exception |
 | Saturated PostgreSQL checkout | Native typed CheckoutTimeout currently lacks the legacy `Error` / `timeout exceeded when trying to connect` projection; covered by the infrastructure-detail exception |
 | TLS diagnostics | Complex SAN formatting, partial wildcards and competing certificate failures are not exhaustive TS-driver parity; verification remains enforced |
 | Exotic pg-pool settings | Explicit legacy single-slot resource policy remains for unsupported exotic comparators; exact scheduling parity is not claimed |

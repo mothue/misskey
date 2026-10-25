@@ -1,4 +1,4 @@
-//! Server-local JS Date setter semantics used by the birthday operation.
+//! Server-local JS Date setter semantics used by native calendar operations.
 use jiff::{
     Span, Timestamp, Zoned,
     civil::{Date, DateTime, Time},
@@ -65,6 +65,56 @@ impl LocalCalendar {
             #[cfg(test)]
             instant_ms: birthday.timestamp().as_millisecond(),
         })
+    }
+
+    pub(crate) fn hashtag_windows(
+        &self,
+        millis: i64,
+        range: usize,
+    ) -> Result<Vec<String>, CalendarError> {
+        let instant = self.instant(millis)?;
+        let rounded = i64::from(instant.minute()).div_euclid(10) * 10;
+        let mut value = self.hashtag_set_minutes(&instant, rounded)?;
+        let mut windows = Vec::with_capacity(range);
+        for index in 0..range {
+            let utc = value.timestamp().to_zoned(TimeZone::UTC);
+            windows.push(format!(
+                "{}{:02}{:02}{:02}{:02}",
+                utc.year(),
+                utc.month(),
+                utc.day(),
+                utc.hour(),
+                utc.minute()
+            ));
+            let index = i64::try_from(index).map_err(|_| CalendarError::DateOutOfRange)?;
+            let offset = index.checked_mul(10).ok_or(CalendarError::DateOutOfRange)?;
+            let minute = i64::from(value.minute())
+                .checked_sub(offset)
+                .ok_or(CalendarError::DateOutOfRange)?;
+            // HashtagService.getCharts applies i*10 cumulatively AFTER emission,
+            // including the i=0 no-op in civil time and the final unused setter.
+            value = self.hashtag_set_minutes(&value, minute)?;
+        }
+        Ok(windows)
+    }
+
+    pub(crate) fn hashtag_set_minutes(
+        &self,
+        value: &Zoned,
+        minute: i64,
+    ) -> Result<Zoned, CalendarError> {
+        // Date.setMinutes uses the current local date/hour, accepts minute overflow,
+        // and (in this caller) replaces seconds/ms with zero. Normalize civil time
+        // BEFORE resolving: instant-duration subtraction differs at gaps/folds.
+        let midnight = Time::new(0, 0, 0, 0).map_err(|_| CalendarError::DateOutOfRange)?;
+        let total = i64::from(value.hour())
+            .checked_mul(60)
+            .and_then(|hours| hours.checked_add(minute))
+            .ok_or(CalendarError::DateOutOfRange)?;
+        let civil = DateTime::from_parts(value.date(), midnight)
+            .checked_add(Span::new().minutes(total))
+            .map_err(|_| CalendarError::DateOutOfRange)?;
+        self.resolve(civil)
     }
 
     pub(crate) fn instant(&self, millis: i64) -> Result<Zoned, CalendarError> {

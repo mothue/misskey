@@ -2,6 +2,8 @@
 
 ## Authority and scope
 
+The complete [hashtag trend slice](hashtags-trend-validation.md) reuses the native Redis read lane and local calendar. Its ordered ranking union, twenty-slot chart and per-command errors match actual TS HTTP; all nine paired throughput/p95 conditions pass. Existing cumulative chart-window behavior is preserved and separately reported in issue61.
+
 The complete [clips/show slice](clips-show-validation.md) reuses native Clip/UserLite packing and passes all six paired throughput/p95 conditions. The same batch corrects the shared UserLite decoration-filter ordering regression after actual pure-TS/published-native HTTP reproduction. `notes/clips` retains its separate performance hold.
 
 The complete [antenna list/show slices](antennas-read-validation.md) preserve owner filtering and opaque stored values, reuse existing ID parsing, and pass all ten paired throughput/p95 conditions. Fresh batch acceptance is recorded there.
