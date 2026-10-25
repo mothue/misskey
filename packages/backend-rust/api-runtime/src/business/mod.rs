@@ -8,6 +8,7 @@ use tokio_postgres::types::ToSql;
 mod antennas;
 pub(super) use antennas::Queries as AntennaQueries;
 mod discovery;
+mod eager_batch;
 mod entity_layout;
 mod flash;
 pub use flash::FlashLayoutFailure;
