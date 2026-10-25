@@ -1,0 +1,436 @@
+{
+  "source": "actual AntennaEntityService.pack / IdService.parse",
+  "runtime": {
+    "bun": "1.4.4",
+    "nodeCompatibility": "v26.3.0"
+  },
+  "sourceHashes": {
+    "core/entities/AntennaEntityService.ts": "fbec2f6f2e8ccd13414d72e4ec2f5a68cc91ae68a6b8e767ced44bf98c6e46af",
+    "core/IdService.ts": "237d9410066fb6acfe872e7e617e6f4ce7b0093989e88baad1c29066b69f4f65",
+    "misc/id/aid.ts": "ae7d72425947600d69619d5e6b601e6e5b372d42678978f9de36821c95744b78",
+    "misc/id/aidx.ts": "613a33f3247823856f861961a05961a8c50151133669d56b8b6441dd0d5e86f9",
+    "misc/id/meid.ts": "679c4a517b82cbaf6790fd45c25ed114e90edd91023d5e49004eed3e5bda439c",
+    "misc/id/meidg.ts": "cd0ce743802342c5b24f133fc665033ee07566c746c201c525698a7073999fcb",
+    "misc/id/object-id.ts": "5dccac2c6af79f3f27d02c90847f10948dd587c1109b07fe62f62a7ac475e610",
+    "misc/id/ulid.ts": "56ee26e1a0f4666e14aaa0a84bbd2e494f04bf86af5cebbfdfce92039e0d915a"
+  },
+  "baseInput": {
+    "id": "0000000100",
+    "name": "antenna \ud83d\ude00\ud800",
+    "keywords": [
+      [
+        "one",
+        "two"
+      ],
+      [
+        ""
+      ]
+    ],
+    "excludeKeywords": [],
+    "src": "all",
+    "userListId": null,
+    "users": [
+      "@alice",
+      "@alice"
+    ],
+    "caseSensitive": false,
+    "localOnly": true,
+    "excludeBots": false,
+    "withReplies": true,
+    "withFile": false,
+    "excludeNotesInSensitiveChannel": true,
+    "isActive": false,
+    "userId": "private-owner",
+    "lastUsedAt": "1970-01-01T00:00:00.000Z",
+    "expression": "private-expression"
+  },
+  "baseResult": {
+    "id": "0000000100",
+    "createdAt": "2000-01-01T00:00:00.001Z",
+    "name": "antenna \ud83d\ude00\ud800",
+    "keywords": [
+      [
+        "one",
+        "two"
+      ],
+      [
+        ""
+      ]
+    ],
+    "excludeKeywords": [],
+    "src": "all",
+    "userListId": null,
+    "users": [
+      "@alice",
+      "@alice"
+    ],
+    "caseSensitive": false,
+    "localOnly": true,
+    "excludeBots": false,
+    "withReplies": true,
+    "withFile": false,
+    "excludeNotesInSensitiveChannel": true,
+    "isActive": false,
+    "hasUnreadNote": false,
+    "notify": false
+  },
+  "cases": [
+    {
+      "method": "aid",
+      "inputChanges": {},
+      "resultChanges": {}
+    },
+    {
+      "method": "aid",
+      "inputChanges": {
+        "id": "\u00a01"
+      },
+      "resultChanges": {
+        "id": "\u00a01"
+      }
+    },
+    {
+      "method": "aid",
+      "inputChanges": {
+        "id": "\u00851"
+      },
+      "error": {
+        "name": "RangeError",
+        "message": "Invalid Date"
+      }
+    },
+    {
+      "method": "aid",
+      "inputChanges": {
+        "id": "!"
+      },
+      "error": {
+        "name": "RangeError",
+        "message": "Invalid Date"
+      }
+    },
+    {
+      "method": "aid",
+      "inputChanges": {
+        "id": ""
+      },
+      "error": {
+        "name": "RangeError",
+        "message": "Invalid Date"
+      }
+    },
+    {
+      "method": "aidx",
+      "inputChanges": {
+        "id": "0000000100000000"
+      },
+      "resultChanges": {
+        "id": "0000000100000000"
+      }
+    },
+    {
+      "method": "aidx",
+      "inputChanges": {
+        "id": "\u00a01"
+      },
+      "resultChanges": {
+        "id": "\u00a01"
+      }
+    },
+    {
+      "method": "aidx",
+      "inputChanges": {
+        "id": "\u00851"
+      },
+      "error": {
+        "name": "RangeError",
+        "message": "Invalid Date"
+      }
+    },
+    {
+      "method": "aidx",
+      "inputChanges": {
+        "id": "!"
+      },
+      "error": {
+        "name": "RangeError",
+        "message": "Invalid Date"
+      }
+    },
+    {
+      "method": "aidx",
+      "inputChanges": {
+        "id": ""
+      },
+      "error": {
+        "name": "RangeError",
+        "message": "Invalid Date"
+      }
+    },
+    {
+      "method": "meid",
+      "inputChanges": {
+        "id": "800000000001000000000000"
+      },
+      "resultChanges": {
+        "id": "800000000001000000000000",
+        "createdAt": "1970-01-01T00:00:00.001Z"
+      }
+    },
+    {
+      "method": "meid",
+      "inputChanges": {
+        "id": "0x10tail"
+      },
+      "resultChanges": {
+        "id": "0x10tail",
+        "createdAt": "-002490-03-17T21:14:04.688Z"
+      }
+    },
+    {
+      "method": "meid",
+      "inputChanges": {
+        "id": "!"
+      },
+      "error": {
+        "name": "RangeError",
+        "message": "Invalid Date"
+      }
+    },
+    {
+      "method": "meid",
+      "inputChanges": {
+        "id": ""
+      },
+      "error": {
+        "name": "RangeError",
+        "message": "Invalid Date"
+      }
+    },
+    {
+      "method": "meidg",
+      "inputChanges": {
+        "id": "g00000000001000000000000"
+      },
+      "resultChanges": {
+        "id": "g00000000001000000000000",
+        "createdAt": "1970-01-01T00:00:00.001Z"
+      }
+    },
+    {
+      "method": "meidg",
+      "inputChanges": {
+        "id": "g-1tail"
+      },
+      "resultChanges": {
+        "id": "g-1tail",
+        "createdAt": "1969-12-31T23:59:59.999Z"
+      }
+    },
+    {
+      "method": "meidg",
+      "inputChanges": {
+        "id": "!"
+      },
+      "error": {
+        "name": "RangeError",
+        "message": "Invalid Date"
+      }
+    },
+    {
+      "method": "meidg",
+      "inputChanges": {
+        "id": ""
+      },
+      "error": {
+        "name": "RangeError",
+        "message": "Invalid Date"
+      }
+    },
+    {
+      "method": "objectid",
+      "inputChanges": {
+        "id": "000000010000000000000000"
+      },
+      "resultChanges": {
+        "id": "000000010000000000000000",
+        "createdAt": "1970-01-01T00:00:01.000Z"
+      }
+    },
+    {
+      "method": "objectid",
+      "inputChanges": {
+        "id": "-1tail"
+      },
+      "resultChanges": {
+        "id": "-1tail",
+        "createdAt": "1969-12-31T23:59:59.000Z"
+      }
+    },
+    {
+      "method": "objectid",
+      "inputChanges": {
+        "id": "!"
+      },
+      "error": {
+        "name": "RangeError",
+        "message": "Invalid Date"
+      }
+    },
+    {
+      "method": "objectid",
+      "inputChanges": {
+        "id": ""
+      },
+      "error": {
+        "name": "RangeError",
+        "message": "Invalid Date"
+      }
+    },
+    {
+      "method": "ulid",
+      "inputChanges": {
+        "id": "00000000010000000000000000"
+      },
+      "resultChanges": {
+        "id": "00000000010000000000000000",
+        "createdAt": "1970-01-01T00:00:00.001Z"
+      }
+    },
+    {
+      "method": "ulid",
+      "inputChanges": {
+        "id": "a"
+      },
+      "resultChanges": {
+        "id": "a",
+        "createdAt": "1969-12-31T23:59:59.999Z"
+      }
+    },
+    {
+      "method": "ulid",
+      "inputChanges": {
+        "id": "!"
+      },
+      "resultChanges": {
+        "id": "!",
+        "createdAt": "1969-12-31T23:59:59.999Z"
+      }
+    },
+    {
+      "method": "ulid",
+      "inputChanges": {
+        "id": ""
+      },
+      "resultChanges": {
+        "id": "",
+        "createdAt": "1970-01-01T00:00:00.000Z"
+      }
+    },
+    {
+      "method": "aidx",
+      "inputChanges": {
+        "id": "0000000100000000",
+        "keywords": [],
+        "excludeKeywords": [
+          []
+        ],
+        "users": []
+      },
+      "resultChanges": {
+        "id": "0000000100000000",
+        "keywords": [],
+        "excludeKeywords": [
+          []
+        ],
+        "users": []
+      }
+    },
+    {
+      "method": "aidx",
+      "inputChanges": {
+        "id": "0000000100000000",
+        "keywords": {
+          "legacy": [
+            "opaque",
+            null
+          ]
+        }
+      },
+      "resultChanges": {
+        "id": "0000000100000000",
+        "keywords": {
+          "legacy": [
+            "opaque",
+            null
+          ]
+        }
+      }
+    },
+    {
+      "method": "aidx",
+      "inputChanges": {
+        "id": "0000000100000000",
+        "users": [
+          "alice",
+          null,
+          "alice"
+        ]
+      },
+      "resultChanges": {
+        "id": "0000000100000000",
+        "users": [
+          "alice",
+          null,
+          "alice"
+        ]
+      }
+    },
+    {
+      "method": "aidx",
+      "inputChanges": {
+        "id": "0000000100000000",
+        "src": "list",
+        "userListId": "0000000200000000"
+      },
+      "resultChanges": {
+        "id": "0000000100000000",
+        "src": "list",
+        "userListId": "0000000200000000"
+      }
+    },
+    {
+      "method": "aidx",
+      "inputChanges": {
+        "id": "0000000100000000",
+        "name": "",
+        "keywords": [
+          [
+            []
+          ]
+        ],
+        "excludeKeywords": [
+          null
+        ],
+        "users": [
+          ""
+        ]
+      },
+      "resultChanges": {
+        "id": "0000000100000000",
+        "name": "",
+        "keywords": [
+          [
+            []
+          ]
+        ],
+        "excludeKeywords": [
+          null
+        ],
+        "users": [
+          ""
+        ]
+      }
+    }
+  ]
+}

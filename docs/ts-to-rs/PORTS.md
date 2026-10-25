@@ -2,6 +2,8 @@
 
 ## Authority and scope
 
+The complete [antenna list/show slices](antennas-read-validation.md) preserve owner filtering and opaque stored values, reuse existing ID parsing, and pass all ten paired throughput/p95 conditions. Fresh batch acceptance is recorded there.
+
 The [followed-user birthday candidate](users-birthdays-validation.md) now matches89HTTPcases in three zones, including accepted extra fields and Bun radix arithmetic. It remains on TS after scoped18-user throughput regressed4.85%. Canonical-zone bootstrap and authoritative Rust native-selection readiness replace the duplicated TS guard list.
 
 The complete [users/achievements slice](users-achievements-validation.md) passed its six-case measured gate, preserving raw JSON achievement values and existing missing-profile errors. Remaining acceptance checks are recorded there.

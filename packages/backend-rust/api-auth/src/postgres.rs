@@ -201,10 +201,12 @@ impl Store for PostgresAuthStore {
     }
 }
 
-fn quote_identifier(value: &str) -> String {
+/// Quote a validated bootstrap-owned SQL identifier.
+pub fn quote_identifier(value: &str) -> String {
     format!("\"{}\"", value.replace('"', "\"\""))
 }
-fn quote_literal(value: &str) -> String {
+/// Quote a bootstrap-owned property name in a JSON projection.
+pub fn quote_literal(value: &str) -> String {
     format!("'{}'", value.replace('\'', "''"))
 }
 

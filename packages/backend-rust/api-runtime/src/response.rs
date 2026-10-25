@@ -7,7 +7,7 @@ use serde::Serialize;
 
 /// Fixed API gate failures are defined once; callers select the failure rather
 /// than rebuilding a response object or copying its wire identifiers.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub(crate) enum ApiFailure {
     Internal,
     Unavailable,
@@ -24,7 +24,18 @@ pub(crate) enum ApiFailure {
     AdministratorRequired,
     RequiredRole,
     AppPermissionDenied,
+    NoSuchAntenna,
 }
+
+/// Captured from Bun 1.4.4 Date.toISOString for invalid stored dates.
+pub(crate) struct LegacyErrorDef {
+    pub message: &'static str,
+    pub code: &'static str,
+}
+pub(crate) const INVALID_DATE: LegacyErrorDef = LegacyErrorDef {
+    message: "Invalid Date",
+    code: "RangeError",
+};
 
 struct ApiErrorPayload<'a> {
     message: &'a str,
@@ -131,6 +142,13 @@ impl ApiFailure {
                 "ROLE_PERMISSION_DENIED",
                 "7f86f06f-7e15-4057-8561-f4b6d4ac755a",
                 "permission",
+                None,
+            ),
+            Self::NoSuchAntenna => (
+                "No such antenna.",
+                "NO_SUCH_ANTENNA",
+                "c06569fb-b025-4f23-b22d-1fcd20d2816b",
+                "client",
                 None,
             ),
             Self::AppPermissionDenied => (

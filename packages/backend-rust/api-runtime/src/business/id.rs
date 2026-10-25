@@ -109,6 +109,95 @@ fn parse_int(units: &[u16], radix: u32) -> Option<f64> {
 mod tests {
     use super::*;
 
+    // Recorded by calling the actual AntennaEntityService.pack / IdService.parse
+    // with Bun 1.4.4, across all six configured ID methods. These are stored IDs,
+    // so irregular inputs retain parsing behavior rather than request validation.
+    const ANTENNA_DATES: &[(&str, &str, f64, &str)] = &[
+        (
+            "aid",
+            "0000000100",
+            946684800001.0,
+            "2000-01-01T00:00:00.001Z",
+        ),
+        ("aid", "\u{a0}1", 946684800001.0, "2000-01-01T00:00:00.001Z"),
+        (
+            "aidx",
+            "0000000100000000",
+            946684800001.0,
+            "2000-01-01T00:00:00.001Z",
+        ),
+        (
+            "aidx",
+            "\u{a0}1",
+            946684800001.0,
+            "2000-01-01T00:00:00.001Z",
+        ),
+        (
+            "meid",
+            "800000000001000000000000",
+            1.0,
+            "1970-01-01T00:00:00.001Z",
+        ),
+        (
+            "meid",
+            "0x10tail",
+            -140737488355312.0,
+            "-002490-03-17T21:14:04.688Z",
+        ),
+        (
+            "meidg",
+            "g00000000001000000000000",
+            1.0,
+            "1970-01-01T00:00:00.001Z",
+        ),
+        ("meidg", "g-1tail", -1.0, "1969-12-31T23:59:59.999Z"),
+        (
+            "objectid",
+            "000000010000000000000000",
+            1000.0,
+            "1970-01-01T00:00:01.000Z",
+        ),
+        ("objectid", "-1tail", -1000.0, "1969-12-31T23:59:59.000Z"),
+        (
+            "ulid",
+            "00000000010000000000000000",
+            1.0,
+            "1970-01-01T00:00:00.001Z",
+        ),
+        ("ulid", "a", -1.0, "1969-12-31T23:59:59.999Z"),
+        ("ulid", "!", -1.0, "1969-12-31T23:59:59.999Z"),
+        ("ulid", "", 0.0, "1970-01-01T00:00:00.000Z"),
+    ];
+
+    // Each source observation throws RangeError("Invalid Date") at toISOString.
+    // The caller retains that public error; this shared parser returns None.
+    const ANTENNA_INVALID_DATES: &[(&str, &str)] = &[
+        ("aid", "\u{85}1"),
+        ("aid", "!"),
+        ("aid", ""),
+        ("aidx", "\u{85}1"),
+        ("aidx", "!"),
+        ("aidx", ""),
+        ("meid", "!"),
+        ("meid", ""),
+        ("meidg", "!"),
+        ("meidg", ""),
+        ("objectid", "!"),
+        ("objectid", ""),
+    ];
+
+    #[test]
+    fn id_dates_match_actual_antenna_source_oracle() {
+        for &(method, id, milliseconds, iso) in ANTENNA_DATES {
+            let parsed = parse_id_date(method, id);
+            assert_eq!(parsed, Some(milliseconds), "{method} {id:?}");
+            assert_eq!(iso_date(parsed.unwrap()).unwrap(), iso, "{method} {id:?}");
+        }
+        for &(method, id) in ANTENNA_INVALID_DATES {
+            assert_eq!(parse_id_date(method, id), None, "{method} {id:?}");
+        }
+    }
+
     #[test]
     fn date_iso_matches_timeclip_epoch_leap_days_and_expanded_years() {
         assert_eq!(iso_date(0.0).unwrap(), "1970-01-01T00:00:00.000Z");

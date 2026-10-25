@@ -9,6 +9,7 @@ import * as assert from 'assert';
 import { describe, beforeAll, beforeEach, test } from 'vitest';
 import {
 	api,
+	createAppToken,
 	failedApiCall,
 	post,
 	role,
@@ -303,7 +304,37 @@ describe('アンテナ', () => {
 		const expected = { ...antenna };
 		assert.deepStrictEqual(response, expected);
 	});
-	test.todo('は他人のものをID指定で表示できない');
+	test('は他人のものをID指定で表示できない', async () => {
+		const antenna = await successfulApiCall({ endpoint: 'antennas/create', parameters: defaultParam, user: bob });
+		await failedApiCall({ endpoint: 'antennas/show', parameters: { antennaId: antenna.id }, user: alice }, {
+			status: 400,
+			code: 'NO_SUCH_ANTENNA',
+			id: 'c06569fb-b025-4f23-b22d-1fcd20d2816b',
+		});
+	});
+
+	test('一覧と詳細は同じread:account権限で同じ表現を返す', async () => {
+		const antenna = await successfulApiCall({ endpoint: 'antennas/create', parameters: defaultParam, user: alice });
+		const allowed = await createAppToken(alice, ['read:account']);
+		const denied = await createAppToken(alice, ['read:notifications']);
+		for (const [endpoint, params] of [
+			['antennas/list', {}],
+			['antennas/show', { antennaId: antenna.id }],
+		] as const) {
+			const account = await api(endpoint, params, alice);
+			const app = await api(endpoint, params, { token: allowed, bearer: true });
+			assert.strictEqual(account.status, 200);
+			assert.strictEqual(app.status, 200);
+			assert.deepStrictEqual(app.body, account.body);
+			const forbidden = await api(endpoint, params, { token: denied, bearer: true });
+			assert.strictEqual(forbidden.status, 403);
+			const body: unknown = forbidden.body;
+			assert.ok(body !== null && typeof body === 'object' && 'error' in body);
+			const error = body.error;
+			assert.ok(error !== null && typeof error === 'object' && 'code' in error);
+			assert.strictEqual(error.code, 'PERMISSION_DENIED');
+		}
+	});
 
 	//#endregion
 	//#region 一覧(antennas/list)

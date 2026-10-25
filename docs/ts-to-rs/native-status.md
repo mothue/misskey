@@ -6,7 +6,7 @@ Native means the complete business handler is selected in Rust; the public TS li
 
 | Total | Native | TS | Held (TS) |
 | ---: | ---: | ---: | ---: |
-| 438 | 32 | 395 | 11 |
+| 438 | 34 | 393 | 11 |
 
 Names and enumeration order come from the API registry. Native core selection and the business allowlist are read from Rust source. Rust advertises those selections at bootstrap; the TS callback guard consumes the validated names without a second list. Hold reasons come from the hold manifest.
 
@@ -118,10 +118,10 @@ Names and enumeration order come from the API registry. Native core selection an
 | `announcements/show` | TS |  |
 | `antennas/create` | TS |  |
 | `antennas/delete` | TS |  |
-| `antennas/list` | TS |  |
+| `antennas/list` | Native |  |
 | `antennas/notes` | TS |  |
 | `antennas/remove-note` | TS |  |
-| `antennas/show` | TS |  |
+| `antennas/show` | Native |  |
 | `antennas/update` | TS |  |
 | `ap/get` | TS |  |
 | `ap/show` | TS |  |
@@ -456,7 +456,7 @@ Names and enumeration order come from the API registry. Native core selection an
 | Source | SHA-256 |
 | --- | --- |
 | `packages/backend/src/server/api/endpoint-list.ts` | `f6adc6070df862e7544a92bafc001a9339bfe1e746a856b602c505a248ae5470` |
-| `packages/backend-rust/api-runtime/src/lib.rs` | `c14f1fb6f209f6e30993b25c59d9c3a9d7914991bba86fd4d3918269a3d15cdc` |
-| `packages/backend-rust/api-runtime/src/business/mod.rs` | `cb8ce937e4f982cb71466e3746435a7c860fdb14db2e71d5ea3c618ca534bf51` |
-| `packages/backend/src/server/api/ApiServerService.ts` | `99b864a8ba7d2d60f839c0a398b0a641f6b4f3be0fb0246dc89ab5e5fe0f8cee` |
+| `packages/backend-rust/api-runtime/src/lib.rs` | `50af0736418ff51db035e56791d5ccd055cda53bda95aafa9b8382e4bc0366c7` |
+| `packages/backend-rust/api-runtime/src/business/mod.rs` | `2aca1c3253472946875bf80aee31fe4aef3a96e067d5531083ee1cda08ff8564` |
+| `packages/backend/src/server/api/ApiServerService.ts` | `44c1f2055df5b127186345a5d8496c16503b6756d55534acd86571fbcd7c4b31` |
 | `scripts/ts-to-rs/native-holds.json` | `15afb2cd870908b8ccdb1e16bd018ff96a6f8cc96b24b91d2891025198007fd7` |

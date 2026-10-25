@@ -5,6 +5,8 @@ use misskey_backend_api_auth::Context;
 use misskey_backend_postgres::{Database, QueryError};
 use tokio_postgres::types::ToSql;
 
+mod antennas;
+pub(super) use antennas::Queries as AntennaQueries;
 mod discovery;
 mod id;
 mod js_value;
@@ -43,6 +45,8 @@ impl Config {
 #[derive(Debug)]
 pub(super) enum Error {
     Internal,
+    Antenna(antennas::FailureKind),
+    Fixed(crate::response::ApiFailure),
     Legacy {
         message: String,
         code: &'static str,
@@ -78,6 +82,11 @@ impl Error {
     pub fn response(self) -> axum::http::Response<axum::body::Body> {
         match self {
             Self::Internal => crate::response::internal(),
+            Self::Antenna(kind) => {
+                tracing::error!(operation = "read_antenna", error.kind = ?kind, "endpoint failed");
+                crate::response::internal()
+            }
+            Self::Fixed(failure) => crate::response::fixed(failure, None),
             Self::Legacy { message, code, id } => {
                 // PostgreSQL messages can contain user-supplied data. Only the
                 // correlation ID and error class go to stderr; never SQL,
@@ -166,6 +175,8 @@ pub(super) fn number(value: &Value, key: &str) -> Result<f64, Error> {
 // Activation is selected per complete native slice after its paired benchmark.
 // Unsupported/held endpoints enter the normal TS path before any native work.
 pub(super) const ACTIVE_READ_ENDPOINTS: &[&str] = &[
+    "antennas/list",
+    "antennas/show",
     "admin/relays/list",
     "admin/roles/list",
     "admin/roles/show",
@@ -203,6 +214,12 @@ pub(super) async fn execute(
 ) -> Option<Result<Value, Error>> {
     if !ACTIVE_READ_ENDPOINTS.contains(&name) {
         return None;
+    }
+    if name == "antennas/list" {
+        return Some(antennas::list(runtime, auth).await);
+    }
+    if name == "antennas/show" {
+        return Some(antennas::show(runtime, params, auth).await);
     }
     if name == "users/get-following-users-by-birthday" {
         return Some(user_birthdays::birthdays(runtime, params, auth).await);
