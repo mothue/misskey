@@ -401,6 +401,156 @@ describe('Endpoints', () => {
 		});
 	});
 
+	describe('gallery/featured', () => {
+		const missingId = 'zzzzzzzzzzzzzzzz';
+		const posts: misskey.entities.GalleryPost[] = [];
+		const ownedPostIds = new Set<string>();
+		const saved: { key: string; value: Buffer | null; expires: number }[] = [];
+		let redis: Redis | undefined;
+		let fileId: string | null = null;
+		let ranking: [string, string];
+		let cacheWarmed = false;
+
+		async function createPost(title: string) {
+			assert.ok(fileId !== null);
+			const created = await api('gallery/posts/create', { title, fileIds: [fileId] }, alice);
+			assert.strictEqual(created.status, 200);
+			ownedPostIds.add(created.body.id);
+			return created.body;
+		}
+
+		beforeAll(async () => {
+			redis = new Redis(loadConfig().redis);
+			const uploaded = await uploadFile(alice);
+			assert.strictEqual(uploaded.status, 200);
+			assert.ok(uploaded.body !== null);
+			fileId = uploaded.body.id;
+			for (let index = 0; index < 3; index++) {
+				posts.push(await createPost(`Featured ${index}`));
+			}
+			assert.ok(posts.every(post => post.id < missingId));
+			const epoch = Date.parse('2023-01-01T00:00:00Z');
+			const duration = 3 * 24 * 60 * 60 * 1000;
+			const remaining = duration - ((Date.now() - epoch) % duration);
+			if (remaining < 2000) await setTimeout(remaining + 100);
+			const window = Math.floor((Date.now() - epoch) / duration);
+			ranking = [`featuredGalleryPostsRanking:${window}`, `featuredGalleryPostsRanking:${window - 1}`];
+			for (const key of ranking) {
+				const value = await redis.dumpBuffer(key);
+				const ttl = await redis.pttl(key);
+				saved.push({ key, value, expires: ttl >= 0 ? Date.now() + ttl : ttl });
+			}
+			await redis.del(...ranking);
+			const first = posts.at(0);
+			const second = posts.at(1);
+			const third = posts.at(2);
+			assert.ok(first !== undefined && second !== undefined && third !== undefined);
+			await redis.zadd(ranking[0], 500, missingId, 900, first.id, 2, second.id);
+			await redis.zadd(ranking[1], 300, first.id, 1000, third.id);
+		});
+
+		afterAll(async () => {
+			const failures: unknown[] = [];
+			for (const postId of ownedPostIds) {
+				try {
+					const deleted = await api('gallery/posts/delete', { postId }, alice);
+					assert.strictEqual(deleted.status, 204);
+				} catch (error) { failures.push(error); }
+			}
+			if (fileId !== null) {
+				try {
+					const deleted = await api('drive/files/delete', { fileId }, alice);
+					assert.strictEqual(deleted.status, 204);
+				} catch (error) { failures.push(error); }
+			}
+			if (cacheWarmed && failures.length === 0) {
+				try {
+					const empty = await api('gallery/featured', { limit: 100 });
+					assert.strictEqual(empty.status, 200);
+					assert.deepStrictEqual(empty.body, []);
+				} catch (error) { failures.push(error); }
+			}
+			if (redis !== undefined) {
+				for (const { key, value, expires } of saved) {
+					try {
+						await redis.del(key);
+						if (value === null || expires === -2) continue;
+						const ttl = expires < 0 ? 0 : expires - Date.now();
+						if (expires < 0 || ttl > 0) await redis.restore(key, ttl, value, 'REPLACE');
+					} catch (error) { failures.push(error); }
+				}
+				try { await redis.quit(); } catch (error) { failures.push(error); }
+			}
+			if (failures.length > 0) throw new AggregateError(failures, 'Featured fixture cleanup failed');
+		});
+
+		test('IDだけをキャッシュし、絞り込みと閲覧者ごとの最新表示を保持する', async () => {
+			assert.ok(redis !== undefined);
+			const descending = posts.map(post => post.id).sort().reverse();
+			const newestId = descending.at(0);
+			const nextId = descending.at(1);
+			assert.ok(newestId !== undefined && nextId !== undefined);
+			// Selection sorts IDs before slicing and does not refill a missing row.
+			const missing = await api('gallery/featured', { limit: 1 });
+			assert.strictEqual(missing.status, 200);
+			assert.deepStrictEqual(missing.body, []);
+			cacheWarmed = true;
+			const selected = await api('gallery/featured', { limit: 2 });
+			assert.strictEqual(selected.status, 200);
+			assert.deepStrictEqual(selected.body.map(post => post.id), [newestId]);
+			const until = await api('gallery/featured', { limit: 1, untilId: newestId });
+			assert.strictEqual(until.status, 200);
+			assert.deepStrictEqual(until.body.map(post => post.id), [nextId]);
+
+			const later = await createPost('Not in the cached ranking');
+			await redis.del(...ranking);
+			await redis.zadd(ranking[0], 1, later.id);
+			const anonymous = await api('gallery/featured', { limit: 100 });
+			assert.strictEqual(anonymous.status, 200);
+			assert.ok(Array.isArray(anonymous.body));
+			// The query has no ORDER BY. Check membership here; differential
+			// evidence separately compares the actual returned database row order.
+			assert.deepStrictEqual(anonymous.body.map(post => post.id).sort(), [...descending].sort());
+			assert.ok(anonymous.body.every(post => !Object.hasOwn(post, 'isLiked')));
+			const owner = await api('gallery/featured', { limit: 100 }, alice);
+			assert.strictEqual(owner.status, 200);
+			assert.deepStrictEqual(owner.body.map(post => post.id).sort(), [...descending].sort());
+			assert.ok(owner.body.every(post => post.isLiked === false));
+
+			const liked = await api('gallery/posts/like', { postId: newestId }, bob);
+			assert.strictEqual(liked.status, 204);
+			// The TS writer's stored count increment is asynchronous, but a cached
+			// ranking must still pack current rows and the current viewer each time.
+			await vi.waitFor(async () => {
+				const viewer = await api('gallery/featured', {}, bob);
+				assert.strictEqual(viewer.status, 200);
+				assert.deepStrictEqual(viewer.body.map(post => post.id).sort(), [...descending].sort());
+				const post = viewer.body.find(post => post.id === newestId);
+				assert.ok(post !== undefined);
+				assert.strictEqual(post.isLiked, true);
+				assert.strictEqual(post.likedCount, 1);
+			}, waitForPushToTlOptions);
+			const ownerAfter = await api('gallery/featured', { limit: 100 }, alice);
+			assert.strictEqual(ownerAfter.status, 200);
+			const ownerPost = ownerAfter.body.find(post => post.id === newestId);
+			assert.ok(ownerPost !== undefined);
+			assert.strictEqual(ownerPost.isLiked, false);
+			assert.strictEqual(ownerPost.likedCount, 1);
+			for (const params of [{ limit: 0 }, { limit: 101 }, { untilId: '!' }]) {
+				const invalid = await api('gallery/featured', params);
+				assert.strictEqual(invalid.status, 400);
+				const body: unknown = invalid.body;
+				assert.ok(body !== null && typeof body === 'object' && 'error' in body);
+				const error = body.error;
+				assert.ok(error !== null && typeof error === 'object' && 'code' in error);
+				assert.strictEqual(error.code, 'INVALID_PARAM');
+			}
+			const get = await relativeFetch('api/gallery/featured?limit=100');
+			assert.strictEqual(get.status, 405);
+			assert.strictEqual(await get.text(), '');
+		});
+	});
+
 	describe('notes/show', () => {
 		test('投稿が取得できる', async () => {
 			const myPost = await post(alice, {
