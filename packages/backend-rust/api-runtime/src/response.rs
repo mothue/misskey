@@ -37,6 +37,17 @@ pub(crate) const INVALID_DATE: LegacyErrorDef = LegacyErrorDef {
     code: "RangeError",
 };
 
+// Actual UserEntityService filter callback in the pinned production build;
+// null is also covered by public HTTP, undefined by the Bun property oracle.
+pub(crate) const NULL_DECORATION_ID: LegacyErrorDef = LegacyErrorDef {
+    message: "null is not an object (evaluating 't.id')",
+    code: "TypeError",
+};
+pub(crate) const UNDEFINED_DECORATION_ID: LegacyErrorDef = LegacyErrorDef {
+    message: "undefined is not an object (evaluating 't.id')",
+    code: "TypeError",
+};
+
 struct ApiErrorPayload<'a> {
     message: &'a str,
     code: &'a str,

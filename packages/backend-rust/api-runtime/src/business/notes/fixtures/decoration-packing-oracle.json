@@ -1,0 +1,91 @@
+{
+  "source": "Actual public clips/show TS business at7f4fa756b9; Bun1.4.4; zero field/shape normalization",
+  "sourceSha256": {
+    "packages/backend/src/core/entities/UserEntityService.ts": "18a993af418610a556c58e1255d40bc1e6d18b4cb6320920065534f2448533a3",
+    "packages/backend/src/core/AvatarDecorationService.ts": "cc89e8630799358f6a486a1c0ec8fc6708d1f313aa7d1413b68bbff3f9c83d72"
+  },
+  "cases": [
+    {
+      "name": "empty-null-member",
+      "input": [
+        null
+      ],
+      "available": [],
+      "output": []
+    },
+    {
+      "name": "empty-primitive",
+      "input": [
+        false
+      ],
+      "available": [],
+      "output": []
+    },
+    {
+      "name": "nonempty-null-member",
+      "input": [
+        null
+      ],
+      "available": [
+        {
+          "id": "asrj8848admu0001",
+          "url": "https://fixture.invalid/paired.webp"
+        }
+      ],
+      "error": {
+        "message": "null is not an object (evaluating 't.id')",
+        "code": "TypeError"
+      }
+    },
+    {
+      "name": "nonempty-primitive",
+      "input": [
+        false
+      ],
+      "available": [
+        {
+          "id": "asrj8848admu0001",
+          "url": "https://fixture.invalid/paired.webp"
+        }
+      ],
+      "output": []
+    },
+    {
+      "name": "nonempty-null-id",
+      "input": [
+        {
+          "id": null
+        }
+      ],
+      "available": [
+        {
+          "id": "asrj8848admu0001",
+          "url": "https://fixture.invalid/paired.webp"
+        }
+      ],
+      "output": []
+    },
+    {
+      "name": "nonempty-known-id",
+      "input": [
+        {
+          "id": "asrj8848admu0001",
+          "angle": 0,
+          "flipH": false
+        }
+      ],
+      "available": [
+        {
+          "id": "asrj8848admu0001",
+          "url": "https://fixture.invalid/paired.webp"
+        }
+      ],
+      "output": [
+        {
+          "id": "asrj8848admu0001",
+          "url": "https://fixture.invalid/paired.webp"
+        }
+      ]
+    }
+  ]
+}

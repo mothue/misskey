@@ -197,15 +197,32 @@ async fn decorations(runtime: &Runtime, user: &Value) -> Result<Value, Error> {
 }
 
 fn pack_decorations(user_decorations: &[Value], available: &[Value]) -> Result<Value, Error> {
+    // Array.some never reads a member's id when the inventory is empty.
+    if available.is_empty() {
+        return Ok(Value::Array(Vec::new()));
+    }
     let mut result = Vec::new();
     for decoration in user_decorations {
-        let id = string(decoration, "id")?;
+        let definition = match decoration {
+            Value::Null => Some(&crate::response::NULL_DECORATION_ID),
+            Value::Undefined => Some(&crate::response::UNDEFINED_DECORATION_ID),
+            _ => None,
+        };
+        if let Some(definition) = definition {
+            return Err(Error::legacy(
+                definition.message.to_owned(),
+                definition.code,
+            ));
+        }
         let existing = available
             .iter()
             .find(|available| available.get("id") == decoration.get("id"));
         let Some(existing) = existing else {
             continue;
         };
+        // Strictly decode only selected metadata-backed entries, after the
+        // legacy strict-equality filter has excluded unknown/malformed IDs.
+        let id = string(decoration, "id")?;
         let mut packed = Value::object([("id", Value::string(&id))]);
         for key in ["angle", "flipH", "offsetX", "offsetY"] {
             packed.set(
@@ -408,6 +425,32 @@ mod tests {
             identicon_url(&config, &user("ΟΣ", Value::Null), &meta).unwrap(),
             Value::string("https://local.example/identicon/ος@local.example")
         );
+    }
+
+    #[test]
+    fn decorations_follow_observed_filter_before_decode() {
+        let oracle: serde_json::Value =
+            serde_json::from_str(include_str!("fixtures/decoration-packing-oracle.json")).unwrap();
+        for case in oracle["cases"].as_array().unwrap() {
+            let Value::Array(ref input) = Value::from_json(&case["input"]) else {
+                panic!("array input required");
+            };
+            let Value::Array(ref available) = Value::from_json(&case["available"]) else {
+                panic!("array inventory required");
+            };
+            let result = pack_decorations(input, available);
+            if let Some(expected) = case.get("output") {
+                let actual: serde_json::Value =
+                    serde_json::from_str(&result.unwrap().stringify().unwrap()).unwrap();
+                assert_eq!(&actual, expected, "{}", case["name"]);
+            } else {
+                let Error::Legacy { message, code, .. } = result.unwrap_err() else {
+                    panic!("observed legacy error required: {}", case["name"]);
+                };
+                assert_eq!(message, case["error"]["message"].as_str().unwrap());
+                assert_eq!(code, case["error"]["code"].as_str().unwrap());
+            }
+        }
     }
 
     #[test]
