@@ -24,7 +24,7 @@ Private root `/workspace/native-queue/gallery-featured`. Root commands/cwd/exits
 | Candidate SDK response validation | Coverage/parity PASS; declarations BASELINE |Fresh38/38 coverage;289 success pairs retained:233 conforming and56 identical inherited discrepancies.102 error pairs compared separately;12 fresh captures/13 commands all exit0. This describes the active candidate, not final held-state activation. |
 | Candidate product UI/lifecycle | Main parity/lifecycle PASS; UI BASELINE |Five actual Gallery-index pairs/10 pages; cards0/3/3/12/15, images/order/links/likes/badges match. UI paginator requests15; max100 correctness is a separate HTTP case. Matching app notifications403 is the only ancillary limitation, with no500s. One child becomes zero; featured+four core APIs return503, no restart, host exits0. |
 | Paired measurement/gate | FAIL; five conditions SKIPPED |Two profiles/six conditions measured on their first attempts: empty3/3 PASS, small2/3 PASS and one throughput FAIL. Default10/max100 five conditions remain unmeasured. No retry, optimization or dependency exception. |
-| Fresh Linux federation | PENDING |Private environment prepared; no previous run substituted. |
+| Fresh Linux federation | PASS, exit0;13 skipped |Final held29a1136e9a, fresh Linux build113.650s; nine files92 passed/13 skipped; test84.382s. This does not activate the native candidate or change the failed performance decision. |
 | Final pushed-SHA CI | PENDING |No previous/intermediate result substituted. |
 
 The earlier Gallery-show invalid-data fixtures were restored transactionally in six owned rows, with zero deletes and unchanged historical capture/measurement evidence. Subsequent live captures use the restored data and fresh manifests; historical71-response evidence is not reused as a current result.
@@ -46,4 +46,10 @@ The API remains held. The selected native/TS/held state is generated from the re
 | Public HTTP/lifecycle | PASS, exit0 |81 fresh comparisons against unchanged TS baseline.17 actual unchanged child readiness frames select37 and exclude featured; one child becomes zero, featured+four core APIs503, host exits0. All controls restored; historical artifacts unchanged. |
 | Endpoints E2E | PASS, exit0 |99 cases on final held executable, dedicated test-misskey/Redis14. |
 | Rust final held selection | PASS, exit0 |Workspace317 passed/11 ignored after selection removal. |
-| Fresh Linux federation | PENDING |Container-only native build; no host application artifact mixed. |
+| Fresh Linux federation | PASS, exit0 |Container-only Rust/slacc outputs; source1,212/host JS195/harness and29a1136e9a HEAD remain fixed, owned environment removed. |
+
+## Final held Linux environment
+
+Project `cloud-gallery-featured-fed` uses fresh native output mounts with host application artifacts masked, retaining only Linux compilation caches. Build113.650s and federation84.382s complete on first attempts. All setup/log/initial teardown commands exit0;9files92PASS/13SKIPPED. All1,212 selected source files,195host JS artifacts, harness and committed29a1136e9a HEAD remain unchanged.
+
+The first cleanup preserves original down evidence, records both Linux native artifact hashes, resets only the nine owned output directories and leaves zero owned containers/volumes/networks. No retry or capacity guard stop occurs. Minimum overlay free space is1,774,211,072bytes, tmp3,563,749,376bytes, effective available memory2,103,935,600bytes; all exceed1GiB. Cleanup returns5.52GiB overlay and3.87GiB tmp free. Main dedicated PG/Redis services are retained for the ongoing queue. Stage commands/exits/logs/pins are in private `federation/execution-summary.json`.
