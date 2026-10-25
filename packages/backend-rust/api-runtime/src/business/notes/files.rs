@@ -184,8 +184,21 @@ fn pack_file(
 }
 
 pub(super) async fn pack_files(runtime: &Runtime, ids: &[String]) -> Result<Value, Error> {
+    let query_ids: Vec<_> = ids.iter().map(|id| Some(id.as_str())).collect();
+    let packed = pack_files_map(runtime, &query_ids).await?;
+    Ok(Value::Array(
+        ids.iter()
+            .filter_map(|id| packed.get(id).cloned())
+            .collect(),
+    ))
+}
+
+pub(super) async fn pack_files_map(
+    runtime: &Runtime,
+    ids: &[Option<&str>],
+) -> Result<HashMap<String, Value>, Error> {
     if ids.is_empty() {
-        return Ok(Value::Array(Vec::new()));
+        return Ok(HashMap::new());
     }
     let files = rows(
         &runtime.database,
@@ -212,11 +225,7 @@ pub(super) async fn pack_files(runtime: &Runtime, ids: &[String]) -> Result<Valu
             )?,
         );
     }
-    Ok(Value::Array(
-        ids.iter()
-            .filter_map(|id| packed.get(id).cloned())
-            .collect(),
-    ))
+    Ok(packed)
 }
 
 #[cfg(test)]
