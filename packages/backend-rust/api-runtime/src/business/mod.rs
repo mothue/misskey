@@ -21,7 +21,8 @@ mod id;
 mod js_value;
 mod local_date;
 pub(crate) mod notes;
-pub(super) use notes::{ClipFailureKind, ClipQueries};
+pub use notes::StateLayoutFailure;
+pub(super) use notes::{ClipFailureKind, ClipQueries, StateQueries};
 mod registry_apps;
 mod roles_admin;
 mod stored_value;
@@ -60,6 +61,7 @@ pub(super) enum Error {
     HashtagTrend(hashtag_trend::TrendFailure),
     Gallery(gallery::GalleryFailure),
     Flash(flash::FlashFailure),
+    NoteState(notes::StateFailure),
     ClipShow(ClipFailureKind),
     ClipShowQuery {
         kind: ClipFailureKind,
@@ -120,6 +122,13 @@ impl Error {
                 source.report();
                 match source {
                     flash::FlashFailure::Query { source, .. } => Self::query(source).response(),
+                    _ => crate::response::internal(),
+                }
+            }
+            Self::NoteState(source) => {
+                source.report();
+                match source {
+                    notes::StateFailure::Query { source, .. } => Self::query(source).response(),
                     _ => crate::response::internal(),
                 }
             }

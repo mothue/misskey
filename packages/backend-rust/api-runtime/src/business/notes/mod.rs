@@ -21,7 +21,9 @@ pub(crate) use config::Config;
 pub(super) use drafts::count as count_drafts;
 pub(super) use partial::show_partial_bulk;
 use row::{Note, Visibility, boolean, field, null_string, optional_string, string, string_array};
+pub use state::StateLayoutFailure;
 pub(super) use state::state;
+pub(crate) use state::{StateFailure, StateQueries};
 pub(super) use users::pack_many_users;
 
 pub(in crate::business) async fn pack_user_lite_by_id(
