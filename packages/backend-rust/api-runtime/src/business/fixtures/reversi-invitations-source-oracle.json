@@ -1,0 +1,1471 @@
+{
+  "status": "PASS",
+  "head": "c1988c602d8ba110a027561618c454bf68224286",
+  "generatedAt": "2026-10-26T11:57:01.592Z",
+  "scope": "Actual extracted endpoint callback, ReversiService.getInvitations and constant, UserEntityService.packMany. Controlled Redis/Date.now/userRepository/pack dependencies; installed ioredis.Command prefix/serialization/reply units. No socket/Redis/DB/HTTP/actual UserLite privacy proof.",
+  "metadata": {
+    "meta": {
+      "requireCredential": true,
+      "kind": "read:account",
+      "res": {
+        "type": "array",
+        "optional": false,
+        "nullable": false,
+        "items": {
+          "ref": "UserLite"
+        }
+      }
+    },
+    "paramDef": {}
+  },
+  "caveats": [
+    "Controlled pack output markers prove orchestration only; actual UserLite DTO, badge privacy and auth require actual HTTP.",
+    "Controlled score filtering is fixture behavior; actual source command has numeric inclusive minimum and +inf. Actual Redis selection/order/TTL remain baseline execution evidence.",
+    "Opaque raw bytes are decoded with installed ioredis.Command; DB returned rows remain controlled, not executed TypeORM/PG membership or ordering proof.",
+    "Callback params null/array/scalar cases prove only callback indifference; empty paramDef acceptance in the common pipeline requires public HTTP."
+  ],
+  "fragmentSha256": {
+    "callback": "52114e309b4bf44f13401e05d473f85c04aef7b309f25bf4bb74b1291dfd8bd1",
+    "getInvitations": "fd43076e35654cce5e7f392a30600784bd65f17dee0a48c3606ea867c478a7dd",
+    "timeoutExpression": "2556d31035306a47bbb1c3db2c527dbd9f341bf72fd3fe34019abe77b99b6c15",
+    "packMany": "18dd505510a00473edbb457404edda9fd8fb05a658cf754406bdd4d4df2d8d0a",
+    "meta": "b6cfd063556e9078ca98d1a023e44cbe953d04848da4d87ec4351fdefbcfa039",
+    "paramDef": "328efa15d33daf65da6474cdb2bc142fcfef8358c643c177ca2a2440c05275cb"
+  },
+  "sourceSha256": {
+    "packages/backend/src/server/api/endpoints/reversi/invitations.ts": "af40db478e06483d87a3cc9dd924f59e28813952d14fc68ffa787b4a87eb933f",
+    "packages/backend/src/core/ReversiService.ts": "36bcf85eb6f7775dbd75a30102cc88dd0e4bf8d46a6d6cf5f7ec5b23deeca424",
+    "packages/backend/src/core/entities/UserEntityService.ts": "18a993af418610a556c58e1255d40bc1e6d18b4cb6320920065534f2448533a3",
+    "packages/backend/src/config.ts": "9688899fa6fea5f15f7c165cd5a337efd2763cfc499d5ecc67cbbe5e9395ad6e",
+    "packages/backend-rust/api-runtime/src/redis.rs": "34a14f5e2641f5623498ce69539fa5abca4736e869e6a7705fdbbddc942d59fa",
+    "packages/backend-rust/api-runtime/src/business/notes/users.rs": "d99be3831b3d56e9dec6a51fde0a89df2193d24d08f0931b515c8cdefd82700f",
+    "packages/backend-rust/api-runtime/src/business/notes/mod.rs": "d87517d2da224c94553ba543f5bc5ba4d4abc9da80bf0ce52e8f358af845c6e8",
+    "packages/backend-rust/api-runtime/src/business/eager_batch.rs": "65f354f89686749e2c76ed295ce4a84aa79e826a78075a4fe6ebd34c8b498b91",
+    "packages/frontend/src/pages/reversi/index.vue": "498ade8b4c2af00c50e9b1c96b47359265108c46732d3fec617b97173a4733f8",
+    "/workspace/misskey/node_modules/.bun/typescript@6.0.3/node_modules/typescript/lib/typescript.js": "569177652966bd528c319171c7dd22860dbf72bde116cbc4f644f1d02bb12e39",
+    "/workspace/misskey/node_modules/.bun/ioredis@5.11.1/node_modules/ioredis/built/Command.js": "57c73809c8fa16deaf8c6a81494f52a08d5d6c0dbd939a1a49a5d8f16c6ef314",
+    "/workspace/misskey/node_modules/.bun/ioredis@5.11.1/node_modules/ioredis/built/utils/index.js": "93e42805d7d4a977a1929ffee22e6ee6bbb9c2af6c8abcc2bef18176b01007ca",
+    "/workspace/misskey/node_modules/.bun/@ioredis+commands@1.10.0/node_modules/@ioredis/commands/built/index.js": "52338a74ffacc1a2d1771ad2c4b251f9da29ca438e57fccbd36694caf532a38b",
+    "/workspace/misskey/node_modules/.bun/typeorm@1.1.0+a53b049d7f7963a4/node_modules/typeorm/find-options/operator/In.js": "93cb4d48bf5fe9e5c10a9c3a135aaf835684b6f265c459d3749d91ba3b09765a",
+    "/workspace/misskey/node_modules/.bun/typeorm@1.1.0+a53b049d7f7963a4/node_modules/typeorm/find-options/FindOperator.js": "4313a700ea6601c1db97b5208d9ad4af2758e20d312fd1e537c49b16e5f5f4c2",
+    "/workspace/native-queue/reversi-invitations/source-oracle.mjs": "df034b201ef8a712a571b02edfdcd8398d12302d77974bcecc04fea1b2a7543e"
+  },
+  "cases": [
+    {
+      "name": "empty-redis-shortcircuits-ID-query-and-packing",
+      "fixedNow": 1800000000123,
+      "timeout": 20000,
+      "minimum": 1799999980123,
+      "minimumInclusiveCommand": true,
+      "upper": "+inf",
+      "effectivePrefix": "source-oracle:",
+      "viewer": {
+        "id": "viewer"
+      },
+      "callbackParams": {},
+      "clockReads": 1,
+      "wireArgs": [
+        "source-oracle:reversi:matchSpecific:viewer",
+        "1799999980123",
+        "+inf",
+        "BYSCORE"
+      ],
+      "decodedMembers": [],
+      "returnedDatabaseIds": [],
+      "calls": [
+        {
+          "operation": "clock"
+        },
+        {
+          "operation": "redis.zrange",
+          "args": [
+            "reversi:matchSpecific:viewer",
+            1799999980123,
+            "+inf",
+            "BYSCORE"
+          ]
+        },
+        {
+          "operation": "packMany",
+          "ids": [],
+          "sameViewerObject": true
+        }
+      ],
+      "controlledOutput": []
+    },
+    {
+      "name": "singleton-completes-IDs-once-and-forwards-viewer",
+      "fixedNow": 1800000000123,
+      "timeout": 20000,
+      "minimum": 1799999980123,
+      "minimumInclusiveCommand": true,
+      "upper": "+inf",
+      "effectivePrefix": "source-oracle:",
+      "viewer": {
+        "id": "account"
+      },
+      "callbackParams": {},
+      "clockReads": 1,
+      "wireArgs": [
+        "source-oracle:reversi:matchSpecific:account",
+        "1799999980123",
+        "+inf",
+        "BYSCORE"
+      ],
+      "decodedMembers": [
+        "one"
+      ],
+      "returnedDatabaseIds": [
+        "one"
+      ],
+      "calls": [
+        {
+          "operation": "clock"
+        },
+        {
+          "operation": "redis.zrange",
+          "args": [
+            "reversi:matchSpecific:account",
+            1799999980123,
+            "+inf",
+            "BYSCORE"
+          ]
+        },
+        {
+          "operation": "packMany",
+          "ids": [
+            "one"
+          ],
+          "sameViewerObject": true
+        },
+        {
+          "operation": "users.findBy",
+          "ids": [
+            "one"
+          ]
+        },
+        {
+          "operation": "pack",
+          "id": "one",
+          "marker": "one",
+          "sameViewerObject": true,
+          "optionsKeys": [
+            "userProfile",
+            "userRelations",
+            "userMemos",
+            "pinNotes"
+          ]
+        }
+      ],
+      "controlledOutput": [
+        {
+          "id": "one",
+          "oracleMarker": "one"
+        }
+      ]
+    },
+    {
+      "name": "ID-completion-uses-database-return-order-and-omits-missing",
+      "fixedNow": 1800000000123,
+      "timeout": 20000,
+      "minimum": 1799999980123,
+      "minimumInclusiveCommand": true,
+      "upper": "+inf",
+      "effectivePrefix": "source-oracle:",
+      "viewer": {
+        "id": "viewer"
+      },
+      "callbackParams": {},
+      "clockReads": 1,
+      "wireArgs": [
+        "source-oracle:reversi:matchSpecific:viewer",
+        "1799999980123",
+        "+inf",
+        "BYSCORE"
+      ],
+      "decodedMembers": [
+        "z",
+        "missing",
+        "a"
+      ],
+      "returnedDatabaseIds": [
+        "a",
+        "z"
+      ],
+      "calls": [
+        {
+          "operation": "clock"
+        },
+        {
+          "operation": "redis.zrange",
+          "args": [
+            "reversi:matchSpecific:viewer",
+            1799999980123,
+            "+inf",
+            "BYSCORE"
+          ]
+        },
+        {
+          "operation": "packMany",
+          "ids": [
+            "z",
+            "missing",
+            "a"
+          ],
+          "sameViewerObject": true
+        },
+        {
+          "operation": "users.findBy",
+          "ids": [
+            "z",
+            "missing",
+            "a"
+          ]
+        },
+        {
+          "operation": "pack",
+          "id": "a",
+          "marker": "first-db-row",
+          "sameViewerObject": true,
+          "optionsKeys": [
+            "userProfile",
+            "userRelations",
+            "userMemos",
+            "pinNotes"
+          ]
+        },
+        {
+          "operation": "pack",
+          "id": "z",
+          "marker": "second-db-row",
+          "sameViewerObject": true,
+          "optionsKeys": [
+            "userProfile",
+            "userRelations",
+            "userMemos",
+            "pinNotes"
+          ]
+        }
+      ],
+      "controlledOutput": [
+        {
+          "id": "a",
+          "oracleMarker": "first-db-row"
+        },
+        {
+          "id": "z",
+          "oracleMarker": "second-db-row"
+        }
+      ]
+    },
+    {
+      "name": "all-missing-completion-returns-empty-with-one-query",
+      "fixedNow": 1800000000123,
+      "timeout": 20000,
+      "minimum": 1799999980123,
+      "minimumInclusiveCommand": true,
+      "upper": "+inf",
+      "effectivePrefix": "source-oracle:",
+      "viewer": {
+        "id": "viewer"
+      },
+      "callbackParams": {},
+      "clockReads": 1,
+      "wireArgs": [
+        "source-oracle:reversi:matchSpecific:viewer",
+        "1799999980123",
+        "+inf",
+        "BYSCORE"
+      ],
+      "decodedMembers": [
+        "missing-a",
+        "missing-b"
+      ],
+      "returnedDatabaseIds": [],
+      "calls": [
+        {
+          "operation": "clock"
+        },
+        {
+          "operation": "redis.zrange",
+          "args": [
+            "reversi:matchSpecific:viewer",
+            1799999980123,
+            "+inf",
+            "BYSCORE"
+          ]
+        },
+        {
+          "operation": "packMany",
+          "ids": [
+            "missing-a",
+            "missing-b"
+          ],
+          "sameViewerObject": true
+        },
+        {
+          "operation": "users.findBy",
+          "ids": [
+            "missing-a",
+            "missing-b"
+          ]
+        }
+      ],
+      "controlledOutput": []
+    },
+    {
+      "name": "controlled-score-boundaries-confirm-exact-command-min-and-upper",
+      "fixedNow": 1800000000123,
+      "timeout": 20000,
+      "minimum": 1799999980123,
+      "minimumInclusiveCommand": true,
+      "upper": "+inf",
+      "effectivePrefix": "source-oracle:",
+      "viewer": {
+        "id": "viewer"
+      },
+      "callbackParams": {},
+      "clockReads": 1,
+      "wireArgs": [
+        "source-oracle:reversi:matchSpecific:viewer",
+        "1799999980123",
+        "+inf",
+        "BYSCORE"
+      ],
+      "decodedMembers": [
+        "exact",
+        "after",
+        "future",
+        "positive-infinity"
+      ],
+      "returnedDatabaseIds": [
+        "exact",
+        "after",
+        "future",
+        "positive-infinity"
+      ],
+      "calls": [
+        {
+          "operation": "clock"
+        },
+        {
+          "operation": "redis.zrange",
+          "args": [
+            "reversi:matchSpecific:viewer",
+            1799999980123,
+            "+inf",
+            "BYSCORE"
+          ]
+        },
+        {
+          "operation": "packMany",
+          "ids": [
+            "exact",
+            "after",
+            "future",
+            "positive-infinity"
+          ],
+          "sameViewerObject": true
+        },
+        {
+          "operation": "users.findBy",
+          "ids": [
+            "exact",
+            "after",
+            "future",
+            "positive-infinity"
+          ]
+        },
+        {
+          "operation": "pack",
+          "id": "exact",
+          "marker": "exact",
+          "sameViewerObject": true,
+          "optionsKeys": [
+            "userProfile",
+            "userRelations",
+            "userMemos",
+            "pinNotes"
+          ]
+        },
+        {
+          "operation": "pack",
+          "id": "after",
+          "marker": "after",
+          "sameViewerObject": true,
+          "optionsKeys": [
+            "userProfile",
+            "userRelations",
+            "userMemos",
+            "pinNotes"
+          ]
+        },
+        {
+          "operation": "pack",
+          "id": "future",
+          "marker": "future",
+          "sameViewerObject": true,
+          "optionsKeys": [
+            "userProfile",
+            "userRelations",
+            "userMemos",
+            "pinNotes"
+          ]
+        },
+        {
+          "operation": "pack",
+          "id": "positive-infinity",
+          "marker": "positive-infinity",
+          "sameViewerObject": true,
+          "optionsKeys": [
+            "userProfile",
+            "userRelations",
+            "userMemos",
+            "pinNotes"
+          ]
+        }
+      ],
+      "controlledOutput": [
+        {
+          "id": "exact",
+          "oracleMarker": "exact"
+        },
+        {
+          "id": "after",
+          "oracleMarker": "after"
+        },
+        {
+          "id": "future",
+          "oracleMarker": "future"
+        },
+        {
+          "id": "positive-infinity",
+          "oracleMarker": "positive-infinity"
+        }
+      ]
+    },
+    {
+      "name": "actual-viewer-object-forwarded-ordinary",
+      "fixedNow": 1800000000123,
+      "timeout": 20000,
+      "minimum": 1799999980123,
+      "minimumInclusiveCommand": true,
+      "upper": "+inf",
+      "effectivePrefix": "source-oracle:",
+      "viewer": {
+        "id": "ordinary"
+      },
+      "callbackParams": {},
+      "clockReads": 1,
+      "wireArgs": [
+        "source-oracle:reversi:matchSpecific:ordinary",
+        "1799999980123",
+        "+inf",
+        "BYSCORE"
+      ],
+      "decodedMembers": [
+        "inviter"
+      ],
+      "returnedDatabaseIds": [
+        "inviter"
+      ],
+      "calls": [
+        {
+          "operation": "clock"
+        },
+        {
+          "operation": "redis.zrange",
+          "args": [
+            "reversi:matchSpecific:ordinary",
+            1799999980123,
+            "+inf",
+            "BYSCORE"
+          ]
+        },
+        {
+          "operation": "packMany",
+          "ids": [
+            "inviter"
+          ],
+          "sameViewerObject": true
+        },
+        {
+          "operation": "users.findBy",
+          "ids": [
+            "inviter"
+          ]
+        },
+        {
+          "operation": "pack",
+          "id": "inviter",
+          "marker": "inviter",
+          "sameViewerObject": true,
+          "optionsKeys": [
+            "userProfile",
+            "userRelations",
+            "userMemos",
+            "pinNotes"
+          ]
+        }
+      ],
+      "controlledOutput": [
+        {
+          "id": "inviter",
+          "oracleMarker": "inviter"
+        }
+      ]
+    },
+    {
+      "name": "actual-viewer-object-forwarded-app-context",
+      "fixedNow": 1800000000123,
+      "timeout": 20000,
+      "minimum": 1799999980123,
+      "minimumInclusiveCommand": true,
+      "upper": "+inf",
+      "effectivePrefix": "source-oracle:",
+      "viewer": {
+        "id": "app-user"
+      },
+      "callbackParams": {},
+      "clockReads": 1,
+      "wireArgs": [
+        "source-oracle:reversi:matchSpecific:app-user",
+        "1799999980123",
+        "+inf",
+        "BYSCORE"
+      ],
+      "decodedMembers": [
+        "inviter"
+      ],
+      "returnedDatabaseIds": [
+        "inviter"
+      ],
+      "calls": [
+        {
+          "operation": "clock"
+        },
+        {
+          "operation": "redis.zrange",
+          "args": [
+            "reversi:matchSpecific:app-user",
+            1799999980123,
+            "+inf",
+            "BYSCORE"
+          ]
+        },
+        {
+          "operation": "packMany",
+          "ids": [
+            "inviter"
+          ],
+          "sameViewerObject": true
+        },
+        {
+          "operation": "users.findBy",
+          "ids": [
+            "inviter"
+          ]
+        },
+        {
+          "operation": "pack",
+          "id": "inviter",
+          "marker": "inviter",
+          "sameViewerObject": true,
+          "optionsKeys": [
+            "userProfile",
+            "userRelations",
+            "userMemos",
+            "pinNotes"
+          ]
+        }
+      ],
+      "controlledOutput": [
+        {
+          "id": "inviter",
+          "oracleMarker": "inviter"
+        }
+      ]
+    },
+    {
+      "name": "actual-viewer-object-forwarded-moderator",
+      "fixedNow": 1800000000123,
+      "timeout": 20000,
+      "minimum": 1799999980123,
+      "minimumInclusiveCommand": true,
+      "upper": "+inf",
+      "effectivePrefix": "source-oracle:",
+      "viewer": {
+        "id": "mod",
+        "isModerator": true
+      },
+      "callbackParams": {},
+      "clockReads": 1,
+      "wireArgs": [
+        "source-oracle:reversi:matchSpecific:mod",
+        "1799999980123",
+        "+inf",
+        "BYSCORE"
+      ],
+      "decodedMembers": [
+        "inviter"
+      ],
+      "returnedDatabaseIds": [
+        "inviter"
+      ],
+      "calls": [
+        {
+          "operation": "clock"
+        },
+        {
+          "operation": "redis.zrange",
+          "args": [
+            "reversi:matchSpecific:mod",
+            1799999980123,
+            "+inf",
+            "BYSCORE"
+          ]
+        },
+        {
+          "operation": "packMany",
+          "ids": [
+            "inviter"
+          ],
+          "sameViewerObject": true
+        },
+        {
+          "operation": "users.findBy",
+          "ids": [
+            "inviter"
+          ]
+        },
+        {
+          "operation": "pack",
+          "id": "inviter",
+          "marker": "inviter",
+          "sameViewerObject": true,
+          "optionsKeys": [
+            "userProfile",
+            "userRelations",
+            "userMemos",
+            "pinNotes"
+          ]
+        }
+      ],
+      "controlledOutput": [
+        {
+          "id": "inviter",
+          "oracleMarker": "inviter"
+        }
+      ]
+    },
+    {
+      "name": "actual-viewer-object-forwarded-root",
+      "fixedNow": 1800000000123,
+      "timeout": 20000,
+      "minimum": 1799999980123,
+      "minimumInclusiveCommand": true,
+      "upper": "+inf",
+      "effectivePrefix": "source-oracle:",
+      "viewer": {
+        "id": "root",
+        "isRoot": true
+      },
+      "callbackParams": {},
+      "clockReads": 1,
+      "wireArgs": [
+        "source-oracle:reversi:matchSpecific:root",
+        "1799999980123",
+        "+inf",
+        "BYSCORE"
+      ],
+      "decodedMembers": [
+        "inviter"
+      ],
+      "returnedDatabaseIds": [
+        "inviter"
+      ],
+      "calls": [
+        {
+          "operation": "clock"
+        },
+        {
+          "operation": "redis.zrange",
+          "args": [
+            "reversi:matchSpecific:root",
+            1799999980123,
+            "+inf",
+            "BYSCORE"
+          ]
+        },
+        {
+          "operation": "packMany",
+          "ids": [
+            "inviter"
+          ],
+          "sameViewerObject": true
+        },
+        {
+          "operation": "users.findBy",
+          "ids": [
+            "inviter"
+          ]
+        },
+        {
+          "operation": "pack",
+          "id": "inviter",
+          "marker": "inviter",
+          "sameViewerObject": true,
+          "optionsKeys": [
+            "userProfile",
+            "userRelations",
+            "userMemos",
+            "pinNotes"
+          ]
+        }
+      ],
+      "controlledOutput": [
+        {
+          "id": "inviter",
+          "oracleMarker": "inviter"
+        }
+      ]
+    },
+    {
+      "name": "callback-only-ignores-params-null-public-validation-unproved",
+      "fixedNow": 1800000000123,
+      "timeout": 20000,
+      "minimum": 1799999980123,
+      "minimumInclusiveCommand": true,
+      "upper": "+inf",
+      "effectivePrefix": "source-oracle:",
+      "viewer": {
+        "id": "viewer"
+      },
+      "callbackParams": null,
+      "clockReads": 1,
+      "wireArgs": [
+        "source-oracle:reversi:matchSpecific:viewer",
+        "1799999980123",
+        "+inf",
+        "BYSCORE"
+      ],
+      "decodedMembers": [],
+      "returnedDatabaseIds": [],
+      "calls": [
+        {
+          "operation": "clock"
+        },
+        {
+          "operation": "redis.zrange",
+          "args": [
+            "reversi:matchSpecific:viewer",
+            1799999980123,
+            "+inf",
+            "BYSCORE"
+          ]
+        },
+        {
+          "operation": "packMany",
+          "ids": [],
+          "sameViewerObject": true
+        }
+      ],
+      "controlledOutput": []
+    },
+    {
+      "name": "callback-only-ignores-params-array-public-validation-unproved",
+      "fixedNow": 1800000000123,
+      "timeout": 20000,
+      "minimum": 1799999980123,
+      "minimumInclusiveCommand": true,
+      "upper": "+inf",
+      "effectivePrefix": "source-oracle:",
+      "viewer": {
+        "id": "viewer"
+      },
+      "callbackParams": [],
+      "clockReads": 1,
+      "wireArgs": [
+        "source-oracle:reversi:matchSpecific:viewer",
+        "1799999980123",
+        "+inf",
+        "BYSCORE"
+      ],
+      "decodedMembers": [],
+      "returnedDatabaseIds": [],
+      "calls": [
+        {
+          "operation": "clock"
+        },
+        {
+          "operation": "redis.zrange",
+          "args": [
+            "reversi:matchSpecific:viewer",
+            1799999980123,
+            "+inf",
+            "BYSCORE"
+          ]
+        },
+        {
+          "operation": "packMany",
+          "ids": [],
+          "sameViewerObject": true
+        }
+      ],
+      "controlledOutput": []
+    },
+    {
+      "name": "callback-only-ignores-params-number-public-validation-unproved",
+      "fixedNow": 1800000000123,
+      "timeout": 20000,
+      "minimum": 1799999980123,
+      "minimumInclusiveCommand": true,
+      "upper": "+inf",
+      "effectivePrefix": "source-oracle:",
+      "viewer": {
+        "id": "viewer"
+      },
+      "callbackParams": 1,
+      "clockReads": 1,
+      "wireArgs": [
+        "source-oracle:reversi:matchSpecific:viewer",
+        "1799999980123",
+        "+inf",
+        "BYSCORE"
+      ],
+      "decodedMembers": [],
+      "returnedDatabaseIds": [],
+      "calls": [
+        {
+          "operation": "clock"
+        },
+        {
+          "operation": "redis.zrange",
+          "args": [
+            "reversi:matchSpecific:viewer",
+            1799999980123,
+            "+inf",
+            "BYSCORE"
+          ]
+        },
+        {
+          "operation": "packMany",
+          "ids": [],
+          "sameViewerObject": true
+        }
+      ],
+      "controlledOutput": []
+    },
+    {
+      "name": "callback-only-ignores-params-string-public-validation-unproved",
+      "fixedNow": 1800000000123,
+      "timeout": 20000,
+      "minimum": 1799999980123,
+      "minimumInclusiveCommand": true,
+      "upper": "+inf",
+      "effectivePrefix": "source-oracle:",
+      "viewer": {
+        "id": "viewer"
+      },
+      "callbackParams": "opaque",
+      "clockReads": 1,
+      "wireArgs": [
+        "source-oracle:reversi:matchSpecific:viewer",
+        "1799999980123",
+        "+inf",
+        "BYSCORE"
+      ],
+      "decodedMembers": [],
+      "returnedDatabaseIds": [],
+      "calls": [
+        {
+          "operation": "clock"
+        },
+        {
+          "operation": "redis.zrange",
+          "args": [
+            "reversi:matchSpecific:viewer",
+            1799999980123,
+            "+inf",
+            "BYSCORE"
+          ]
+        },
+        {
+          "operation": "packMany",
+          "ids": [],
+          "sameViewerObject": true
+        }
+      ],
+      "controlledOutput": []
+    },
+    {
+      "name": "callback-only-ignores-params-extras-public-validation-unproved",
+      "fixedNow": 1800000000123,
+      "timeout": 20000,
+      "minimum": 1799999980123,
+      "minimumInclusiveCommand": true,
+      "upper": "+inf",
+      "effectivePrefix": "source-oracle:",
+      "viewer": {
+        "id": "viewer"
+      },
+      "callbackParams": {
+        "ignored": [
+          "extra",
+          null
+        ]
+      },
+      "clockReads": 1,
+      "wireArgs": [
+        "source-oracle:reversi:matchSpecific:viewer",
+        "1799999980123",
+        "+inf",
+        "BYSCORE"
+      ],
+      "decodedMembers": [],
+      "returnedDatabaseIds": [],
+      "calls": [
+        {
+          "operation": "clock"
+        },
+        {
+          "operation": "redis.zrange",
+          "args": [
+            "reversi:matchSpecific:viewer",
+            1799999980123,
+            "+inf",
+            "BYSCORE"
+          ]
+        },
+        {
+          "operation": "packMany",
+          "ids": [],
+          "sameViewerObject": true
+        }
+      ],
+      "controlledOutput": []
+    },
+    {
+      "name": "effective-prefix-applied-once-empty-prefix",
+      "fixedNow": 1800000000123,
+      "timeout": 20000,
+      "minimum": 1799999980123,
+      "minimumInclusiveCommand": true,
+      "upper": "+inf",
+      "effectivePrefix": "",
+      "viewer": {
+        "id": "viewer"
+      },
+      "callbackParams": {},
+      "clockReads": 1,
+      "wireArgs": [
+        "reversi:matchSpecific:viewer",
+        "1799999980123",
+        "+inf",
+        "BYSCORE"
+      ],
+      "decodedMembers": [],
+      "returnedDatabaseIds": [],
+      "calls": [
+        {
+          "operation": "clock"
+        },
+        {
+          "operation": "redis.zrange",
+          "args": [
+            "reversi:matchSpecific:viewer",
+            1799999980123,
+            "+inf",
+            "BYSCORE"
+          ]
+        },
+        {
+          "operation": "packMany",
+          "ids": [],
+          "sameViewerObject": true
+        }
+      ],
+      "controlledOutput": []
+    },
+    {
+      "name": "effective-prefix-applied-once-custom-prefix",
+      "fixedNow": 1800000000123,
+      "timeout": 20000,
+      "minimum": 1799999980123,
+      "minimumInclusiveCommand": true,
+      "upper": "+inf",
+      "effectivePrefix": "custom:already-colon:",
+      "viewer": {
+        "id": "viewer"
+      },
+      "callbackParams": {},
+      "clockReads": 1,
+      "wireArgs": [
+        "custom:already-colon:reversi:matchSpecific:viewer",
+        "1799999980123",
+        "+inf",
+        "BYSCORE"
+      ],
+      "decodedMembers": [],
+      "returnedDatabaseIds": [],
+      "calls": [
+        {
+          "operation": "clock"
+        },
+        {
+          "operation": "redis.zrange",
+          "args": [
+            "reversi:matchSpecific:viewer",
+            1799999980123,
+            "+inf",
+            "BYSCORE"
+          ]
+        },
+        {
+          "operation": "packMany",
+          "ids": [],
+          "sameViewerObject": true
+        }
+      ],
+      "controlledOutput": []
+    },
+    {
+      "name": "installed-ioredis-UTF8-replacement-opaque-members-retained-for-PG-query",
+      "fixedNow": 1800000000123,
+      "timeout": 20000,
+      "minimum": 1799999980123,
+      "minimumInclusiveCommand": true,
+      "upper": "+inf",
+      "effectivePrefix": "source-oracle:",
+      "viewer": {
+        "id": "viewer"
+      },
+      "callbackParams": {},
+      "clockReads": 1,
+      "wireArgs": [
+        "source-oracle:reversi:matchSpecific:viewer",
+        "1799999980123",
+        "+inf",
+        "BYSCORE"
+      ],
+      "decodedMembers": [
+        "",
+        "\u0000",
+        "not-a-misskey-id@host",
+        "\u96ea\ud83d\ude00",
+        "\ufffd",
+        "\ufffd\ufffd\ufffd"
+      ],
+      "returnedDatabaseIds": [],
+      "calls": [
+        {
+          "operation": "clock"
+        },
+        {
+          "operation": "redis.zrange",
+          "args": [
+            "reversi:matchSpecific:viewer",
+            1799999980123,
+            "+inf",
+            "BYSCORE"
+          ]
+        },
+        {
+          "operation": "packMany",
+          "ids": [
+            "",
+            "\u0000",
+            "not-a-misskey-id@host",
+            "\u96ea\ud83d\ude00",
+            "\ufffd",
+            "\ufffd\ufffd\ufffd"
+          ],
+          "sameViewerObject": true
+        },
+        {
+          "operation": "users.findBy",
+          "ids": [
+            "",
+            "\u0000",
+            "not-a-misskey-id@host",
+            "\u96ea\ud83d\ude00",
+            "\ufffd",
+            "\ufffd\ufffd\ufffd"
+          ]
+        }
+      ],
+      "controlledOutput": []
+    },
+    {
+      "name": "decoded-duplicate-members-retained-in-IN-parameters-not-rebuilt-after-query",
+      "fixedNow": 1800000000123,
+      "timeout": 20000,
+      "minimum": 1799999980123,
+      "minimumInclusiveCommand": true,
+      "upper": "+inf",
+      "effectivePrefix": "source-oracle:",
+      "viewer": {
+        "id": "viewer"
+      },
+      "callbackParams": {},
+      "clockReads": 1,
+      "wireArgs": [
+        "source-oracle:reversi:matchSpecific:viewer",
+        "1799999980123",
+        "+inf",
+        "BYSCORE"
+      ],
+      "decodedMembers": [
+        "\ufffd",
+        "\ufffd"
+      ],
+      "returnedDatabaseIds": [
+        "\ufffd"
+      ],
+      "calls": [
+        {
+          "operation": "clock"
+        },
+        {
+          "operation": "redis.zrange",
+          "args": [
+            "reversi:matchSpecific:viewer",
+            1799999980123,
+            "+inf",
+            "BYSCORE"
+          ]
+        },
+        {
+          "operation": "packMany",
+          "ids": [
+            "\ufffd",
+            "\ufffd"
+          ],
+          "sameViewerObject": true
+        },
+        {
+          "operation": "users.findBy",
+          "ids": [
+            "\ufffd",
+            "\ufffd"
+          ]
+        },
+        {
+          "operation": "pack",
+          "id": "\ufffd",
+          "marker": "one-controlled-database-row",
+          "sameViewerObject": true,
+          "optionsKeys": [
+            "userProfile",
+            "userRelations",
+            "userMemos",
+            "pinNotes"
+          ]
+        }
+      ],
+      "controlledOutput": [
+        {
+          "id": "\ufffd",
+          "oracleMarker": "one-controlled-database-row"
+        }
+      ]
+    },
+    {
+      "name": "actual-packMany-eager-start-and-repository-result-order",
+      "fixedNow": 1800000000123,
+      "timeout": 20000,
+      "minimum": 1799999980123,
+      "minimumInclusiveCommand": true,
+      "upper": "+inf",
+      "effectivePrefix": "source-oracle:",
+      "viewer": {
+        "id": "viewer"
+      },
+      "callbackParams": {},
+      "clockReads": 1,
+      "wireArgs": [
+        "source-oracle:reversi:matchSpecific:viewer",
+        "1799999980123",
+        "+inf",
+        "BYSCORE"
+      ],
+      "decodedMembers": [
+        "c",
+        "a",
+        "b"
+      ],
+      "returnedDatabaseIds": [
+        "b",
+        "c",
+        "a"
+      ],
+      "calls": [
+        {
+          "operation": "clock"
+        },
+        {
+          "operation": "redis.zrange",
+          "args": [
+            "reversi:matchSpecific:viewer",
+            1799999980123,
+            "+inf",
+            "BYSCORE"
+          ]
+        },
+        {
+          "operation": "packMany",
+          "ids": [
+            "c",
+            "a",
+            "b"
+          ],
+          "sameViewerObject": true
+        },
+        {
+          "operation": "users.findBy",
+          "ids": [
+            "c",
+            "a",
+            "b"
+          ]
+        },
+        {
+          "operation": "pack",
+          "id": "b",
+          "marker": "b",
+          "sameViewerObject": true,
+          "optionsKeys": [
+            "userProfile",
+            "userRelations",
+            "userMemos",
+            "pinNotes"
+          ]
+        },
+        {
+          "operation": "pack",
+          "id": "c",
+          "marker": "c",
+          "sameViewerObject": true,
+          "optionsKeys": [
+            "userProfile",
+            "userRelations",
+            "userMemos",
+            "pinNotes"
+          ]
+        },
+        {
+          "operation": "pack",
+          "id": "a",
+          "marker": "a",
+          "sameViewerObject": true,
+          "optionsKeys": [
+            "userProfile",
+            "userRelations",
+            "userMemos",
+            "pinNotes"
+          ]
+        },
+        {
+          "operation": "all-pack-invocations-started-before-controlled-completion"
+        }
+      ],
+      "controlledOutput": [
+        {
+          "id": "b",
+          "oracleMarker": "b"
+        },
+        {
+          "id": "c",
+          "oracleMarker": "c"
+        },
+        {
+          "id": "a",
+          "oracleMarker": "a"
+        }
+      ]
+    },
+    {
+      "name": "controlled-Redis-rejection-keeps-cause-and-prevents-packing",
+      "fixedNow": 1800000000123,
+      "timeout": 20000,
+      "minimum": 1799999980123,
+      "minimumInclusiveCommand": true,
+      "upper": "+inf",
+      "effectivePrefix": "source-oracle:",
+      "viewer": {
+        "id": "viewer"
+      },
+      "callbackParams": {},
+      "clockReads": 1,
+      "wireArgs": [
+        "source-oracle:reversi:matchSpecific:viewer",
+        "1799999980123",
+        "+inf",
+        "BYSCORE"
+      ],
+      "returnedDatabaseIds": [],
+      "calls": [
+        {
+          "operation": "clock"
+        },
+        {
+          "operation": "redis.zrange",
+          "args": [
+            "reversi:matchSpecific:viewer",
+            1799999980123,
+            "+inf",
+            "BYSCORE"
+          ]
+        }
+      ],
+      "controlledError": {
+        "name": "Error",
+        "message": "controlled-zrange-rejection",
+        "originalIdentityRetained": true
+      }
+    },
+    {
+      "name": "controlled-completion-rejection-keeps-cause",
+      "fixedNow": 1800000000123,
+      "timeout": 20000,
+      "minimum": 1799999980123,
+      "minimumInclusiveCommand": true,
+      "upper": "+inf",
+      "effectivePrefix": "source-oracle:",
+      "viewer": {
+        "id": "viewer"
+      },
+      "callbackParams": {},
+      "clockReads": 1,
+      "wireArgs": [
+        "source-oracle:reversi:matchSpecific:viewer",
+        "1799999980123",
+        "+inf",
+        "BYSCORE"
+      ],
+      "decodedMembers": [
+        "inviter"
+      ],
+      "returnedDatabaseIds": [],
+      "calls": [
+        {
+          "operation": "clock"
+        },
+        {
+          "operation": "redis.zrange",
+          "args": [
+            "reversi:matchSpecific:viewer",
+            1799999980123,
+            "+inf",
+            "BYSCORE"
+          ]
+        },
+        {
+          "operation": "packMany",
+          "ids": [
+            "inviter"
+          ],
+          "sameViewerObject": true
+        },
+        {
+          "operation": "users.findBy",
+          "ids": [
+            "inviter"
+          ]
+        }
+      ],
+      "controlledError": {
+        "name": "Error",
+        "message": "controlled-ID-completion-rejection",
+        "originalIdentityRetained": true
+      }
+    },
+    {
+      "name": "controlled-early-pack-rejection-still-invokes-later-pack",
+      "fixedNow": 1800000000123,
+      "timeout": 20000,
+      "minimum": 1799999980123,
+      "minimumInclusiveCommand": true,
+      "upper": "+inf",
+      "effectivePrefix": "source-oracle:",
+      "viewer": {
+        "id": "viewer"
+      },
+      "callbackParams": {},
+      "clockReads": 1,
+      "wireArgs": [
+        "source-oracle:reversi:matchSpecific:viewer",
+        "1799999980123",
+        "+inf",
+        "BYSCORE"
+      ],
+      "decodedMembers": [
+        "first",
+        "second"
+      ],
+      "returnedDatabaseIds": [
+        "first",
+        "second"
+      ],
+      "calls": [
+        {
+          "operation": "clock"
+        },
+        {
+          "operation": "redis.zrange",
+          "args": [
+            "reversi:matchSpecific:viewer",
+            1799999980123,
+            "+inf",
+            "BYSCORE"
+          ]
+        },
+        {
+          "operation": "packMany",
+          "ids": [
+            "first",
+            "second"
+          ],
+          "sameViewerObject": true
+        },
+        {
+          "operation": "users.findBy",
+          "ids": [
+            "first",
+            "second"
+          ]
+        },
+        {
+          "operation": "pack",
+          "id": "first",
+          "marker": "reject",
+          "sameViewerObject": true,
+          "optionsKeys": [
+            "userProfile",
+            "userRelations",
+            "userMemos",
+            "pinNotes"
+          ]
+        },
+        {
+          "operation": "pack",
+          "id": "second",
+          "marker": "later",
+          "sameViewerObject": true,
+          "optionsKeys": [
+            "userProfile",
+            "userRelations",
+            "userMemos",
+            "pinNotes"
+          ]
+        }
+      ],
+      "controlledError": {
+        "name": "Error",
+        "message": "controlled-pack-rejection",
+        "originalIdentityRetained": true
+      }
+    }
+  ],
+  "curation": "Only actual ioredis RESP commandWire bytes are omitted from the private source evidence. Controlled pack outputs are orchestration sentinels, never proof of actual UserLite DTO/privacy."
+}

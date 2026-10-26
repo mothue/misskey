@@ -71,10 +71,23 @@
 - Frontend test: `bun run --filter frontend test`
 - Migration 差分検査: `bun run --filter backend check-migrations`
 - `misskey-js` 再生成 (API 変更後必須): `bun run generate:api-types`
+- Rust (`packages/backend-rust/` で実行): `cargo fmt --all --check` / `cargo clippy --locked --workspace --all-targets -- -D warnings` / `cargo test --locked --workspace`
 
 **注意:** backend テスト (`test` / `test:e2e` / `test:fed`) 実行前に `.config/test.yml` が必要。未作成の場合は `cp .github/misskey/test.yml .config/test.yml` を実行してから走らせる。各テストスクリプトが内部で `NODE_ENV=test bun run compile-config` を呼ぶため、コピー済みであれば追加の compile-config は不要。
 
 変更範囲に応じて最も近いコマンドから優先して検証し、必要なら全体コマンドに広げること。
+
+## TS → Rust 移行 (`packages/backend-rust/` と TS ブリッジ)
+
+契約は `docs/ts-to-rs/PORTS.md`。詳細規約は `.claude/skills/working-on-backend-rust/` にある。レビューでは少なくとも次を指摘する。
+
+- 既存 TS と公開挙動 (status / body / header / エラーの code・id・kind / 副作用) が変わる変更で、PORTS.md に承認済みの例外として記録がないもの
+- TS が持つ一覧 (endpoint 名・special route・policy 名・テーブル名・エラー定義) を Rust または TS に手書きで複製したもの。未知の値を `continue` / `_ => None` で黙って読み飛ばすもの
+- `.map_err(|_| ())`、`impl From<()>`、中身のないエラー struct の追加。境界で `tracing` に操作名とエラー種別を残していないもの (秘密・SQL・token は出さない)
+- 公開データや深い JSON を再帰で辿るもの。`Clone` / `Drop` の手書き追加 (`SafeJson` を使う)
+- ロック中に await しないのに `tokio::sync::Mutex`、`tokio::spawn` の投げっぱなし、`sleep` によるポーリング
+- 決まった値の集合を `&str` / `bool` 引数で表すもの、`as_*` なのに割り当てて返すメソッド、100 行を超える関数
+- TS 側で Rust からのデータを `as` キャストで検査の代わりにするもの、`ApiError` 以外の例外をログなしで握りつぶすもの
 
 ## Editing hints
 

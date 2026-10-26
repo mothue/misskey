@@ -1,0 +1,150 @@
+{
+  "source": "actual TS public gallery/posts/show HTTP, captured by separate runtime owner before native implementation",
+  "baselineHead": "a15daf3926ad8ad391735e8c8ce1c90e47a9f41f",
+  "baselineBinarySha256": "123c49de992f2685b1ce46d02339808b75688632b36139b334f591403116ee7b",
+  "captureSha256": "b3afd62e9490ecdb713b7570e2fd61e3306507e101153188cc926303e9cf4686",
+  "provenanceSha256": "30d3b6116ad5fdc10bfded1e57432c60eb3d6419a7df56454bf556136cd53679",
+  "summarySha256": "2e2e45b6222abd90e97ba90e9a94a907ca31ff3165e0d057fbe76a6224b91be1",
+  "normalization": "Only per-request error.info.e.id is omitted; all deterministic error fields come from actual HTTP",
+  "finiteUnitInputNote": "The pure policy unit uses the first representable integral millisecond outside TimeClip as a representative of the captured finite-outside-JS class; actual294000 SQL projection is left to end-to-end native HTTP comparison",
+  "cases": [
+    {
+      "name": "date-positive-infinity-anon",
+      "dateKind": "positive-infinity",
+      "actualTimestamp": {
+        "updatedAtText": "infinity",
+        "isFinite": false
+      },
+      "status": 500,
+      "bodyWithoutRequestCorrelationId": {
+        "error": {
+          "message": "Internal error occurred. Please contact us if the error persists.",
+          "code": "INTERNAL_ERROR",
+          "id": "5d37dbcb-891e-41ca-a3d6-e690c97775ac",
+          "kind": "server",
+          "info": {
+            "e": {
+              "message": "i.updatedAt.toISOString is not a function. (In 'i.updatedAt.toISOString()', 'i.updatedAt.toISOString' is undefined)",
+              "code": "TypeError"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "date-positive-infinity-owner",
+      "dateKind": "positive-infinity",
+      "actualTimestamp": {
+        "updatedAtText": "infinity",
+        "isFinite": false
+      },
+      "status": 500,
+      "bodyWithoutRequestCorrelationId": {
+        "error": {
+          "message": "Internal error occurred. Please contact us if the error persists.",
+          "code": "INTERNAL_ERROR",
+          "id": "5d37dbcb-891e-41ca-a3d6-e690c97775ac",
+          "kind": "server",
+          "info": {
+            "e": {
+              "message": "i.updatedAt.toISOString is not a function. (In 'i.updatedAt.toISOString()', 'i.updatedAt.toISOString' is undefined)",
+              "code": "TypeError"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "date-negative-infinity-anon",
+      "dateKind": "negative-infinity",
+      "actualTimestamp": {
+        "updatedAtText": "-infinity",
+        "isFinite": false
+      },
+      "status": 500,
+      "bodyWithoutRequestCorrelationId": {
+        "error": {
+          "message": "Internal error occurred. Please contact us if the error persists.",
+          "code": "INTERNAL_ERROR",
+          "id": "5d37dbcb-891e-41ca-a3d6-e690c97775ac",
+          "kind": "server",
+          "info": {
+            "e": {
+              "message": "i.updatedAt.toISOString is not a function. (In 'i.updatedAt.toISOString()', 'i.updatedAt.toISOString' is undefined)",
+              "code": "TypeError"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "date-negative-infinity-owner",
+      "dateKind": "negative-infinity",
+      "actualTimestamp": {
+        "updatedAtText": "-infinity",
+        "isFinite": false
+      },
+      "status": 500,
+      "bodyWithoutRequestCorrelationId": {
+        "error": {
+          "message": "Internal error occurred. Please contact us if the error persists.",
+          "code": "INTERNAL_ERROR",
+          "id": "5d37dbcb-891e-41ca-a3d6-e690c97775ac",
+          "kind": "server",
+          "info": {
+            "e": {
+              "message": "i.updatedAt.toISOString is not a function. (In 'i.updatedAt.toISOString()', 'i.updatedAt.toISOString' is undefined)",
+              "code": "TypeError"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "date-finite-outside-js-anon",
+      "dateKind": "finite-outside-js",
+      "actualTimestamp": {
+        "updatedAtText": "294000-01-01 00:00:00+00",
+        "isFinite": true
+      },
+      "status": 500,
+      "bodyWithoutRequestCorrelationId": {
+        "error": {
+          "message": "Internal error occurred. Please contact us if the error persists.",
+          "code": "INTERNAL_ERROR",
+          "id": "5d37dbcb-891e-41ca-a3d6-e690c97775ac",
+          "kind": "server",
+          "info": {
+            "e": {
+              "message": "Invalid Date",
+              "code": "RangeError"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "date-finite-outside-js-owner",
+      "dateKind": "finite-outside-js",
+      "actualTimestamp": {
+        "updatedAtText": "294000-01-01 00:00:00+00",
+        "isFinite": true
+      },
+      "status": 500,
+      "bodyWithoutRequestCorrelationId": {
+        "error": {
+          "message": "Internal error occurred. Please contact us if the error persists.",
+          "code": "INTERNAL_ERROR",
+          "id": "5d37dbcb-891e-41ca-a3d6-e690c97775ac",
+          "kind": "server",
+          "info": {
+            "e": {
+              "message": "Invalid Date",
+              "code": "RangeError"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

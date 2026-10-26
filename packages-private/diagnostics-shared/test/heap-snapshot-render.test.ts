@@ -57,7 +57,7 @@ describe('renderHeapSnapshotTable', () => {
 		));
 
 		expect(row).toContain('$\\color{orange}{\\text{+200\u00A0KB}}$');
-		expect(row).toContain('$\\color{orange}{\\text{+20\\\\%}}$');
+		expect(row).toContain('$\\color{orange}{\\text{+20}}$%');
 		expect(row).not.toContain('increase');
 	});
 
@@ -67,7 +67,7 @@ describe('renderHeapSnapshotTable', () => {
 			report([1_050_000, 1_050_000, 1_050_000]),
 		));
 
-		expect(row).toContain('$\\text{+50\u00A0KB}$<br>$\\text{+5\\\\%}$');
+		expect(row).toContain('$\\text{+50\u00A0KB}$<br>$\\text{+5}$%');
 		expect(row.split('|')[4]).not.toContain('\\color{');
 	});
 

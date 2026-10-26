@@ -1,0 +1,89 @@
+{
+  "version": 1,
+  "holds": [
+    {
+      "endpoint": "reversi/invitations",
+      "kind": "performance",
+      "reason": "Complete native candidate matches 49 HTTP cases, but the first paired nine-condition gate fails ten-account throughput (-7.87848154%), ten-app throughput/p95 (-18.94890038%/+13.34594155%), and moderator-ten throughput (-13.71241899%). Keep the complete TS body; all nine conditions were measured and no exception or favorable rerun was taken.",
+      "evidence": "reversi-invitations-validation.md"
+    },
+    {
+      "endpoint": "flash/featured",
+      "kind": "performance",
+      "reason": "Complete native candidate matches 58 HTTP cases, but the first paired eleven-condition gate fails maximum-list application throughput (-0.2043%), empty anonymous p95 (+13.0457%), and empty account throughput/p95 (-3.6414%/+2.6156%). Keep the complete TS body; all eleven conditions were measured and no exception or favorable rerun was taken.",
+      "evidence": "flash-featured-validation.md"
+    },
+    {
+      "endpoint": "gallery/featured",
+      "kind": "performance",
+      "reason": "Complete native candidate matches 81 HTTP cases, but paired small-list application-token throughput regressed 4.4147% while p95 improved 2.0426%. Keep the complete TS body; default-list and maximum-list measurement remain skipped after the valid gate failure.",
+      "evidence": "gallery-featured-validation.md"
+    },
+    {
+      "endpoint": "admin/get-index-stats",
+      "kind": "performance",
+      "reason": "The complete native candidate failed its paired measurement gate; continue using the TS body.",
+      "evidence": "native-read-activation.md"
+    },
+    {
+      "endpoint": "admin/get-table-stats",
+      "kind": "performance",
+      "reason": "The complete native candidate failed its paired measurement gate; continue using the TS body.",
+      "evidence": "native-read-activation.md"
+    },
+    {
+      "endpoint": "admin/emoji/list",
+      "kind": "compatibility",
+      "reason": "Separate TS/Rust ID generator state can change date-pagination bounds within the same millisecond.",
+      "evidence": "db-read-validation.md#candidate-and-separate-date-pagination-hold"
+    },
+    {
+      "endpoint": "admin/emoji/list-remote",
+      "kind": "compatibility",
+      "reason": "Separate TS/Rust ID generator state can change date-pagination bounds within the same millisecond.",
+      "evidence": "db-read-validation.md#candidate-and-separate-date-pagination-hold"
+    },
+    {
+      "endpoint": "admin/ad/list",
+      "kind": "compatibility",
+      "reason": "Separate TS/Rust ID generator state can change date-pagination bounds within the same millisecond.",
+      "evidence": "db-read-validation.md#candidate-and-separate-date-pagination-hold"
+    },
+    {
+      "endpoint": "admin/announcements/list",
+      "kind": "compatibility",
+      "reason": "Separate TS/Rust ID generator state can change date-pagination bounds within the same millisecond.",
+      "evidence": "db-read-validation.md#candidate-and-separate-date-pagination-hold"
+    },
+    {
+      "endpoint": "notes/clips",
+      "kind": "performance",
+      "reason": "Paired scoped application-token large-clip scenario remains slower after bounded compatible-session reuse: throughput -16.53%, p95 +39.42%; keep the complete TS body.",
+      "evidence": "notes-clips-validation.md"
+    },
+    {
+      "endpoint": "notes/drafts/count",
+      "kind": "performance",
+      "reason": "Paired nine-draft account scenario improved throughput by 19.52% but p95 increased 3.71%; all-scenario throughput/p95 gate failed, so keep the complete TS body.",
+      "evidence": "notes-drafts-count-validation.md"
+    },
+    {
+      "endpoint": "users/relation",
+      "kind": "performance",
+      "reason": "Eight-query complete native candidate failed five of six paired throughput/p95 scenarios; scoped 20-ID request throughput -30.46%, p95 +29.12%. Keep the complete TS body.",
+      "evidence": "users-relation-validation.md"
+    },
+    {
+      "endpoint": "users/get-following-users-by-birthday",
+      "kind": "performance",
+      "reason": "Accepted-extra-field compatibility is fixed, but paired scoped application-token 18-user throughput regressed 4.85% (p95 improved 6.62%). All-scenario activation gate failed; retain TS body.",
+      "evidence": "users-birthdays-validation.md"
+    },
+    {
+      "endpoint": "channels/my-favorites",
+      "kind": "performance",
+      "reason": "The first paired gate fails three of eight conditions: ten-compact account throughput -8.64%; ten-compact application throughput -23.41% and p95 +54.95%; ten-mixed application throughput -2.91% and p95 +19.07%. Keep the complete TS business body.",
+      "evidence": "channels-my-favorites-validation.md"
+    }
+  ]
+}

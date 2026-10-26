@@ -1,0 +1,38 @@
+[package]
+name = "misskey-api-runtime"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+misskey-api-validation = { path = "../api-validation" }
+misskey-backend-api-auth = { path = "../api-auth" }
+misskey-backend-core = { path = "../core" }
+misskey-backend-postgres = { path = "../storage-postgres" }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order", "unbounded_depth", "raw_value"] }
+serde_stacker = "0.1"
+tokio = { version = "1", features = ["fs", "io-util", "sync", "rt", "time"] }
+tokio-util = { version = "0.7", features = ["io"] }
+axum = "0.8"
+base64 = "0.22"
+bytes = "1"
+reqwest = { version = "0.12", default-features = false, features = ["json", "stream"] }
+redis = { version = "0.32", features = ["tokio-comp", "tokio-rustls-comp", "tls-rustls-insecure"] }
+multer = "3"
+tempfile = "3"
+futures-util = "0.3"
+ryu-js = "1"
+
+tokio-postgres = { version = "0.7", features = ["with-serde_json-1"] }
+unicode-normalization = "=0.1.25"
+getrandom = "0.3"
+tracing = "0.1"
+# Bun 1.4.4 embeds ICU timezone data 2026a; use that exact bundled data.
+jiff = { version = "=0.2.15", default-features = false, features = ["std", "tzdb-bundle-always"] }
+jiff-tzdb = "=0.1.6"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+async-trait = "0.1"

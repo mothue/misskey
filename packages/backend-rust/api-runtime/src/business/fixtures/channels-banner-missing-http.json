@@ -1,0 +1,34 @@
+{
+  "provenance": {
+    "sourceHead": "099efc274852896de50139aea0737d6f03c551bd",
+    "oracleSha256": "c141b56e447c3777afed90e04b097411a3bc07fdfb3a3c37952e09b8d30aa881",
+    "scope": "Actual TS HTTP after isolated clone deletion between favorite snapshot and banner lookup. Native HTTP race not executed."
+  },
+  "http": {
+    "status": 500,
+    "headers": {
+      "access-control-allow-origin": "*",
+      "cache-control": "private, max-age=0, must-revalidate",
+      "content-length": "373",
+      "content-type": "application/json; charset=utf-8",
+      "connection": "close"
+    },
+    "body": {
+      "error": {
+        "message": "Internal error occurred. Please contact us if the error persists.",
+        "code": "INTERNAL_ERROR",
+        "id": "5d37dbcb-891e-41ca-a3d6-e690c97775ac",
+        "kind": "server",
+        "info": {
+          "e": {
+            "message": "Could not find any entity of type \"MiDriveFile\" matching: {\n    \"id\": \"invalid-date-file\"\n}",
+            "code": "EntityNotFoundError",
+            "id": "6bf09a66-8264-4e46-bcd5-652c52c8edfa"
+          }
+        }
+      }
+    },
+    "raw": "{\"error\":{\"message\":\"Internal error occurred. Please contact us if the error persists.\",\"code\":\"INTERNAL_ERROR\",\"id\":\"5d37dbcb-891e-41ca-a3d6-e690c97775ac\",\"kind\":\"server\",\"info\":{\"e\":{\"message\":\"Could not find any entity of type \\\"MiDriveFile\\\" matching: {\\n    \\\"id\\\": \\\"invalid-date-file\\\"\\n}\",\"code\":\"EntityNotFoundError\",\"id\":\"6bf09a66-8264-4e46-bcd5-652c52c8edfa\"}}}}",
+    "rawBodyHex": "7b226572726f72223a7b226d657373616765223a22496e7465726e616c206572726f72206f636375727265642e20506c6561736520636f6e7461637420757320696620746865206572726f722070657273697374732e222c22636f6465223a22494e5445524e414c5f4552524f52222c226964223a2235643337646263622d383931652d343163612d613364362d653639306339373737356163222c226b696e64223a22736572766572222c22696e666f223a7b2265223a7b226d657373616765223a22436f756c64206e6f742066696e6420616e7920656e74697479206f662074797065205c224d69447269766546696c655c22206d61746368696e673a207b5c6e202020205c2269645c223a205c22696e76616c69642d646174652d66696c655c225c6e7d222c22636f6465223a22456e746974794e6f74466f756e644572726f72222c226964223a2236626630396136362d383236342d346534362d626364352d363532633532633865646661227d7d7d7d"
+  }
+}

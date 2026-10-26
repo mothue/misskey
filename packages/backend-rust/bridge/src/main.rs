@@ -1,0 +1,380 @@
+//! Temporary authenticated loopback adapter. Stdout is reserved for readiness.
+use axum::{
+    Router,
+    body::{Bytes, to_bytes},
+    extract::{Request, State},
+    http::{StatusCode, header},
+    response::{IntoResponse, Response},
+    routing::post,
+};
+use misskey_api_runtime::{ApiBootstrap, Runtime as ApiRuntime};
+use misskey_backend_core::{Catalog, Endpoint, Property, echo, ping_at};
+use misskey_backend_postgres::{OnlineUsers, PostgresConfig};
+use serde::{Deserialize, Serialize};
+use std::{
+    future::IntoFuture,
+    io::{self, BufRead, Read, Write},
+    sync::Arc,
+    time::{Duration, SystemTime},
+};
+
+const LIMIT: usize = 16 * 1024 * 1024;
+#[derive(Debug, thiserror::Error)]
+#[error("Rust backend unavailable")]
+struct Failure;
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct Ready<'a> {
+    v: u8,
+    port: u16,
+    native_endpoints: Vec<&'a str>,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Bootstrap {
+    v: u8,
+    token: String,
+    endpoints: Vec<EndpointDefinition>,
+    #[serde(default)]
+    postgres: Option<PostgresConfig>,
+    #[serde(default)]
+    api: Option<ApiBootstrap>,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct EndpointDefinition {
+    name_utf16: Vec<u16>,
+    properties: Vec<PropertyDefinition>,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct PropertyDefinition {
+    name_utf16: Vec<u16>,
+    #[serde(rename = "type", deserialize_with = "required_nullable")]
+    kind: Option<String>,
+}
+fn required_nullable<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<String>, D::Error> {
+    Option::<String>::deserialize(deserializer)
+}
+#[derive(Deserialize)]
+#[serde(tag = "op", deny_unknown_fields)]
+enum Rpc {
+    #[serde(rename = "ping")]
+    Ping { v: u8 },
+    #[serde(rename = "test", rename_all = "camelCase")]
+    Test { v: u8, params_json: String },
+    #[serde(rename = "endpoint", rename_all = "camelCase")]
+    Endpoint { v: u8, endpoint_utf16: Vec<u16> },
+    #[serde(rename = "endpoints")]
+    Endpoints { v: u8 },
+    #[serde(rename = "get-online-users-count")]
+    OnlineUsersCount { v: u8 },
+}
+#[derive(Serialize)]
+#[serde(tag = "op")]
+enum Success<'a> {
+    #[serde(rename = "ping")]
+    Ping { v: u8, pong: i64 },
+    #[serde(rename = "test", rename_all = "camelCase")]
+    Test { v: u8, result_json: &'a str },
+    #[serde(rename = "endpoint")]
+    Endpoint { v: u8, result: Option<Description> },
+    #[serde(rename = "endpoints", rename_all = "camelCase")]
+    Endpoints {
+        v: u8,
+        endpoints_utf16: Vec<Vec<u16>>,
+    },
+    #[serde(rename = "get-online-users-count")]
+    OnlineUsersCount { v: u8, count: f64 },
+}
+#[derive(Serialize)]
+struct Description {
+    params: Vec<Parameter>,
+}
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct Parameter {
+    name_utf16: Vec<u16>,
+    #[serde(rename = "type")]
+    kind: String,
+}
+struct App {
+    bearer: String,
+    catalog: Arc<Catalog>,
+    online_users: Arc<OnlineUsers>,
+    api_config: Option<ApiBootstrap>,
+    api: Option<ApiRuntime>,
+}
+fn unavailable(status: StatusCode) -> Response {
+    (status, "Rust backend unavailable").into_response()
+}
+struct Bounded(Vec<u8>);
+impl Write for Bounded {
+    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+        if bytes.len() > LIMIT.saturating_sub(self.0.len()) {
+            return Err(io::Error::other("response too large"));
+        }
+        self.0.extend_from_slice(bytes);
+        Ok(bytes.len())
+    }
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+fn success(value: Success<'_>) -> Response {
+    let mut writer = Bounded(Vec::new());
+    if serde_json::to_writer(&mut writer, &value).is_err() {
+        return unavailable(StatusCode::INTERNAL_SERVER_ERROR);
+    }
+    ([(header::CONTENT_TYPE, "application/json")], writer.0).into_response()
+}
+async fn rpc(State(app): State<Arc<App>>, request: Request) -> Response {
+    if request
+        .headers()
+        .get(header::AUTHORIZATION)
+        .and_then(|header| header.to_str().ok())
+        != Some(app.bearer.as_str())
+    {
+        return unavailable(StatusCode::UNAUTHORIZED);
+    }
+    let bytes: Bytes = match to_bytes(request.into_body(), LIMIT).await {
+        Ok(bytes) => bytes,
+        Err(_) => return unavailable(StatusCode::PAYLOAD_TOO_LARGE),
+    };
+    let operation: Rpc = match serde_json::from_slice(&bytes) {
+        Ok(operation) => operation,
+        Err(_) => return unavailable(StatusCode::BAD_REQUEST),
+    };
+    match operation {
+        Rpc::Ping { v: 1 } => match ping_at(SystemTime::now()) {
+            Ok(pong) => success(Success::Ping { v: 1, pong }),
+            Err(_) => unavailable(StatusCode::INTERNAL_SERVER_ERROR),
+        },
+        Rpc::Test { v: 1, params_json } => success(Success::Test {
+            v: 1,
+            result_json: echo(&params_json),
+        }),
+        Rpc::Endpoint {
+            v: 1,
+            endpoint_utf16,
+        } => {
+            let result = app
+                .catalog
+                .lookup(&endpoint_utf16)
+                .map(|params| Description {
+                    params: params
+                        .into_iter()
+                        .map(|(name_utf16, kind)| Parameter { name_utf16, kind })
+                        .collect(),
+                });
+            success(Success::Endpoint { v: 1, result })
+        }
+        Rpc::Endpoints { v: 1 } => success(Success::Endpoints {
+            v: 1,
+            endpoints_utf16: app.catalog.names(),
+        }),
+        Rpc::OnlineUsersCount { v: 1 } => {
+            match app.online_users.count_at(SystemTime::now()).await {
+                Ok(count) => success(Success::OnlineUsersCount { v: 1, count }),
+                Err(_) => unavailable(StatusCode::SERVICE_UNAVAILABLE),
+            }
+        }
+        _ => unavailable(StatusCode::BAD_REQUEST),
+    }
+}
+async fn api_request(State(app): State<Arc<App>>, request: Request) -> Response {
+    if request
+        .headers()
+        .get(header::AUTHORIZATION)
+        .and_then(|header| header.to_str().ok())
+        != Some(app.bearer.as_str())
+    {
+        return unavailable(StatusCode::UNAUTHORIZED);
+    }
+    match &app.api {
+        Some(api) => {
+            let (parts, body) = request.into_parts();
+            api.handle(&parts.headers, body).await
+        }
+        None => unavailable(StatusCode::SERVICE_UNAVAILABLE),
+    }
+}
+fn bootstrap() -> Result<App, Failure> {
+    let mut frame = Vec::new();
+    io::stdin()
+        .lock()
+        .take((LIMIT + 1) as u64)
+        .read_until(b'\n', &mut frame)
+        .map_err(|_| Failure)?;
+    if frame.len() > LIMIT || frame.last() != Some(&b'\n') {
+        return Err(Failure);
+    }
+    let bootstrap: Bootstrap = serde_json::from_slice(&frame).map_err(|_| Failure)?;
+    if bootstrap.v != 1
+        || bootstrap.token.len() != 64
+        || !bootstrap.token.bytes().all(|byte| byte.is_ascii_hexdigit())
+    {
+        return Err(Failure);
+    }
+    if bootstrap
+        .endpoints
+        .iter()
+        .flat_map(|endpoint| &endpoint.properties)
+        .any(|property| {
+            property.kind.as_ref().is_some_and(|kind| {
+                !matches!(
+                    kind.as_str(),
+                    "null"
+                        | "boolean"
+                        | "integer"
+                        | "number"
+                        | "string"
+                        | "array"
+                        | "object"
+                        | "any"
+                )
+            })
+        })
+    {
+        return Err(Failure);
+    }
+    let endpoints = bootstrap
+        .endpoints
+        .into_iter()
+        .map(|endpoint| Endpoint {
+            name: endpoint.name_utf16,
+            properties: endpoint
+                .properties
+                .into_iter()
+                .map(|property| Property {
+                    name: property.name_utf16,
+                    kind: property.kind,
+                })
+                .collect(),
+        })
+        .collect();
+    Ok(App {
+        bearer: format!("Bearer {}", bootstrap.token),
+        catalog: Arc::new(Catalog::new(endpoints)),
+        online_users: Arc::new(OnlineUsers::new(bootstrap.postgres)),
+        api_config: bootstrap.api,
+        api: None,
+    })
+}
+async fn signal() {
+    #[cfg(unix)]
+    {
+        let mut terminate =
+            tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+                .expect("signal handler");
+        tokio::select! { _=tokio::signal::ctrl_c()=>{}, _=terminate.recv()=>{} }
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = tokio::signal::ctrl_c().await;
+    }
+}
+async fn serve(mut app: App, eof: tokio::sync::oneshot::Receiver<()>) -> Result<(), Failure> {
+    if let Some(config) = app.api_config.take() {
+        app.api = Some(
+            ApiRuntime::new(config, app.catalog.clone(), app.online_users.clone())
+                .await
+                .map_err(|error| {
+                    // This enum contains locations only. Never format bootstrap
+                    // config, authenticated URLs, capabilities or driver errors.
+                    eprintln!("Rust API bootstrap failed at {:?}", error.stage());
+                    Failure
+                })?,
+        );
+    }
+    let listener = tokio::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0))
+        .await
+        .map_err(|_| Failure)?;
+    let port = listener.local_addr().map_err(|_| Failure)?.port();
+    let app = Arc::new(app);
+    let router = Router::new()
+        .route("/rpc", post(rpc))
+        .route("/api-request", post(api_request))
+        .fallback(|| async { unavailable(StatusCode::NOT_FOUND) })
+        .with_state(app.clone());
+    let ready = Ready {
+        v: 1,
+        port,
+        native_endpoints: app
+            .api
+            .as_ref()
+            .map_or_else(Vec::new, ApiRuntime::native_endpoints),
+    };
+    {
+        let mut stdout = io::stdout().lock();
+        serde_json::to_writer(&mut stdout, &ready).map_err(|error| {
+            tracing::error!(operation = "encode_readiness", error.kind = ?error.classify(), "Rust bootstrap failed");
+            Failure
+        })?;
+        writeln!(stdout).map_err(|error| {
+            tracing::error!(operation = "write_readiness", error.kind = ?error.kind(), "Rust bootstrap failed");
+            Failure
+        })?;
+    }
+    io::stdout().flush().map_err(|_| Failure)?;
+    let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel();
+    let server = axum::serve(listener, router).with_graceful_shutdown(async {
+        let _ = shutdown_rx.await;
+    });
+    let server = std::pin::pin!(server.into_future());
+    let stop = async {
+        tokio::select! { _ = signal() => {}, _ = eof => {} }
+    };
+    tokio::pin!(stop);
+    let mut server = server;
+    tokio::select! {
+        result = &mut server => return result.map_err(|_| Failure),
+        _ = &mut stop => {},
+    }
+    let _ = shutdown_tx.send(());
+    if let Some(api) = &app.api {
+        api.shutdown().await;
+    }
+    app.online_users.shutdown().await;
+    match tokio::time::timeout(Duration::from_secs(2), &mut server).await {
+        Ok(result) => result.map_err(|_| Failure),
+        Err(_) => Ok(()),
+    }
+}
+fn main() {
+    // Stdout is reserved for readiness, never business error logs.
+    let _ = tracing_subscriber::fmt()
+        .with_writer(io::stderr)
+        .with_ansi(false)
+        .with_target(false)
+        .with_max_level(tracing::Level::ERROR)
+        .try_init();
+    let outcome = (|| {
+        let app = bootstrap()?;
+        // A detached OS thread cannot keep runtime shutdown or process exit blocked.
+        let (eof_tx, eof_rx) = tokio::sync::oneshot::channel();
+        std::thread::spawn(move || {
+            let mut buffer = [0u8; 1024];
+            loop {
+                match io::stdin().read(&mut buffer) {
+                    Ok(0) | Err(_) => {
+                        let _ = eof_tx.send(());
+                        return;
+                    }
+                    Ok(_) => {}
+                }
+            }
+        });
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .map_err(|_| Failure)?;
+        runtime.block_on(serve(app, eof_rx))
+    })();
+    if outcome.is_err() {
+        eprintln!("Rust backend unavailable");
+        std::process::exit(1);
+    }
+}

@@ -1,0 +1,469 @@
+{
+  "source": "actual GalleryShow callback + GalleryPostEntityService.pack + DriveFileEntityService.packManyByIds/packMany/packNullable/public URL/properties + VideoProcessingService.getExternalVideoThumbnailUrl + IdService.parse; UserLite output stub and controlled fake repositories",
+  "runtime": {
+    "bun": "1.4.4",
+    "nodeCompatibility": "v26.3.0"
+  },
+  "guards": {
+    "networkAttempts": 0,
+    "processAttempts": 0,
+    "realRepositoryAttempts": 0,
+    "idGenerationAttempts": 0,
+    "unrelatedHelperAttempts": 0
+  },
+  "sourceHashes": {
+    "server/api/endpoints/gallery/posts/show.ts": "55e73f51119795038eb2c7afb916bf277a14b4d038d72b592f4b512573cc1717",
+    "core/entities/GalleryPostEntityService.ts": "5fd8a38e9d78ca602c67f23208a786bb3acf6385b952531c97137d26cfa25cf5",
+    "core/entities/DriveFileEntityService.ts": "a48a07792b784a3ded4364594d346e2cd2d9a7e0a506b56b082325a8f41ca738",
+    "core/VideoProcessingService.ts": "f04fdc97cfb4bcaaf8f45a64325cb14158cb3c501cbf72001b2dc95d878ffe0c",
+    "core/IdService.ts": "237d9410066fb6acfe872e7e617e6f4ce7b0093989e88baad1c29066b69f4f65",
+    "misc/prelude/await-all.ts": "2fd2ebc896251cb3a16b9e2c2d7b32e42544d019266ee3a61a451eb3de03d873"
+  },
+  "pgUtilsSha256": "97fb5d56e301d00412e85ce91d796a61c79493dc03ae5adc05995ed8a0ed7936",
+  "pgPreparation": [
+    {
+      "input": [],
+      "prepared": "{}"
+    },
+    {
+      "input": [
+        "a",
+        "b"
+      ],
+      "prepared": "{\"a\",\"b\"}"
+    },
+    {
+      "input": [
+        "a,b",
+        "q\"z",
+        "c\\d",
+        null,
+        ""
+      ],
+      "prepared": "{\"a,b\",\"q\\\"z\",\"c\\\\d\",NULL,\"\"}"
+    },
+    {
+      "input": [
+        [
+          "a",
+          null
+        ],
+        [
+          "b",
+          "c"
+        ]
+      ],
+      "prepared": "{{\"a\",NULL},{\"b\",\"c\"}}"
+    },
+    {
+      "input": [
+        [],
+        []
+      ],
+      "prepared": "{{},{}}"
+    },
+    {
+      "input": [
+        "\u96ea",
+        "e\u0301",
+        "{}"
+      ],
+      "prepared": "{\"\u96ea\",\"e\u0301\",\"{}\"}"
+    }
+  ],
+  "fileQueries": [
+    {
+      "name": "scalar-fileIds-order-duplicates",
+      "fileIds": [
+        "0000000500000000",
+        "0000000400000000",
+        "0000000500000000"
+      ],
+      "expectedQueryIds": [
+        "0000000500000000",
+        "0000000400000000",
+        "0000000500000000"
+      ],
+      "sourceQueryExecuted": true,
+      "selectedRowIds": [
+        "0000000400000000",
+        "0000000500000000"
+      ],
+      "expectedPackedFileIds": [
+        "0000000500000000",
+        "0000000400000000",
+        "0000000500000000"
+      ]
+    },
+    {
+      "name": "nested-tags-retained-outer-nonempty",
+      "fileIds": [],
+      "expectedQueryIds": [],
+      "sourceQueryExecuted": false,
+      "selectedRowIds": [],
+      "expectedPackedFileIds": []
+    },
+    {
+      "name": "nested-fileIds-query-array-literals-no-map-key-match",
+      "fileIds": [
+        [
+          "0000000400000000",
+          "0000000500000000"
+        ],
+        [
+          "0000000500000000",
+          "0000000400000000"
+        ]
+      ],
+      "expectedQueryIds": [
+        "{\"0000000400000000\",\"0000000500000000\"}",
+        "{\"0000000500000000\",\"0000000400000000\"}"
+      ],
+      "sourceQueryExecuted": true,
+      "selectedRowIds": [],
+      "expectedPackedFileIds": []
+    },
+    {
+      "name": "nested-fileIds-quoted-backslash-null-encoding",
+      "fileIds": [
+        [
+          "a\"b",
+          "c\\d",
+          null,
+          ""
+        ],
+        [
+          "\u96ea",
+          "e\u0301",
+          "x,y",
+          "{}"
+        ]
+      ],
+      "expectedQueryIds": [
+        "{\"a\\\"b\",\"c\\\\d\",NULL,\"\"}",
+        "{\"\u96ea\",\"e\u0301\",\"x,y\",\"{}\"}"
+      ],
+      "sourceQueryExecuted": true,
+      "selectedRowIds": [],
+      "expectedPackedFileIds": []
+    },
+    {
+      "name": "nested-query-literal-matched-file-packed-before-map",
+      "fileIds": [
+        [
+          "0000000400000000"
+        ]
+      ],
+      "expectedQueryIds": [
+        "{\"0000000400000000\"}"
+      ],
+      "sourceQueryExecuted": true,
+      "selectedRowIds": [
+        "{\"0000000400000000\"}"
+      ]
+    },
+    {
+      "name": "scalar-malformed-file-id-range-error",
+      "fileIds": [
+        "!gallerybadfile"
+      ],
+      "expectedQueryIds": [
+        "!gallerybadfile"
+      ],
+      "sourceQueryExecuted": true,
+      "selectedRowIds": [
+        "!gallerybadfile"
+      ]
+    },
+    {
+      "name": "outer-null-file-id-issues-empty-result-query",
+      "fileIds": [
+        null
+      ],
+      "expectedQueryIds": [
+        null
+      ],
+      "sourceQueryExecuted": true,
+      "selectedRowIds": [],
+      "expectedPackedFileIds": []
+    },
+    {
+      "name": "outer-empty-fileIds-skips-query",
+      "fileIds": [],
+      "expectedQueryIds": [],
+      "sourceQueryExecuted": false,
+      "selectedRowIds": [],
+      "expectedPackedFileIds": []
+    }
+  ],
+  "limitations": [
+    "Actual in-memory source methods and installed pg prepareValue; controlled repositories only, no real database/HTTP",
+    "UserLite stub content and shared public file payload content are excluded from pure projection expectations",
+    "Cases that fail while packing matched malformed file rows appear only in query provenance, not as fabricated success projections"
+  ],
+  "summary": {
+    "success": 6
+  },
+  "cases": [
+    {
+      "name": "scalar-fileIds-order-duplicates",
+      "method": "aidx",
+      "input": {
+        "post": {
+          "id": "0000000100000000",
+          "updatedAt": "2026-01-02T03:04:05.123Z",
+          "userId": "0000000200000000",
+          "title": "gallery \ud83d\ude00 e\u0301",
+          "description": "",
+          "fileIds": [
+            "0000000500000000",
+            "0000000400000000",
+            "0000000500000000"
+          ],
+          "tags": [],
+          "isSensitive": false,
+          "likedCount": 13
+        },
+        "viewer": null
+      },
+      "expectedProjection": {
+        "id": "0000000100000000",
+        "createdAt": "2000-01-01T00:00:00.001Z",
+        "updatedAt": "2026-01-02T03:04:05.123Z",
+        "userId": "0000000200000000",
+        "title": "gallery \ud83d\ude00 e\u0301",
+        "description": "",
+        "fileIds": [
+          "0000000500000000",
+          "0000000400000000",
+          "0000000500000000"
+        ],
+        "isSensitive": false,
+        "likedCount": 13
+      }
+    },
+    {
+      "name": "nested-tags-retained-outer-nonempty",
+      "method": "aidx",
+      "input": {
+        "post": {
+          "id": "0000000100000000",
+          "updatedAt": "2026-01-02T03:04:05.123Z",
+          "userId": "0000000200000000",
+          "title": "gallery \ud83d\ude00 e\u0301",
+          "description": "",
+          "fileIds": [],
+          "tags": [
+            [
+              "a",
+              "b"
+            ]
+          ],
+          "isSensitive": false,
+          "likedCount": 13
+        },
+        "viewer": null
+      },
+      "expectedProjection": {
+        "id": "0000000100000000",
+        "createdAt": "2000-01-01T00:00:00.001Z",
+        "updatedAt": "2026-01-02T03:04:05.123Z",
+        "userId": "0000000200000000",
+        "title": "gallery \ud83d\ude00 e\u0301",
+        "description": "",
+        "fileIds": [],
+        "tags": [
+          [
+            "a",
+            "b"
+          ]
+        ],
+        "isSensitive": false,
+        "likedCount": 13
+      }
+    },
+    {
+      "name": "nested-fileIds-query-array-literals-no-map-key-match",
+      "method": "aidx",
+      "input": {
+        "post": {
+          "id": "0000000100000000",
+          "updatedAt": "2026-01-02T03:04:05.123Z",
+          "userId": "0000000200000000",
+          "title": "gallery \ud83d\ude00 e\u0301",
+          "description": "",
+          "fileIds": [
+            [
+              "0000000400000000",
+              "0000000500000000"
+            ],
+            [
+              "0000000500000000",
+              "0000000400000000"
+            ]
+          ],
+          "tags": [],
+          "isSensitive": false,
+          "likedCount": 13
+        },
+        "viewer": null
+      },
+      "expectedProjection": {
+        "id": "0000000100000000",
+        "createdAt": "2000-01-01T00:00:00.001Z",
+        "updatedAt": "2026-01-02T03:04:05.123Z",
+        "userId": "0000000200000000",
+        "title": "gallery \ud83d\ude00 e\u0301",
+        "description": "",
+        "fileIds": [
+          [
+            "0000000400000000",
+            "0000000500000000"
+          ],
+          [
+            "0000000500000000",
+            "0000000400000000"
+          ]
+        ],
+        "isSensitive": false,
+        "likedCount": 13
+      }
+    },
+    {
+      "name": "nested-fileIds-quoted-backslash-null-encoding",
+      "method": "aidx",
+      "input": {
+        "post": {
+          "id": "0000000100000000",
+          "updatedAt": "2026-01-02T03:04:05.123Z",
+          "userId": "0000000200000000",
+          "title": "gallery \ud83d\ude00 e\u0301",
+          "description": "",
+          "fileIds": [
+            [
+              "a\"b",
+              "c\\d",
+              null,
+              ""
+            ],
+            [
+              "\u96ea",
+              "e\u0301",
+              "x,y",
+              "{}"
+            ]
+          ],
+          "tags": [
+            [
+              null,
+              "tag"
+            ],
+            [
+              "next",
+              null
+            ]
+          ],
+          "isSensitive": false,
+          "likedCount": 13
+        },
+        "viewer": null
+      },
+      "expectedProjection": {
+        "id": "0000000100000000",
+        "createdAt": "2000-01-01T00:00:00.001Z",
+        "updatedAt": "2026-01-02T03:04:05.123Z",
+        "userId": "0000000200000000",
+        "title": "gallery \ud83d\ude00 e\u0301",
+        "description": "",
+        "fileIds": [
+          [
+            "a\"b",
+            "c\\d",
+            null,
+            ""
+          ],
+          [
+            "\u96ea",
+            "e\u0301",
+            "x,y",
+            "{}"
+          ]
+        ],
+        "tags": [
+          [
+            null,
+            "tag"
+          ],
+          [
+            "next",
+            null
+          ]
+        ],
+        "isSensitive": false,
+        "likedCount": 13
+      }
+    },
+    {
+      "name": "outer-null-file-id-issues-empty-result-query",
+      "method": "aidx",
+      "input": {
+        "post": {
+          "id": "0000000100000000",
+          "updatedAt": "2026-01-02T03:04:05.123Z",
+          "userId": "0000000200000000",
+          "title": "gallery \ud83d\ude00 e\u0301",
+          "description": "",
+          "fileIds": [
+            null
+          ],
+          "tags": [],
+          "isSensitive": false,
+          "likedCount": 13
+        },
+        "viewer": null
+      },
+      "expectedProjection": {
+        "id": "0000000100000000",
+        "createdAt": "2000-01-01T00:00:00.001Z",
+        "updatedAt": "2026-01-02T03:04:05.123Z",
+        "userId": "0000000200000000",
+        "title": "gallery \ud83d\ude00 e\u0301",
+        "description": "",
+        "fileIds": [
+          null
+        ],
+        "isSensitive": false,
+        "likedCount": 13
+      }
+    },
+    {
+      "name": "outer-empty-fileIds-skips-query",
+      "method": "aidx",
+      "input": {
+        "post": {
+          "id": "0000000100000000",
+          "updatedAt": "2026-01-02T03:04:05.123Z",
+          "userId": "0000000200000000",
+          "title": "gallery \ud83d\ude00 e\u0301",
+          "description": "",
+          "fileIds": [],
+          "tags": [],
+          "isSensitive": false,
+          "likedCount": 13
+        },
+        "viewer": null
+      },
+      "expectedProjection": {
+        "id": "0000000100000000",
+        "createdAt": "2000-01-01T00:00:00.001Z",
+        "updatedAt": "2026-01-02T03:04:05.123Z",
+        "userId": "0000000200000000",
+        "title": "gallery \ud83d\ude00 e\u0301",
+        "description": "",
+        "fileIds": [],
+        "isSensitive": false,
+        "likedCount": 13
+      }
+    }
+  ]
+}

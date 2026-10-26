@@ -10,9 +10,9 @@ import type { BenchmarkScenario, PhaseResult } from './types.js';
 const fixture = definition('small').manifest;
 const options = { requests: 12, concurrency: 3, warmup: 2, timeout: 30 };
 
-test('default registry contains 22 scenarios and filters names', () => {
-	expect(select([])).toHaveLength(22);
-	expect(new Set(select([]).map(item => item.name)).size).toBe(22);
+test('default registry contains 25 scenarios and filters names', () => {
+	expect(select([])).toHaveLength(25);
+	expect(new Set(select([]).map(item => item.name)).size).toBe(25);
 	expect(select(['timeline'])).toHaveLength(8);
 	expect(select(['timeline/user', 'reaction'])).toHaveLength(5);
 	expect(select(['unknown'])).toHaveLength(0);
@@ -111,7 +111,7 @@ test('controller CLI lists without Docker and rejects bad arguments', async () =
 		const [stdout, stderr, code] = await Promise.all([new Response(child.stdout).text(), new Response(child.stderr).text(), child.exited]);
 		return { stdout, stderr, code };
 	};
-	expect((await run('--list')).stdout.trim().split('\n')).toHaveLength(22);
+	expect((await run('--list')).stdout.trim().split('\n')).toHaveLength(25);
 	expect((await run('timeline', '--list')).stdout.trim().split('\n')).toHaveLength(8);
 	for (const args of [['missing', '--list'], ['--requests', '0'], ['--warmup', '-1'], ['--concurrency', '1.5'], ['--fixture', 'production']]) {
 		expect((await run(...args)).code).toBe(1);

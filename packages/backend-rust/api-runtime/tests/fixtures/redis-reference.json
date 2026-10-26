@@ -1,0 +1,480 @@
+{
+  "module": "ratelimiter@3.4.1",
+  "scenarios": [
+    {
+      "name": "integer",
+      "duration": 1000,
+      "max": 2,
+      "offsets": [
+        0,
+        20,
+        40,
+        1000041
+      ],
+      "steps": [
+        {
+          "now": 1700000000000000,
+          "info": {
+            "remaining": 2,
+            "reset": 1700000001,
+            "resetMs": 1700000001000,
+            "total": 2
+          },
+          "members": [
+            "1700000000000000",
+            "1700000000000000"
+          ],
+          "ttlKind": "expiring"
+        },
+        {
+          "now": 1700000000000020,
+          "info": {
+            "remaining": 1,
+            "reset": 1700000001,
+            "resetMs": 1700000001000,
+            "total": 2
+          },
+          "members": [
+            "1700000000000000",
+            "1700000000000000",
+            "1700000000000020",
+            "1700000000000020"
+          ],
+          "ttlKind": "expiring"
+        },
+        {
+          "now": 1700000000000040,
+          "info": {
+            "remaining": 0,
+            "reset": 1700000001,
+            "resetMs": 1700000001000,
+            "total": 2
+          },
+          "members": [
+            "1700000000000020",
+            "1700000000000020",
+            "1700000000000040",
+            "1700000000000040"
+          ],
+          "ttlKind": "expiring"
+        },
+        {
+          "now": 1700000001000041,
+          "info": {
+            "remaining": 2,
+            "reset": 1700000002,
+            "resetMs": 1700000002000,
+            "total": 2
+          },
+          "members": [
+            "1700000001000041",
+            "1700000001000041"
+          ],
+          "ttlKind": "expiring"
+        }
+      ]
+    },
+    {
+      "name": "fractional-max",
+      "duration": 1000,
+      "max": 2.5,
+      "offsets": [
+        0,
+        20,
+        40,
+        60
+      ],
+      "steps": [
+        {
+          "now": 1700000000000000,
+          "info": {
+            "remaining": 2.5,
+            "reset": 1700000001,
+            "resetMs": 1700000001000,
+            "total": 2.5
+          },
+          "members": [
+            "1700000000000000",
+            "1700000000000000"
+          ],
+          "ttlKind": "expiring"
+        },
+        {
+          "now": 1700000000000020,
+          "info": {
+            "remaining": 1.5,
+            "reset": 1700000001,
+            "resetMs": 1700000001000,
+            "total": 2.5
+          },
+          "members": [
+            "1700000000000000",
+            "1700000000000000",
+            "1700000000000020",
+            "1700000000000020"
+          ],
+          "ttlKind": "expiring"
+        },
+        {
+          "now": 1700000000000040,
+          "info": {
+            "remaining": 0.5,
+            "reset": 1700000001,
+            "resetMs": 1700000001000,
+            "total": 2.5
+          },
+          "members": [
+            "1700000000000000",
+            "1700000000000000",
+            "1700000000000020",
+            "1700000000000020",
+            "1700000000000040",
+            "1700000000000040"
+          ],
+          "ttlKind": "expiring"
+        },
+        {
+          "now": 1700000000000060,
+          "info": {
+            "remaining": 0,
+            "reset": 1700000001,
+            "resetMs": 1700000001000,
+            "total": 2.5
+          },
+          "members": [
+            "1700000000000000",
+            "1700000000000000",
+            "1700000000000020",
+            "1700000000000020",
+            "1700000000000040",
+            "1700000000000040",
+            "1700000000000060",
+            "1700000000000060"
+          ],
+          "ttlKind": "expiring"
+        }
+      ]
+    },
+    {
+      "name": "fractional-duration",
+      "duration": 0.5,
+      "max": 1,
+      "offsets": [
+        0,
+        200,
+        600
+      ],
+      "steps": [
+        {
+          "now": 1700000000000000,
+          "info": {
+            "remaining": 1,
+            "reset": 1700000000,
+            "resetMs": 1700000000000,
+            "total": 1
+          },
+          "members": [
+            "1700000000000000",
+            "1700000000000000"
+          ],
+          "ttlKind": "persistent"
+        },
+        {
+          "now": 1700000000000200,
+          "info": {
+            "remaining": 0,
+            "reset": 1700000000,
+            "resetMs": 1700000000000,
+            "total": 1
+          },
+          "members": [
+            "1700000000000200",
+            "1700000000000200"
+          ],
+          "ttlKind": "persistent"
+        },
+        {
+          "now": 1700000000000600,
+          "info": {
+            "remaining": 0,
+            "reset": 1700000000,
+            "resetMs": 1700000000001,
+            "total": 1
+          },
+          "members": [
+            "1700000000000600",
+            "1700000000000600"
+          ],
+          "ttlKind": "persistent"
+        }
+      ]
+    },
+    {
+      "name": "zero-defaults",
+      "duration": 0,
+      "max": 0,
+      "offsets": [
+        0,
+        20
+      ],
+      "steps": [
+        {
+          "now": 1700000000000000,
+          "info": {
+            "remaining": 2500,
+            "reset": 1700003600,
+            "resetMs": 1700003600000,
+            "total": 2500
+          },
+          "members": [
+            "1700000000000000",
+            "1700000000000000"
+          ],
+          "ttlKind": "expiring"
+        },
+        {
+          "now": 1700000000000020,
+          "info": {
+            "remaining": 2499,
+            "reset": 1700003600,
+            "resetMs": 1700003600000,
+            "total": 2500
+          },
+          "members": [
+            "1700000000000000",
+            "1700000000000000",
+            "1700000000000020",
+            "1700000000000020"
+          ],
+          "ttlKind": "expiring"
+        }
+      ]
+    },
+    {
+      "name": "negative-duration",
+      "duration": -1,
+      "max": 2,
+      "offsets": [
+        0,
+        20
+      ],
+      "steps": [
+        {
+          "now": 1700000000000000,
+          "info": {
+            "remaining": 2,
+            "reset": 1699999999,
+            "resetMs": 1699999999999,
+            "total": 2
+          },
+          "members": [],
+          "ttlKind": "missing"
+        },
+        {
+          "now": 1700000000000020,
+          "info": {
+            "remaining": 2,
+            "reset": 1699999999,
+            "resetMs": 1699999999999,
+            "total": 2
+          },
+          "members": [],
+          "ttlKind": "missing"
+        }
+      ]
+    },
+    {
+      "name": "small-fractional-max",
+      "duration": 1000,
+      "max": 0.5,
+      "offsets": [
+        0,
+        20,
+        40
+      ],
+      "steps": [
+        {
+          "now": 1700000000000000,
+          "info": {
+            "remaining": 0.5,
+            "reset": 1700000001,
+            "resetMs": 1700000001000,
+            "total": 0.5
+          },
+          "members": [
+            "1700000000000000",
+            "1700000000000000"
+          ],
+          "ttlKind": "expiring"
+        },
+        {
+          "now": 1700000000000020,
+          "info": {
+            "remaining": 0,
+            "reset": 1700000001,
+            "resetMs": 1700000001000,
+            "total": 0.5
+          },
+          "members": [
+            "1700000000000000",
+            "1700000000000000",
+            "1700000000000020",
+            "1700000000000020"
+          ],
+          "ttlKind": "expiring"
+        },
+        {
+          "now": 1700000000000040,
+          "info": {
+            "remaining": 0,
+            "reset": 1700000001,
+            "resetMs": 1700000001000,
+            "total": 0.5
+          },
+          "members": [
+            "1700000000000000",
+            "1700000000000000",
+            "1700000000000020",
+            "1700000000000020",
+            "1700000000000040",
+            "1700000000000040"
+          ],
+          "ttlKind": "expiring"
+        }
+      ]
+    },
+    {
+      "name": "duplicate-microtime",
+      "duration": 1000,
+      "max": 1,
+      "offsets": [
+        0,
+        0,
+        0
+      ],
+      "steps": [
+        {
+          "now": 1700000000000000,
+          "info": {
+            "remaining": 1,
+            "reset": 1700000001,
+            "resetMs": 1700000001000,
+            "total": 1
+          },
+          "members": [
+            "1700000000000000",
+            "1700000000000000"
+          ],
+          "ttlKind": "expiring"
+        },
+        {
+          "now": 1700000000000000,
+          "info": {
+            "remaining": 0,
+            "reset": 1700000001,
+            "resetMs": 1700000001000,
+            "total": 1
+          },
+          "members": [
+            "1700000000000000",
+            "1700000000000000"
+          ],
+          "ttlKind": "expiring"
+        },
+        {
+          "now": 1700000000000000,
+          "info": {
+            "remaining": 0,
+            "reset": 1700000001,
+            "resetMs": 1700000001000,
+            "total": 1
+          },
+          "members": [
+            "1700000000000000",
+            "1700000000000000"
+          ],
+          "ttlKind": "expiring"
+        }
+      ]
+    },
+    {
+      "name": "infinite-max",
+      "duration": 1000,
+      "max": "Infinity",
+      "offsets": [
+        0,
+        20
+      ],
+      "steps": [
+        {
+          "now": 1700000000000000,
+          "info": {
+            "remaining": null,
+            "reset": 1700000001,
+            "resetMs": 1700000001000,
+            "total": null
+          },
+          "members": [
+            "1700000000000000",
+            "1700000000000000"
+          ],
+          "ttlKind": "expiring"
+        },
+        {
+          "now": 1700000000000020,
+          "info": {
+            "remaining": null,
+            "reset": 1700000001,
+            "resetMs": 1700000001000,
+            "total": null
+          },
+          "members": [
+            "1700000000000000",
+            "1700000000000000",
+            "1700000000000020",
+            "1700000000000020"
+          ],
+          "ttlKind": "expiring"
+        }
+      ]
+    },
+    {
+      "name": "wrong-type",
+      "duration": 1000,
+      "max": 2,
+      "wrongType": true,
+      "offsets": [
+        0,
+        20
+      ],
+      "steps": [
+        {
+          "now": 1700000000000000,
+          "info": {
+            "remaining": 0,
+            "reset": null,
+            "resetMs": null,
+            "total": 2
+          },
+          "members": [
+            "WRONGTYPE"
+          ],
+          "ttlKind": "expiring"
+        },
+        {
+          "now": 1700000000000020,
+          "info": {
+            "remaining": 0,
+            "reset": null,
+            "resetMs": null,
+            "total": 2
+          },
+          "members": [
+            "WRONGTYPE"
+          ],
+          "ttlKind": "expiring"
+        }
+      ]
+    }
+  ]
+}

@@ -6,6 +6,10 @@ on:
       - master
       - develop
     paths:
+      - packages/backend-rust/**
+      - scripts/build/backend-rust*
+      - package.json
+      - bun.lock
       - packages/backend/**
       - packages/misskey-js/**
       - packages-private/slacc/**
@@ -14,6 +18,10 @@ on:
     branches-ignore:
       - master
     paths:
+      - packages/backend-rust/**
+      - scripts/build/backend-rust*
+      - package.json
+      - bun.lock
       - packages/backend/**
       - packages/misskey-js/**
       - packages-private/slacc/**

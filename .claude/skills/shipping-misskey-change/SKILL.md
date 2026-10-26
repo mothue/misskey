@@ -44,6 +44,7 @@ script は次を行い、独立した検査を最後まで続けて exit 0 (合�
 - entity / migration: `bun run --filter backend check-migrations`。
   新規 migration は `up()` / `down()`、既存のマージ済 migration は差分なし
 - backend API endpoint: [misskey-api-reviewer](../../agents/misskey-api-reviewer.md) を実行
+- `packages/backend-rust/` または TS の Rust ブリッジ: [working-on-backend-rust](../working-on-backend-rust/SKILL.md) の検証コマンド (`cargo fmt` / `clippy` / `test`) を実行
 - frontend `.vue`: [vue-component-reviewer](../../agents/vue-component-reviewer.md) を実行
 
 ## 3. 引き継ぎ

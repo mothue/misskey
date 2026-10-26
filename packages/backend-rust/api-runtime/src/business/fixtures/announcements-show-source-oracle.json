@@ -1,0 +1,1608 @@
+{
+  "scope": "Actual source ordering/keys and actual production Bun TS public HTTP paired with dedicated PostgreSQL stored-row projections. Controlled-source viewer labels do not prove common authentication. Error correlation IDs may be normalized only in comparison copies.",
+  "sourceSha256": {
+    "packages/backend/src/server/api/endpoints/announcements/show.ts": "296b89b69697c72c585feac0b796c07e5be1908eba4549add71c72c1e0cf33ce",
+    "packages/backend/src/core/AnnouncementService.ts": "ce009b50249aa5041f2457d4633e7c8695e51dd34a90c7188f38cbf6ee76c436",
+    "packages/backend/src/core/entities/AnnouncementEntityService.ts": "cbc6c59ad90de592806bf03bb17c6937c01923b97f5d0741931c3e2f67d827db",
+    "packages/backend/src/server/api/error.ts": "1146f3cc06ebc2adc087823d37c00f7f0630331beae2fa221e05225b731f2638",
+    "/workspace/misskey/node_modules/.bun/typescript@6.0.3/node_modules/typescript/lib/typescript.js": "569177652966bd528c319171c7dd22860dbf72bde116cbc4f644f1d02bb12e39",
+    "/workspace/misskey/node_modules/.bun/typeorm@1.1.0+a53b049d7f7963a4/node_modules/typeorm/error/EntityNotFoundError.js": "1a2104e4149e8ef032d073ecc04861862b7cbc609e229d62449d69f1c791b8c9"
+  },
+  "fragmentSha256": {
+    "callback": "d77d11832e0f88aceea273e55a60124fb1836af92fa8e27cfc8536e6e2a08d57",
+    "getAnnouncement": "d8739d4f25e023ee585ddc77adf5d71c94096e0405801cddb77bc7357e383977",
+    "pack": "a1ac85b3dfcf589fa87831ed01993d255dc09b443724691e85eb9bf8dc7ac89d",
+    "meta": "3093bdfc06768782cf34f723444295c64dcf7715caca9b1b106a2f3c296f4469"
+  },
+  "actualHttpOracleSha256": "d0662d44b8580ba95179df7924e50ded7fcaf597db31db4d081d34690c805802",
+  "actualSqlSha256": "3b3020430c5359eba1bfb7c91c585c81e39807f9372338bbe8f1541e39958087",
+  "source": {
+    "expectedSourceObjectKeys": [
+      "id",
+      "createdAt",
+      "updatedAt",
+      "title",
+      "text",
+      "imageUrl",
+      "icon",
+      "display",
+      "forYou",
+      "needConfirmationToRead",
+      "silence",
+      "isRead"
+    ],
+    "cases": [
+      {
+        "name": "global-anonymous-null-updatedAt",
+        "calls": [
+          {
+            "operation": "announcement.findOneByOrFail",
+            "where": {
+              "id": "announcement-oracle"
+            }
+          },
+          {
+            "operation": "id.parse",
+            "id": "announcement-oracle"
+          }
+        ],
+        "serializedKeys": [
+          "id",
+          "createdAt",
+          "updatedAt",
+          "title",
+          "text",
+          "imageUrl",
+          "icon",
+          "display",
+          "forYou",
+          "needConfirmationToRead",
+          "silence"
+        ],
+        "output": {
+          "id": "announcement-oracle",
+          "createdAt": "2026-10-26T00:00:00.123Z",
+          "updatedAt": null,
+          "title": "Actual formatter \u96ea\ud83d\ude00",
+          "text": "source text",
+          "imageUrl": null,
+          "icon": "info",
+          "display": "normal",
+          "forYou": false,
+          "needConfirmationToRead": false,
+          "silence": false
+        }
+      },
+      {
+        "name": "global-anonymous-finite-updatedAt",
+        "calls": [
+          {
+            "operation": "announcement.findOneByOrFail",
+            "where": {
+              "id": "announcement-oracle"
+            }
+          },
+          {
+            "operation": "id.parse",
+            "id": "announcement-oracle"
+          }
+        ],
+        "serializedKeys": [
+          "id",
+          "createdAt",
+          "updatedAt",
+          "title",
+          "text",
+          "imageUrl",
+          "icon",
+          "display",
+          "forYou",
+          "needConfirmationToRead",
+          "silence"
+        ],
+        "output": {
+          "id": "announcement-oracle",
+          "createdAt": "2026-10-26T00:00:00.123Z",
+          "updatedAt": "1969-12-31T23:59:59.999Z",
+          "title": "Actual formatter \u96ea\ud83d\ude00",
+          "text": "source text",
+          "imageUrl": null,
+          "icon": "info",
+          "display": "normal",
+          "forYou": false,
+          "needConfirmationToRead": false,
+          "silence": false
+        }
+      },
+      {
+        "name": "global-account-unread",
+        "calls": [
+          {
+            "operation": "announcement.findOneByOrFail",
+            "where": {
+              "id": "announcement-oracle"
+            }
+          },
+          {
+            "operation": "announcement_read.findOneBy",
+            "where": {
+              "announcementId": "announcement-oracle",
+              "userId": "owner"
+            }
+          },
+          {
+            "operation": "id.parse",
+            "id": "announcement-oracle"
+          }
+        ],
+        "serializedKeys": [
+          "id",
+          "createdAt",
+          "updatedAt",
+          "title",
+          "text",
+          "imageUrl",
+          "icon",
+          "display",
+          "forYou",
+          "needConfirmationToRead",
+          "silence",
+          "isRead"
+        ],
+        "output": {
+          "id": "announcement-oracle",
+          "createdAt": "2026-10-26T00:00:00.123Z",
+          "updatedAt": null,
+          "title": "Actual formatter \u96ea\ud83d\ude00",
+          "text": "source text",
+          "imageUrl": null,
+          "icon": "info",
+          "display": "normal",
+          "forYou": false,
+          "needConfirmationToRead": false,
+          "silence": false,
+          "isRead": false
+        }
+      },
+      {
+        "name": "global-application-account-context-unread",
+        "calls": [
+          {
+            "operation": "announcement.findOneByOrFail",
+            "where": {
+              "id": "announcement-oracle"
+            }
+          },
+          {
+            "operation": "announcement_read.findOneBy",
+            "where": {
+              "announcementId": "announcement-oracle",
+              "userId": "owner"
+            }
+          },
+          {
+            "operation": "id.parse",
+            "id": "announcement-oracle"
+          }
+        ],
+        "serializedKeys": [
+          "id",
+          "createdAt",
+          "updatedAt",
+          "title",
+          "text",
+          "imageUrl",
+          "icon",
+          "display",
+          "forYou",
+          "needConfirmationToRead",
+          "silence",
+          "isRead"
+        ],
+        "output": {
+          "id": "announcement-oracle",
+          "createdAt": "2026-10-26T00:00:00.123Z",
+          "updatedAt": null,
+          "title": "Actual formatter \u96ea\ud83d\ude00",
+          "text": "source text",
+          "imageUrl": null,
+          "icon": "info",
+          "display": "normal",
+          "forYou": false,
+          "needConfirmationToRead": false,
+          "silence": false,
+          "isRead": false
+        }
+      },
+      {
+        "name": "global-root-unread",
+        "calls": [
+          {
+            "operation": "announcement.findOneByOrFail",
+            "where": {
+              "id": "announcement-oracle"
+            }
+          },
+          {
+            "operation": "announcement_read.findOneBy",
+            "where": {
+              "announcementId": "announcement-oracle",
+              "userId": "root"
+            }
+          },
+          {
+            "operation": "id.parse",
+            "id": "announcement-oracle"
+          }
+        ],
+        "serializedKeys": [
+          "id",
+          "createdAt",
+          "updatedAt",
+          "title",
+          "text",
+          "imageUrl",
+          "icon",
+          "display",
+          "forYou",
+          "needConfirmationToRead",
+          "silence",
+          "isRead"
+        ],
+        "output": {
+          "id": "announcement-oracle",
+          "createdAt": "2026-10-26T00:00:00.123Z",
+          "updatedAt": null,
+          "title": "Actual formatter \u96ea\ud83d\ude00",
+          "text": "source text",
+          "imageUrl": null,
+          "icon": "info",
+          "display": "normal",
+          "forYou": false,
+          "needConfirmationToRead": false,
+          "silence": false,
+          "isRead": false
+        }
+      },
+      {
+        "name": "global-moderator-unread",
+        "calls": [
+          {
+            "operation": "announcement.findOneByOrFail",
+            "where": {
+              "id": "announcement-oracle"
+            }
+          },
+          {
+            "operation": "announcement_read.findOneBy",
+            "where": {
+              "announcementId": "announcement-oracle",
+              "userId": "moderator"
+            }
+          },
+          {
+            "operation": "id.parse",
+            "id": "announcement-oracle"
+          }
+        ],
+        "serializedKeys": [
+          "id",
+          "createdAt",
+          "updatedAt",
+          "title",
+          "text",
+          "imageUrl",
+          "icon",
+          "display",
+          "forYou",
+          "needConfirmationToRead",
+          "silence",
+          "isRead"
+        ],
+        "output": {
+          "id": "announcement-oracle",
+          "createdAt": "2026-10-26T00:00:00.123Z",
+          "updatedAt": null,
+          "title": "Actual formatter \u96ea\ud83d\ude00",
+          "text": "source text",
+          "imageUrl": null,
+          "icon": "info",
+          "display": "normal",
+          "forYou": false,
+          "needConfirmationToRead": false,
+          "silence": false,
+          "isRead": false
+        }
+      },
+      {
+        "name": "global-account-already-read",
+        "calls": [
+          {
+            "operation": "announcement.findOneByOrFail",
+            "where": {
+              "id": "announcement-oracle"
+            }
+          },
+          {
+            "operation": "announcement_read.findOneBy",
+            "where": {
+              "announcementId": "announcement-oracle",
+              "userId": "owner"
+            }
+          },
+          {
+            "operation": "id.parse",
+            "id": "announcement-oracle"
+          }
+        ],
+        "serializedKeys": [
+          "id",
+          "createdAt",
+          "updatedAt",
+          "title",
+          "text",
+          "imageUrl",
+          "icon",
+          "display",
+          "forYou",
+          "needConfirmationToRead",
+          "silence",
+          "isRead"
+        ],
+        "output": {
+          "id": "announcement-oracle",
+          "createdAt": "2026-10-26T00:00:00.123Z",
+          "updatedAt": null,
+          "title": "Actual formatter \u96ea\ud83d\ude00",
+          "text": "source text",
+          "imageUrl": null,
+          "icon": "info",
+          "display": "normal",
+          "forYou": false,
+          "needConfirmationToRead": false,
+          "silence": false,
+          "isRead": true
+        }
+      },
+      {
+        "name": "targeted-owner-unread",
+        "calls": [
+          {
+            "operation": "announcement.findOneByOrFail",
+            "where": {
+              "id": "announcement-oracle"
+            }
+          },
+          {
+            "operation": "announcement_read.findOneBy",
+            "where": {
+              "announcementId": "announcement-oracle",
+              "userId": "owner"
+            }
+          },
+          {
+            "operation": "id.parse",
+            "id": "announcement-oracle"
+          }
+        ],
+        "serializedKeys": [
+          "id",
+          "createdAt",
+          "updatedAt",
+          "title",
+          "text",
+          "imageUrl",
+          "icon",
+          "display",
+          "forYou",
+          "needConfirmationToRead",
+          "silence",
+          "isRead"
+        ],
+        "output": {
+          "id": "announcement-oracle",
+          "createdAt": "2026-10-26T00:00:00.123Z",
+          "updatedAt": null,
+          "title": "Actual formatter \u96ea\ud83d\ude00",
+          "text": "source text",
+          "imageUrl": null,
+          "icon": "info",
+          "display": "normal",
+          "forYou": true,
+          "needConfirmationToRead": false,
+          "silence": false,
+          "isRead": false
+        }
+      },
+      {
+        "name": "targeted-owner-read",
+        "calls": [
+          {
+            "operation": "announcement.findOneByOrFail",
+            "where": {
+              "id": "announcement-oracle"
+            }
+          },
+          {
+            "operation": "announcement_read.findOneBy",
+            "where": {
+              "announcementId": "announcement-oracle",
+              "userId": "owner"
+            }
+          },
+          {
+            "operation": "id.parse",
+            "id": "announcement-oracle"
+          }
+        ],
+        "serializedKeys": [
+          "id",
+          "createdAt",
+          "updatedAt",
+          "title",
+          "text",
+          "imageUrl",
+          "icon",
+          "display",
+          "forYou",
+          "needConfirmationToRead",
+          "silence",
+          "isRead"
+        ],
+        "output": {
+          "id": "announcement-oracle",
+          "createdAt": "2026-10-26T00:00:00.123Z",
+          "updatedAt": null,
+          "title": "Actual formatter \u96ea\ud83d\ude00",
+          "text": "source text",
+          "imageUrl": null,
+          "icon": "info",
+          "display": "normal",
+          "forYou": true,
+          "needConfirmationToRead": false,
+          "silence": false,
+          "isRead": true
+        }
+      },
+      {
+        "name": "targeted-hidden-anonymous-before-read-and-invalid-date",
+        "calls": [
+          {
+            "operation": "announcement.findOneByOrFail",
+            "where": {
+              "id": "announcement-oracle"
+            }
+          }
+        ],
+        "error": {
+          "class": "ApiError",
+          "name": "Error",
+          "message": "No such announcement.",
+          "code": "NO_SUCH_ANNOUNCEMENT",
+          "id": "b57b5e1d-4f49-404a-9edb-46b00268f121",
+          "kind": "client"
+        }
+      },
+      {
+        "name": "targeted-hidden-nonowner-before-read-and-invalid-date",
+        "calls": [
+          {
+            "operation": "announcement.findOneByOrFail",
+            "where": {
+              "id": "announcement-oracle"
+            }
+          }
+        ],
+        "error": {
+          "class": "ApiError",
+          "name": "Error",
+          "message": "No such announcement.",
+          "code": "NO_SUCH_ANNOUNCEMENT",
+          "id": "b57b5e1d-4f49-404a-9edb-46b00268f121",
+          "kind": "client"
+        }
+      },
+      {
+        "name": "targeted-hidden-root-before-read-and-invalid-date",
+        "calls": [
+          {
+            "operation": "announcement.findOneByOrFail",
+            "where": {
+              "id": "announcement-oracle"
+            }
+          }
+        ],
+        "error": {
+          "class": "ApiError",
+          "name": "Error",
+          "message": "No such announcement.",
+          "code": "NO_SUCH_ANNOUNCEMENT",
+          "id": "b57b5e1d-4f49-404a-9edb-46b00268f121",
+          "kind": "client"
+        }
+      },
+      {
+        "name": "targeted-hidden-moderator-before-read-and-invalid-date",
+        "calls": [
+          {
+            "operation": "announcement.findOneByOrFail",
+            "where": {
+              "id": "announcement-oracle"
+            }
+          }
+        ],
+        "error": {
+          "class": "ApiError",
+          "name": "Error",
+          "message": "No such announcement.",
+          "code": "NO_SUCH_ANNOUNCEMENT",
+          "id": "b57b5e1d-4f49-404a-9edb-46b00268f121",
+          "kind": "client"
+        }
+      },
+      {
+        "name": "missing-maps-actual-EntityNotFoundError",
+        "calls": [
+          {
+            "operation": "announcement.findOneByOrFail",
+            "where": {
+              "id": "announcement-oracle"
+            }
+          }
+        ],
+        "error": {
+          "class": "ApiError",
+          "name": "Error",
+          "message": "No such announcement.",
+          "code": "NO_SUCH_ANNOUNCEMENT",
+          "id": "b57b5e1d-4f49-404a-9edb-46b00268f121",
+          "kind": "client"
+        }
+      },
+      {
+        "name": "global-inactive-forExistingUsers-silent-opaque-text-enum-values",
+        "calls": [
+          {
+            "operation": "announcement.findOneByOrFail",
+            "where": {
+              "id": "announcement-oracle"
+            }
+          },
+          {
+            "operation": "id.parse",
+            "id": "announcement-oracle"
+          }
+        ],
+        "serializedKeys": [
+          "id",
+          "createdAt",
+          "updatedAt",
+          "title",
+          "text",
+          "imageUrl",
+          "icon",
+          "display",
+          "forYou",
+          "needConfirmationToRead",
+          "silence"
+        ],
+        "output": {
+          "id": "announcement-oracle",
+          "createdAt": "2026-10-26T00:00:00.123Z",
+          "updatedAt": null,
+          "title": "",
+          "text": "\u96ea\ud800x\udfff",
+          "imageUrl": "https://example.invalid/opaque-image",
+          "icon": "stored-other-icon",
+          "display": "stored-other-display",
+          "forYou": false,
+          "needConfirmationToRead": true,
+          "silence": true
+        }
+      },
+      {
+        "name": "synthetic-empty-target-uses-JS-truthiness",
+        "calls": [
+          {
+            "operation": "announcement.findOneByOrFail",
+            "where": {
+              "id": "announcement-oracle"
+            }
+          },
+          {
+            "operation": "announcement_read.findOneBy",
+            "where": {
+              "announcementId": "announcement-oracle",
+              "userId": "another"
+            }
+          },
+          {
+            "operation": "id.parse",
+            "id": "announcement-oracle"
+          }
+        ],
+        "serializedKeys": [
+          "id",
+          "createdAt",
+          "updatedAt",
+          "title",
+          "text",
+          "imageUrl",
+          "icon",
+          "display",
+          "forYou",
+          "needConfirmationToRead",
+          "silence",
+          "isRead"
+        ],
+        "output": {
+          "id": "announcement-oracle",
+          "createdAt": "2026-10-26T00:00:00.123Z",
+          "updatedAt": null,
+          "title": "Actual formatter \u96ea\ud83d\ude00",
+          "text": "source text",
+          "imageUrl": null,
+          "icon": "info",
+          "display": "normal",
+          "forYou": false,
+          "needConfirmationToRead": false,
+          "silence": false,
+          "isRead": false
+        }
+      },
+      {
+        "name": "synthetic-undefined-updatedAt-optional-chain-null",
+        "calls": [
+          {
+            "operation": "announcement.findOneByOrFail",
+            "where": {
+              "id": "announcement-oracle"
+            }
+          },
+          {
+            "operation": "id.parse",
+            "id": "announcement-oracle"
+          }
+        ],
+        "serializedKeys": [
+          "id",
+          "createdAt",
+          "updatedAt",
+          "title",
+          "text",
+          "imageUrl",
+          "icon",
+          "display",
+          "forYou",
+          "needConfirmationToRead",
+          "silence"
+        ],
+        "output": {
+          "id": "announcement-oracle",
+          "createdAt": "2026-10-26T00:00:00.123Z",
+          "updatedAt": null,
+          "title": "Actual formatter \u96ea\ud83d\ude00",
+          "text": "source text",
+          "imageUrl": null,
+          "icon": "info",
+          "display": "normal",
+          "forYou": false,
+          "needConfirmationToRead": false,
+          "silence": false
+        }
+      },
+      {
+        "name": "invalid-updatedAt-Date-RangeError",
+        "calls": [
+          {
+            "operation": "announcement.findOneByOrFail",
+            "where": {
+              "id": "announcement-oracle"
+            }
+          },
+          {
+            "operation": "id.parse",
+            "id": "announcement-oracle"
+          }
+        ],
+        "error": {
+          "class": "RangeError",
+          "name": "RangeError",
+          "message": "Invalid time value"
+        }
+      },
+      {
+        "name": "invalid-createdAt-before-primitive-Infinity-updatedAt",
+        "calls": [
+          {
+            "operation": "announcement.findOneByOrFail",
+            "where": {
+              "id": "announcement-oracle"
+            }
+          },
+          {
+            "operation": "id.parse",
+            "id": "announcement-oracle"
+          }
+        ],
+        "error": {
+          "class": "RangeError",
+          "name": "RangeError",
+          "message": "Invalid time value"
+        }
+      },
+      {
+        "name": "primitive-positive-Infinity-optional-chain-TypeError",
+        "calls": [
+          {
+            "operation": "announcement.findOneByOrFail",
+            "where": {
+              "id": "announcement-oracle"
+            }
+          },
+          {
+            "operation": "id.parse",
+            "id": "announcement-oracle"
+          }
+        ],
+        "error": {
+          "class": "TypeError",
+          "name": "TypeError",
+          "message": "announcement.updatedAt?.toISOString is not a function"
+        }
+      },
+      {
+        "name": "primitive-negative-Infinity-optional-chain-TypeError",
+        "calls": [
+          {
+            "operation": "announcement.findOneByOrFail",
+            "where": {
+              "id": "announcement-oracle"
+            }
+          },
+          {
+            "operation": "id.parse",
+            "id": "announcement-oracle"
+          }
+        ],
+        "error": {
+          "class": "TypeError",
+          "name": "TypeError",
+          "message": "announcement.updatedAt?.toISOString is not a function"
+        }
+      },
+      {
+        "name": "authenticated-read-before-invalid-updatedAt",
+        "calls": [
+          {
+            "operation": "announcement.findOneByOrFail",
+            "where": {
+              "id": "announcement-oracle"
+            }
+          },
+          {
+            "operation": "announcement_read.findOneBy",
+            "where": {
+              "announcementId": "announcement-oracle",
+              "userId": "owner"
+            }
+          },
+          {
+            "operation": "id.parse",
+            "id": "announcement-oracle"
+          }
+        ],
+        "error": {
+          "class": "RangeError",
+          "name": "RangeError",
+          "message": "Invalid time value"
+        }
+      },
+      {
+        "name": "controlled-first-repository-cause-retained",
+        "calls": [
+          {
+            "operation": "announcement.findOneByOrFail",
+            "where": {
+              "id": "announcement-oracle"
+            }
+          }
+        ],
+        "error": {
+          "class": "Error",
+          "name": "Error",
+          "message": "controlled-first-read-cause"
+        }
+      },
+      {
+        "name": "controlled-read-state-cause-before-invalid-date",
+        "calls": [
+          {
+            "operation": "announcement.findOneByOrFail",
+            "where": {
+              "id": "announcement-oracle"
+            }
+          },
+          {
+            "operation": "announcement_read.findOneBy",
+            "where": {
+              "announcementId": "announcement-oracle",
+              "userId": "owner"
+            }
+          }
+        ],
+        "error": {
+          "class": "Error",
+          "name": "Error",
+          "message": "controlled-read-state-cause-before-date"
+        }
+      },
+      {
+        "name": "direct-formatter-transient-null-isRead-omitted-not-show-path",
+        "serializedKeys": [
+          "id",
+          "createdAt",
+          "updatedAt",
+          "title",
+          "text",
+          "imageUrl",
+          "icon",
+          "display",
+          "forYou",
+          "needConfirmationToRead",
+          "silence"
+        ],
+        "output": {
+          "id": "announcement-oracle",
+          "createdAt": "2026-10-26T00:00:00.123Z",
+          "updatedAt": null,
+          "title": "Actual formatter \u96ea\ud83d\ude00",
+          "text": "source text",
+          "imageUrl": null,
+          "icon": "info",
+          "display": "normal",
+          "forYou": false,
+          "needConfirmationToRead": false,
+          "silence": false
+        }
+      }
+    ]
+  },
+  "httpCases": [
+    {
+      "id": "compact-None",
+      "idMethod": "aidx",
+      "storedRow": {
+        "id": "aspspuooann00001",
+        "title": "Owned compact-global",
+        "text": "Owned announcement compact-global \u96f2\ud83d\ude00",
+        "imageUrl": null,
+        "icon": "info",
+        "display": "normal",
+        "needConfirmationToRead": false,
+        "silence": false,
+        "userId": null,
+        "updatedAtMs": null
+      },
+      "viewerId": null,
+      "readBoolean": null,
+      "status": 200,
+      "body": {
+        "id": "aspspuooann00001",
+        "createdAt": "2026-10-24T10:03:56.184Z",
+        "updatedAt": null,
+        "title": "Owned compact-global",
+        "text": "Owned announcement compact-global \u96f2\ud83d\ude00",
+        "imageUrl": null,
+        "icon": "info",
+        "display": "normal",
+        "forYou": false,
+        "needConfirmationToRead": false,
+        "silence": false
+      },
+      "rawBody": "{\"id\":\"aspspuooann00001\",\"createdAt\":\"2026-10-24T10:03:56.184Z\",\"updatedAt\":null,\"title\":\"Owned compact-global\",\"text\":\"Owned announcement compact-global \u96f2\ud83d\ude00\",\"imageUrl\":null,\"icon\":\"info\",\"display\":\"normal\",\"forYou\":false,\"needConfirmationToRead\":false,\"silence\":false}",
+      "businessQueryOrder": [
+        "lookup"
+      ]
+    },
+    {
+      "id": "compact-owner",
+      "idMethod": "aidx",
+      "storedRow": {
+        "id": "aspspuooann00001",
+        "title": "Owned compact-global",
+        "text": "Owned announcement compact-global \u96f2\ud83d\ude00",
+        "imageUrl": null,
+        "icon": "info",
+        "display": "normal",
+        "needConfirmationToRead": false,
+        "silence": false,
+        "userId": null,
+        "updatedAtMs": null
+      },
+      "viewerId": "aspspuoo9hvj0002",
+      "readBoolean": false,
+      "status": 200,
+      "body": {
+        "id": "aspspuooann00001",
+        "createdAt": "2026-10-24T10:03:56.184Z",
+        "updatedAt": null,
+        "title": "Owned compact-global",
+        "text": "Owned announcement compact-global \u96f2\ud83d\ude00",
+        "imageUrl": null,
+        "icon": "info",
+        "display": "normal",
+        "forYou": false,
+        "needConfirmationToRead": false,
+        "silence": false,
+        "isRead": false
+      },
+      "rawBody": "{\"id\":\"aspspuooann00001\",\"createdAt\":\"2026-10-24T10:03:56.184Z\",\"updatedAt\":null,\"title\":\"Owned compact-global\",\"text\":\"Owned announcement compact-global \u96f2\ud83d\ude00\",\"imageUrl\":null,\"icon\":\"info\",\"display\":\"normal\",\"forYou\":false,\"needConfirmationToRead\":false,\"silence\":false,\"isRead\":false}",
+      "businessQueryOrder": [
+        "lookup",
+        "read_state"
+      ]
+    },
+    {
+      "id": "compact-reader",
+      "idMethod": "aidx",
+      "storedRow": {
+        "id": "aspspuooann00001",
+        "title": "Owned compact-global",
+        "text": "Owned announcement compact-global \u96f2\ud83d\ude00",
+        "imageUrl": null,
+        "icon": "info",
+        "display": "normal",
+        "needConfirmationToRead": false,
+        "silence": false,
+        "userId": null,
+        "updatedAtMs": null
+      },
+      "viewerId": "aspspuoo9hvj0002",
+      "readBoolean": false,
+      "status": 200,
+      "body": {
+        "id": "aspspuooann00001",
+        "createdAt": "2026-10-24T10:03:56.184Z",
+        "updatedAt": null,
+        "title": "Owned compact-global",
+        "text": "Owned announcement compact-global \u96f2\ud83d\ude00",
+        "imageUrl": null,
+        "icon": "info",
+        "display": "normal",
+        "forYou": false,
+        "needConfirmationToRead": false,
+        "silence": false,
+        "isRead": false
+      },
+      "rawBody": "{\"id\":\"aspspuooann00001\",\"createdAt\":\"2026-10-24T10:03:56.184Z\",\"updatedAt\":null,\"title\":\"Owned compact-global\",\"text\":\"Owned announcement compact-global \u96f2\ud83d\ude00\",\"imageUrl\":null,\"icon\":\"info\",\"display\":\"normal\",\"forYou\":false,\"needConfirmationToRead\":false,\"silence\":false,\"isRead\":false}",
+      "businessQueryOrder": [
+        "lookup",
+        "read_state"
+      ]
+    },
+    {
+      "id": "compact-root",
+      "idMethod": "aidx",
+      "storedRow": {
+        "id": "aspspuooann00001",
+        "title": "Owned compact-global",
+        "text": "Owned announcement compact-global \u96f2\ud83d\ude00",
+        "imageUrl": null,
+        "icon": "info",
+        "display": "normal",
+        "needConfirmationToRead": false,
+        "silence": false,
+        "userId": null,
+        "updatedAtMs": null
+      },
+      "viewerId": "aspspul89hvj0001",
+      "readBoolean": false,
+      "status": 200,
+      "body": {
+        "id": "aspspuooann00001",
+        "createdAt": "2026-10-24T10:03:56.184Z",
+        "updatedAt": null,
+        "title": "Owned compact-global",
+        "text": "Owned announcement compact-global \u96f2\ud83d\ude00",
+        "imageUrl": null,
+        "icon": "info",
+        "display": "normal",
+        "forYou": false,
+        "needConfirmationToRead": false,
+        "silence": false,
+        "isRead": false
+      },
+      "rawBody": "{\"id\":\"aspspuooann00001\",\"createdAt\":\"2026-10-24T10:03:56.184Z\",\"updatedAt\":null,\"title\":\"Owned compact-global\",\"text\":\"Owned announcement compact-global \u96f2\ud83d\ude00\",\"imageUrl\":null,\"icon\":\"info\",\"display\":\"normal\",\"forYou\":false,\"needConfirmationToRead\":false,\"silence\":false,\"isRead\":false}",
+      "businessQueryOrder": [
+        "lookup",
+        "read_state"
+      ]
+    },
+    {
+      "id": "date-finite-None",
+      "idMethod": "aidx",
+      "storedRow": {
+        "id": "aspspuooann00002",
+        "title": "Owned date-finite",
+        "text": "Owned announcement date-finite \u96f2\ud83d\ude00",
+        "imageUrl": null,
+        "icon": "info",
+        "display": "normal",
+        "needConfirmationToRead": false,
+        "silence": false,
+        "userId": null,
+        "updatedAtMs": 1792972800123
+      },
+      "viewerId": null,
+      "readBoolean": null,
+      "status": 200,
+      "body": {
+        "id": "aspspuooann00002",
+        "createdAt": "2026-10-24T10:03:56.184Z",
+        "updatedAt": "2026-10-26T00:00:00.123Z",
+        "title": "Owned date-finite",
+        "text": "Owned announcement date-finite \u96f2\ud83d\ude00",
+        "imageUrl": null,
+        "icon": "info",
+        "display": "normal",
+        "forYou": false,
+        "needConfirmationToRead": false,
+        "silence": false
+      },
+      "rawBody": "{\"id\":\"aspspuooann00002\",\"createdAt\":\"2026-10-24T10:03:56.184Z\",\"updatedAt\":\"2026-10-26T00:00:00.123Z\",\"title\":\"Owned date-finite\",\"text\":\"Owned announcement date-finite \u96f2\ud83d\ude00\",\"imageUrl\":null,\"icon\":\"info\",\"display\":\"normal\",\"forYou\":false,\"needConfirmationToRead\":false,\"silence\":false}",
+      "businessQueryOrder": [
+        "lookup"
+      ]
+    },
+    {
+      "id": "date-finite-owner",
+      "idMethod": "aidx",
+      "storedRow": {
+        "id": "aspspuooann00002",
+        "title": "Owned date-finite",
+        "text": "Owned announcement date-finite \u96f2\ud83d\ude00",
+        "imageUrl": null,
+        "icon": "info",
+        "display": "normal",
+        "needConfirmationToRead": false,
+        "silence": false,
+        "userId": null,
+        "updatedAtMs": 1792972800123
+      },
+      "viewerId": "aspspuoo9hvj0002",
+      "readBoolean": false,
+      "status": 200,
+      "body": {
+        "id": "aspspuooann00002",
+        "createdAt": "2026-10-24T10:03:56.184Z",
+        "updatedAt": "2026-10-26T00:00:00.123Z",
+        "title": "Owned date-finite",
+        "text": "Owned announcement date-finite \u96f2\ud83d\ude00",
+        "imageUrl": null,
+        "icon": "info",
+        "display": "normal",
+        "forYou": false,
+        "needConfirmationToRead": false,
+        "silence": false,
+        "isRead": false
+      },
+      "rawBody": "{\"id\":\"aspspuooann00002\",\"createdAt\":\"2026-10-24T10:03:56.184Z\",\"updatedAt\":\"2026-10-26T00:00:00.123Z\",\"title\":\"Owned date-finite\",\"text\":\"Owned announcement date-finite \u96f2\ud83d\ude00\",\"imageUrl\":null,\"icon\":\"info\",\"display\":\"normal\",\"forYou\":false,\"needConfirmationToRead\":false,\"silence\":false,\"isRead\":false}",
+      "businessQueryOrder": [
+        "lookup",
+        "read_state"
+      ]
+    },
+    {
+      "id": "date-preepoch-None",
+      "idMethod": "aidx",
+      "storedRow": {
+        "id": "aspspuooann00003",
+        "title": "Owned date-preepoch",
+        "text": "Owned announcement date-preepoch \u96f2\ud83d\ude00",
+        "imageUrl": null,
+        "icon": "info",
+        "display": "normal",
+        "needConfirmationToRead": false,
+        "silence": false,
+        "userId": null,
+        "updatedAtMs": -877
+      },
+      "viewerId": null,
+      "readBoolean": null,
+      "status": 200,
+      "body": {
+        "id": "aspspuooann00003",
+        "createdAt": "2026-10-24T10:03:56.184Z",
+        "updatedAt": "1969-12-31T23:59:59.123Z",
+        "title": "Owned date-preepoch",
+        "text": "Owned announcement date-preepoch \u96f2\ud83d\ude00",
+        "imageUrl": null,
+        "icon": "info",
+        "display": "normal",
+        "forYou": false,
+        "needConfirmationToRead": false,
+        "silence": false
+      },
+      "rawBody": "{\"id\":\"aspspuooann00003\",\"createdAt\":\"2026-10-24T10:03:56.184Z\",\"updatedAt\":\"1969-12-31T23:59:59.123Z\",\"title\":\"Owned date-preepoch\",\"text\":\"Owned announcement date-preepoch \u96f2\ud83d\ude00\",\"imageUrl\":null,\"icon\":\"info\",\"display\":\"normal\",\"forYou\":false,\"needConfirmationToRead\":false,\"silence\":false}",
+      "businessQueryOrder": [
+        "lookup"
+      ]
+    },
+    {
+      "id": "date-preepoch-owner",
+      "idMethod": "aidx",
+      "storedRow": {
+        "id": "aspspuooann00003",
+        "title": "Owned date-preepoch",
+        "text": "Owned announcement date-preepoch \u96f2\ud83d\ude00",
+        "imageUrl": null,
+        "icon": "info",
+        "display": "normal",
+        "needConfirmationToRead": false,
+        "silence": false,
+        "userId": null,
+        "updatedAtMs": -877
+      },
+      "viewerId": "aspspuoo9hvj0002",
+      "readBoolean": false,
+      "status": 200,
+      "body": {
+        "id": "aspspuooann00003",
+        "createdAt": "2026-10-24T10:03:56.184Z",
+        "updatedAt": "1969-12-31T23:59:59.123Z",
+        "title": "Owned date-preepoch",
+        "text": "Owned announcement date-preepoch \u96f2\ud83d\ude00",
+        "imageUrl": null,
+        "icon": "info",
+        "display": "normal",
+        "forYou": false,
+        "needConfirmationToRead": false,
+        "silence": false,
+        "isRead": false
+      },
+      "rawBody": "{\"id\":\"aspspuooann00003\",\"createdAt\":\"2026-10-24T10:03:56.184Z\",\"updatedAt\":\"1969-12-31T23:59:59.123Z\",\"title\":\"Owned date-preepoch\",\"text\":\"Owned announcement date-preepoch \u96f2\ud83d\ude00\",\"imageUrl\":null,\"icon\":\"info\",\"display\":\"normal\",\"forYou\":false,\"needConfirmationToRead\":false,\"silence\":false,\"isRead\":false}",
+      "businessQueryOrder": [
+        "lookup",
+        "read_state"
+      ]
+    },
+    {
+      "id": "date-preepoch-subms-None",
+      "idMethod": "aidx",
+      "storedRow": {
+        "id": "aspspuooann00004",
+        "title": "Owned date-preepoch-subms",
+        "text": "Owned announcement date-preepoch-subms \u96f2\ud83d\ude00",
+        "imageUrl": null,
+        "icon": "info",
+        "display": "normal",
+        "needConfirmationToRead": false,
+        "silence": false,
+        "userId": null,
+        "updatedAtMs": -1
+      },
+      "viewerId": null,
+      "readBoolean": null,
+      "status": 200,
+      "body": {
+        "id": "aspspuooann00004",
+        "createdAt": "2026-10-24T10:03:56.184Z",
+        "updatedAt": "1969-12-31T23:59:59.999Z",
+        "title": "Owned date-preepoch-subms",
+        "text": "Owned announcement date-preepoch-subms \u96f2\ud83d\ude00",
+        "imageUrl": null,
+        "icon": "info",
+        "display": "normal",
+        "forYou": false,
+        "needConfirmationToRead": false,
+        "silence": false
+      },
+      "rawBody": "{\"id\":\"aspspuooann00004\",\"createdAt\":\"2026-10-24T10:03:56.184Z\",\"updatedAt\":\"1969-12-31T23:59:59.999Z\",\"title\":\"Owned date-preepoch-subms\",\"text\":\"Owned announcement date-preepoch-subms \u96f2\ud83d\ude00\",\"imageUrl\":null,\"icon\":\"info\",\"display\":\"normal\",\"forYou\":false,\"needConfirmationToRead\":false,\"silence\":false}",
+      "businessQueryOrder": [
+        "lookup"
+      ]
+    },
+    {
+      "id": "date-preepoch-subms-owner",
+      "idMethod": "aidx",
+      "storedRow": {
+        "id": "aspspuooann00004",
+        "title": "Owned date-preepoch-subms",
+        "text": "Owned announcement date-preepoch-subms \u96f2\ud83d\ude00",
+        "imageUrl": null,
+        "icon": "info",
+        "display": "normal",
+        "needConfirmationToRead": false,
+        "silence": false,
+        "userId": null,
+        "updatedAtMs": -1
+      },
+      "viewerId": "aspspuoo9hvj0002",
+      "readBoolean": false,
+      "status": 200,
+      "body": {
+        "id": "aspspuooann00004",
+        "createdAt": "2026-10-24T10:03:56.184Z",
+        "updatedAt": "1969-12-31T23:59:59.999Z",
+        "title": "Owned date-preepoch-subms",
+        "text": "Owned announcement date-preepoch-subms \u96f2\ud83d\ude00",
+        "imageUrl": null,
+        "icon": "info",
+        "display": "normal",
+        "forYou": false,
+        "needConfirmationToRead": false,
+        "silence": false,
+        "isRead": false
+      },
+      "rawBody": "{\"id\":\"aspspuooann00004\",\"createdAt\":\"2026-10-24T10:03:56.184Z\",\"updatedAt\":\"1969-12-31T23:59:59.999Z\",\"title\":\"Owned date-preepoch-subms\",\"text\":\"Owned announcement date-preepoch-subms \u96f2\ud83d\ude00\",\"imageUrl\":null,\"icon\":\"info\",\"display\":\"normal\",\"forYou\":false,\"needConfirmationToRead\":false,\"silence\":false,\"isRead\":false}",
+      "businessQueryOrder": [
+        "lookup",
+        "read_state"
+      ]
+    },
+    {
+      "id": "date-positive-infinity-None",
+      "idMethod": "aidx",
+      "storedRow": {
+        "id": "aspspuooann00005",
+        "title": "Owned date-positive-infinity",
+        "text": "Owned announcement date-positive-infinity \u96f2\ud83d\ude00",
+        "imageUrl": null,
+        "icon": "info",
+        "display": "normal",
+        "needConfirmationToRead": false,
+        "silence": false,
+        "userId": null,
+        "updatedAtMs": "Infinity"
+      },
+      "viewerId": null,
+      "readBoolean": null,
+      "status": 500,
+      "body": {
+        "error": {
+          "message": "Internal error occurred. Please contact us if the error persists.",
+          "code": "INTERNAL_ERROR",
+          "id": "5d37dbcb-891e-41ca-a3d6-e690c97775ac",
+          "kind": "server",
+          "info": {
+            "e": {
+              "message": "r.updatedAt?.toISOString is not a function. (In 'r.updatedAt?.toISOString()', 'r.updatedAt?.toISOString' is undefined)",
+              "code": "TypeError",
+              "id": "952a3401-f3b0-4da8-b415-cfc100e1fd23"
+            }
+          }
+        }
+      },
+      "rawBody": "{\"error\":{\"message\":\"Internal error occurred. Please contact us if the error persists.\",\"code\":\"INTERNAL_ERROR\",\"id\":\"5d37dbcb-891e-41ca-a3d6-e690c97775ac\",\"kind\":\"server\",\"info\":{\"e\":{\"message\":\"r.updatedAt?.toISOString is not a function. (In 'r.updatedAt?.toISOString()', 'r.updatedAt?.toISOString' is undefined)\",\"code\":\"TypeError\",\"id\":\"952a3401-f3b0-4da8-b415-cfc100e1fd23\"}}}}",
+      "businessQueryOrder": [
+        "lookup"
+      ]
+    },
+    {
+      "id": "date-positive-infinity-owner",
+      "idMethod": "aidx",
+      "storedRow": {
+        "id": "aspspuooann00005",
+        "title": "Owned date-positive-infinity",
+        "text": "Owned announcement date-positive-infinity \u96f2\ud83d\ude00",
+        "imageUrl": null,
+        "icon": "info",
+        "display": "normal",
+        "needConfirmationToRead": false,
+        "silence": false,
+        "userId": null,
+        "updatedAtMs": "Infinity"
+      },
+      "viewerId": "aspspuoo9hvj0002",
+      "readBoolean": false,
+      "status": 500,
+      "body": {
+        "error": {
+          "message": "Internal error occurred. Please contact us if the error persists.",
+          "code": "INTERNAL_ERROR",
+          "id": "5d37dbcb-891e-41ca-a3d6-e690c97775ac",
+          "kind": "server",
+          "info": {
+            "e": {
+              "message": "r.updatedAt?.toISOString is not a function. (In 'r.updatedAt?.toISOString()', 'r.updatedAt?.toISOString' is undefined)",
+              "code": "TypeError",
+              "id": "1d45bede-7225-439d-8a59-b53c5fa25721"
+            }
+          }
+        }
+      },
+      "rawBody": "{\"error\":{\"message\":\"Internal error occurred. Please contact us if the error persists.\",\"code\":\"INTERNAL_ERROR\",\"id\":\"5d37dbcb-891e-41ca-a3d6-e690c97775ac\",\"kind\":\"server\",\"info\":{\"e\":{\"message\":\"r.updatedAt?.toISOString is not a function. (In 'r.updatedAt?.toISOString()', 'r.updatedAt?.toISOString' is undefined)\",\"code\":\"TypeError\",\"id\":\"1d45bede-7225-439d-8a59-b53c5fa25721\"}}}}",
+      "businessQueryOrder": [
+        "lookup",
+        "read_state"
+      ]
+    },
+    {
+      "id": "date-negative-infinity-None",
+      "idMethod": "aidx",
+      "storedRow": {
+        "id": "aspspuooann00006",
+        "title": "Owned date-negative-infinity",
+        "text": "Owned announcement date-negative-infinity \u96f2\ud83d\ude00",
+        "imageUrl": null,
+        "icon": "info",
+        "display": "normal",
+        "needConfirmationToRead": false,
+        "silence": false,
+        "userId": null,
+        "updatedAtMs": "-Infinity"
+      },
+      "viewerId": null,
+      "readBoolean": null,
+      "status": 500,
+      "body": {
+        "error": {
+          "message": "Internal error occurred. Please contact us if the error persists.",
+          "code": "INTERNAL_ERROR",
+          "id": "5d37dbcb-891e-41ca-a3d6-e690c97775ac",
+          "kind": "server",
+          "info": {
+            "e": {
+              "message": "r.updatedAt?.toISOString is not a function. (In 'r.updatedAt?.toISOString()', 'r.updatedAt?.toISOString' is undefined)",
+              "code": "TypeError",
+              "id": "faf1f737-f312-458b-a3a6-3bfeae348a9f"
+            }
+          }
+        }
+      },
+      "rawBody": "{\"error\":{\"message\":\"Internal error occurred. Please contact us if the error persists.\",\"code\":\"INTERNAL_ERROR\",\"id\":\"5d37dbcb-891e-41ca-a3d6-e690c97775ac\",\"kind\":\"server\",\"info\":{\"e\":{\"message\":\"r.updatedAt?.toISOString is not a function. (In 'r.updatedAt?.toISOString()', 'r.updatedAt?.toISOString' is undefined)\",\"code\":\"TypeError\",\"id\":\"faf1f737-f312-458b-a3a6-3bfeae348a9f\"}}}}",
+      "businessQueryOrder": [
+        "lookup"
+      ]
+    },
+    {
+      "id": "date-negative-infinity-owner",
+      "idMethod": "aidx",
+      "storedRow": {
+        "id": "aspspuooann00006",
+        "title": "Owned date-negative-infinity",
+        "text": "Owned announcement date-negative-infinity \u96f2\ud83d\ude00",
+        "imageUrl": null,
+        "icon": "info",
+        "display": "normal",
+        "needConfirmationToRead": false,
+        "silence": false,
+        "userId": null,
+        "updatedAtMs": "-Infinity"
+      },
+      "viewerId": "aspspuoo9hvj0002",
+      "readBoolean": false,
+      "status": 500,
+      "body": {
+        "error": {
+          "message": "Internal error occurred. Please contact us if the error persists.",
+          "code": "INTERNAL_ERROR",
+          "id": "5d37dbcb-891e-41ca-a3d6-e690c97775ac",
+          "kind": "server",
+          "info": {
+            "e": {
+              "message": "r.updatedAt?.toISOString is not a function. (In 'r.updatedAt?.toISOString()', 'r.updatedAt?.toISOString' is undefined)",
+              "code": "TypeError",
+              "id": "f0287761-be82-49e9-ada6-e3554df6e10d"
+            }
+          }
+        }
+      },
+      "rawBody": "{\"error\":{\"message\":\"Internal error occurred. Please contact us if the error persists.\",\"code\":\"INTERNAL_ERROR\",\"id\":\"5d37dbcb-891e-41ca-a3d6-e690c97775ac\",\"kind\":\"server\",\"info\":{\"e\":{\"message\":\"r.updatedAt?.toISOString is not a function. (In 'r.updatedAt?.toISOString()', 'r.updatedAt?.toISOString' is undefined)\",\"code\":\"TypeError\",\"id\":\"f0287761-be82-49e9-ada6-e3554df6e10d\"}}}}",
+      "businessQueryOrder": [
+        "lookup",
+        "read_state"
+      ]
+    },
+    {
+      "id": "date-year294000-None",
+      "idMethod": "aidx",
+      "storedRow": {
+        "id": "aspspuooann00007",
+        "title": "Owned date-year294000",
+        "text": "Owned announcement date-year294000 \u96f2\ud83d\ude00",
+        "imageUrl": null,
+        "icon": "info",
+        "display": "normal",
+        "needConfirmationToRead": false,
+        "silence": false,
+        "userId": null,
+        "updatedAtMs": 9215576668800000.0
+      },
+      "viewerId": null,
+      "readBoolean": null,
+      "status": 500,
+      "body": {
+        "error": {
+          "message": "Internal error occurred. Please contact us if the error persists.",
+          "code": "INTERNAL_ERROR",
+          "id": "5d37dbcb-891e-41ca-a3d6-e690c97775ac",
+          "kind": "server",
+          "info": {
+            "e": {
+              "message": "Invalid Date",
+              "code": "RangeError",
+              "id": "25149fa4-3f40-4a5d-a2fb-b168e33498e7"
+            }
+          }
+        }
+      },
+      "rawBody": "{\"error\":{\"message\":\"Internal error occurred. Please contact us if the error persists.\",\"code\":\"INTERNAL_ERROR\",\"id\":\"5d37dbcb-891e-41ca-a3d6-e690c97775ac\",\"kind\":\"server\",\"info\":{\"e\":{\"message\":\"Invalid Date\",\"code\":\"RangeError\",\"id\":\"25149fa4-3f40-4a5d-a2fb-b168e33498e7\"}}}}",
+      "businessQueryOrder": [
+        "lookup"
+      ]
+    },
+    {
+      "id": "date-year294000-owner",
+      "idMethod": "aidx",
+      "storedRow": {
+        "id": "aspspuooann00007",
+        "title": "Owned date-year294000",
+        "text": "Owned announcement date-year294000 \u96f2\ud83d\ude00",
+        "imageUrl": null,
+        "icon": "info",
+        "display": "normal",
+        "needConfirmationToRead": false,
+        "silence": false,
+        "userId": null,
+        "updatedAtMs": 9215576668800000.0
+      },
+      "viewerId": "aspspuoo9hvj0002",
+      "readBoolean": false,
+      "status": 500,
+      "body": {
+        "error": {
+          "message": "Internal error occurred. Please contact us if the error persists.",
+          "code": "INTERNAL_ERROR",
+          "id": "5d37dbcb-891e-41ca-a3d6-e690c97775ac",
+          "kind": "server",
+          "info": {
+            "e": {
+              "message": "Invalid Date",
+              "code": "RangeError",
+              "id": "16d1344c-7529-48f4-b00b-7142471f7913"
+            }
+          }
+        }
+      },
+      "rawBody": "{\"error\":{\"message\":\"Internal error occurred. Please contact us if the error persists.\",\"code\":\"INTERNAL_ERROR\",\"id\":\"5d37dbcb-891e-41ca-a3d6-e690c97775ac\",\"kind\":\"server\",\"info\":{\"e\":{\"message\":\"Invalid Date\",\"code\":\"RangeError\",\"id\":\"16d1344c-7529-48f4-b00b-7142471f7913\"}}}}",
+      "businessQueryOrder": [
+        "lookup",
+        "read_state"
+      ]
+    },
+    {
+      "id": "hidden-infinity-None",
+      "idMethod": "aidx",
+      "storedRow": {
+        "id": "aspspuooann00008",
+        "title": "Owned hidden-positive-infinity",
+        "text": "Owned announcement hidden-positive-infinity \u96f2\ud83d\ude00",
+        "imageUrl": null,
+        "icon": "info",
+        "display": "normal",
+        "needConfirmationToRead": false,
+        "silence": false,
+        "userId": "aspspuoo9hvj0002",
+        "updatedAtMs": "Infinity"
+      },
+      "viewerId": null,
+      "readBoolean": null,
+      "status": 400,
+      "body": {
+        "error": {
+          "message": "No such announcement.",
+          "code": "NO_SUCH_ANNOUNCEMENT",
+          "id": "b57b5e1d-4f49-404a-9edb-46b00268f121",
+          "kind": "client"
+        }
+      },
+      "rawBody": "{\"error\":{\"message\":\"No such announcement.\",\"code\":\"NO_SUCH_ANNOUNCEMENT\",\"id\":\"b57b5e1d-4f49-404a-9edb-46b00268f121\",\"kind\":\"client\"}}",
+      "businessQueryOrder": [
+        "lookup"
+      ]
+    },
+    {
+      "id": "hidden-infinity-other",
+      "idMethod": "aidx",
+      "storedRow": {
+        "id": "aspspuooann00008",
+        "title": "Owned hidden-positive-infinity",
+        "text": "Owned announcement hidden-positive-infinity \u96f2\ud83d\ude00",
+        "imageUrl": null,
+        "icon": "info",
+        "display": "normal",
+        "needConfirmationToRead": false,
+        "silence": false,
+        "userId": "aspspuoo9hvj0002",
+        "updatedAtMs": "Infinity"
+      },
+      "viewerId": "aspspurq9hvj0003",
+      "readBoolean": null,
+      "status": 400,
+      "body": {
+        "error": {
+          "message": "No such announcement.",
+          "code": "NO_SUCH_ANNOUNCEMENT",
+          "id": "b57b5e1d-4f49-404a-9edb-46b00268f121",
+          "kind": "client"
+        }
+      },
+      "rawBody": "{\"error\":{\"message\":\"No such announcement.\",\"code\":\"NO_SUCH_ANNOUNCEMENT\",\"id\":\"b57b5e1d-4f49-404a-9edb-46b00268f121\",\"kind\":\"client\"}}",
+      "businessQueryOrder": [
+        "lookup"
+      ]
+    },
+    {
+      "id": "hidden-infinity-root",
+      "idMethod": "aidx",
+      "storedRow": {
+        "id": "aspspuooann00008",
+        "title": "Owned hidden-positive-infinity",
+        "text": "Owned announcement hidden-positive-infinity \u96f2\ud83d\ude00",
+        "imageUrl": null,
+        "icon": "info",
+        "display": "normal",
+        "needConfirmationToRead": false,
+        "silence": false,
+        "userId": "aspspuoo9hvj0002",
+        "updatedAtMs": "Infinity"
+      },
+      "viewerId": "aspspul89hvj0001",
+      "readBoolean": null,
+      "status": 400,
+      "body": {
+        "error": {
+          "message": "No such announcement.",
+          "code": "NO_SUCH_ANNOUNCEMENT",
+          "id": "b57b5e1d-4f49-404a-9edb-46b00268f121",
+          "kind": "client"
+        }
+      },
+      "rawBody": "{\"error\":{\"message\":\"No such announcement.\",\"code\":\"NO_SUCH_ANNOUNCEMENT\",\"id\":\"b57b5e1d-4f49-404a-9edb-46b00268f121\",\"kind\":\"client\"}}",
+      "businessQueryOrder": [
+        "lookup"
+      ]
+    },
+    {
+      "id": "hidden-infinity-owner",
+      "idMethod": "aidx",
+      "storedRow": {
+        "id": "aspspuooann00008",
+        "title": "Owned hidden-positive-infinity",
+        "text": "Owned announcement hidden-positive-infinity \u96f2\ud83d\ude00",
+        "imageUrl": null,
+        "icon": "info",
+        "display": "normal",
+        "needConfirmationToRead": false,
+        "silence": false,
+        "userId": "aspspuoo9hvj0002",
+        "updatedAtMs": "Infinity"
+      },
+      "viewerId": "aspspuoo9hvj0002",
+      "readBoolean": false,
+      "status": 500,
+      "body": {
+        "error": {
+          "message": "Internal error occurred. Please contact us if the error persists.",
+          "code": "INTERNAL_ERROR",
+          "id": "5d37dbcb-891e-41ca-a3d6-e690c97775ac",
+          "kind": "server",
+          "info": {
+            "e": {
+              "message": "r.updatedAt?.toISOString is not a function. (In 'r.updatedAt?.toISOString()', 'r.updatedAt?.toISOString' is undefined)",
+              "code": "TypeError",
+              "id": "957a7954-e088-4d15-947e-372ca43dc90a"
+            }
+          }
+        }
+      },
+      "rawBody": "{\"error\":{\"message\":\"Internal error occurred. Please contact us if the error persists.\",\"code\":\"INTERNAL_ERROR\",\"id\":\"5d37dbcb-891e-41ca-a3d6-e690c97775ac\",\"kind\":\"server\",\"info\":{\"e\":{\"message\":\"r.updatedAt?.toISOString is not a function. (In 'r.updatedAt?.toISOString()', 'r.updatedAt?.toISOString' is undefined)\",\"code\":\"TypeError\",\"id\":\"957a7954-e088-4d15-947e-372ca43dc90a\"}}}}",
+      "businessQueryOrder": [
+        "lookup",
+        "read_state"
+      ]
+    }
+  ]
+}

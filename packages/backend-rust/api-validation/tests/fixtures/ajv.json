@@ -1,0 +1,3922 @@
+[
+  {
+    "name": "defaults-required-order",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "string",
+          "default": "hello"
+        },
+        "b": {
+          "type": "integer"
+        },
+        "z": {
+          "type": "string",
+          "nullable": true,
+          "default": null
+        }
+      },
+      "required": [
+        "b"
+      ]
+    },
+    "cases": [
+      {
+        "id": "0",
+        "input": {
+          "t": "object",
+          "v": []
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/required",
+            "message": "must have required property 'b'"
+          },
+          "value": {
+            "t": "object",
+            "v": [
+              [
+                [
+                  97
+                ],
+                {
+                  "t": "string",
+                  "v": [
+                    104,
+                    101,
+                    108,
+                    108,
+                    111
+                  ]
+                }
+              ],
+              [
+                [
+                  122
+                ],
+                {
+                  "t": "null"
+                }
+              ]
+            ]
+          }
+        }
+      },
+      {
+        "id": "1",
+        "input": {
+          "t": "object",
+          "v": [
+            [
+              [
+                98
+              ],
+              {
+                "t": "number",
+                "v": "1"
+              }
+            ]
+          ]
+        },
+        "expected": {
+          "valid": true,
+          "error": null,
+          "value": {
+            "t": "object",
+            "v": [
+              [
+                [
+                  98
+                ],
+                {
+                  "t": "number",
+                  "v": "1"
+                }
+              ],
+              [
+                [
+                  97
+                ],
+                {
+                  "t": "string",
+                  "v": [
+                    104,
+                    101,
+                    108,
+                    108,
+                    111
+                  ]
+                }
+              ],
+              [
+                [
+                  122
+                ],
+                {
+                  "t": "null"
+                }
+              ]
+            ]
+          }
+        }
+      },
+      {
+        "id": "2",
+        "input": {
+          "t": "object",
+          "v": [
+            [
+              [
+                97
+              ],
+              {
+                "t": "null"
+              }
+            ],
+            [
+              [
+                98
+              ],
+              {
+                "t": "number",
+                "v": "1"
+              }
+            ]
+          ]
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/properties/a/type",
+            "message": "must be string"
+          },
+          "value": {
+            "t": "object",
+            "v": [
+              [
+                [
+                  97
+                ],
+                {
+                  "t": "null"
+                }
+              ],
+              [
+                [
+                  98
+                ],
+                {
+                  "t": "number",
+                  "v": "1"
+                }
+              ],
+              [
+                [
+                  122
+                ],
+                {
+                  "t": "null"
+                }
+              ]
+            ]
+          }
+        }
+      },
+      {
+        "id": "3",
+        "input": {
+          "t": "object",
+          "v": [
+            [
+              [
+                97
+              ],
+              {
+                "t": "undefined"
+              }
+            ],
+            [
+              [
+                98
+              ],
+              {
+                "t": "number",
+                "v": "1"
+              }
+            ]
+          ]
+        },
+        "expected": {
+          "valid": true,
+          "error": null,
+          "value": {
+            "t": "object",
+            "v": [
+              [
+                [
+                  97
+                ],
+                {
+                  "t": "string",
+                  "v": [
+                    104,
+                    101,
+                    108,
+                    108,
+                    111
+                  ]
+                }
+              ],
+              [
+                [
+                  98
+                ],
+                {
+                  "t": "number",
+                  "v": "1"
+                }
+              ],
+              [
+                [
+                  122
+                ],
+                {
+                  "t": "null"
+                }
+              ]
+            ]
+          }
+        }
+      },
+      {
+        "id": "4",
+        "input": {
+          "t": "object",
+          "v": [
+            [
+              [
+                97
+              ],
+              {
+                "t": "number",
+                "v": "1"
+              }
+            ],
+            [
+              [
+                98
+              ],
+              {
+                "t": "boolean",
+                "v": false
+              }
+            ]
+          ]
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/properties/a/type",
+            "message": "must be string"
+          },
+          "value": {
+            "t": "object",
+            "v": [
+              [
+                [
+                  97
+                ],
+                {
+                  "t": "number",
+                  "v": "1"
+                }
+              ],
+              [
+                [
+                  98
+                ],
+                {
+                  "t": "boolean",
+                  "v": false
+                }
+              ],
+              [
+                [
+                  122
+                ],
+                {
+                  "t": "null"
+                }
+              ]
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "nullable-declared-error",
+    "schema": {
+      "type": "string",
+      "nullable": true,
+      "maxLength": 1
+    },
+    "cases": [
+      {
+        "id": "0",
+        "input": {
+          "t": "null"
+        },
+        "expected": {
+          "valid": true,
+          "error": null,
+          "value": {
+            "t": "null"
+          }
+        }
+      },
+      {
+        "id": "1",
+        "input": {
+          "t": "boolean",
+          "v": false
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/type",
+            "message": "must be string"
+          },
+          "value": {
+            "t": "boolean",
+            "v": false
+          }
+        }
+      },
+      {
+        "id": "2",
+        "input": {
+          "t": "number",
+          "v": "1"
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/type",
+            "message": "must be string"
+          },
+          "value": {
+            "t": "number",
+            "v": "1"
+          }
+        }
+      },
+      {
+        "id": "3",
+        "input": {
+          "t": "string",
+          "v": []
+        },
+        "expected": {
+          "valid": true,
+          "error": null,
+          "value": {
+            "t": "string",
+            "v": []
+          }
+        }
+      },
+      {
+        "id": "4",
+        "input": {
+          "t": "string",
+          "v": [
+            97
+          ]
+        },
+        "expected": {
+          "valid": true,
+          "error": null,
+          "value": {
+            "t": "string",
+            "v": [
+              97
+            ]
+          }
+        }
+      },
+      {
+        "id": "5",
+        "input": {
+          "t": "string",
+          "v": [
+            55357,
+            56832
+          ]
+        },
+        "expected": {
+          "valid": true,
+          "error": null,
+          "value": {
+            "t": "string",
+            "v": [
+              55357,
+              56832
+            ]
+          }
+        }
+      },
+      {
+        "id": "6",
+        "input": {
+          "t": "string",
+          "v": [
+            55296
+          ]
+        },
+        "expected": {
+          "valid": true,
+          "error": null,
+          "value": {
+            "t": "string",
+            "v": [
+              55296
+            ]
+          }
+        }
+      },
+      {
+        "id": "7",
+        "input": {
+          "t": "string",
+          "v": [
+            97,
+            98
+          ]
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/maxLength",
+            "message": "must NOT have more than 1 characters"
+          },
+          "value": {
+            "t": "string",
+            "v": [
+              97,
+              98
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "enum-before-defaults",
+    "schema": {
+      "type": "object",
+      "enum": [
+        {}
+      ],
+      "properties": {
+        "a": {
+          "type": "integer",
+          "default": 1
+        }
+      },
+      "required": [
+        "b"
+      ]
+    },
+    "cases": [
+      {
+        "id": "0",
+        "input": {
+          "t": "object",
+          "v": []
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/required",
+            "message": "must have required property 'b'"
+          },
+          "value": {
+            "t": "object",
+            "v": [
+              [
+                [
+                  97
+                ],
+                {
+                  "t": "number",
+                  "v": "1"
+                }
+              ]
+            ]
+          }
+        }
+      },
+      {
+        "id": "1",
+        "input": {
+          "t": "object",
+          "v": [
+            [
+              [
+                98
+              ],
+              {
+                "t": "number",
+                "v": "1"
+              }
+            ]
+          ]
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/enum",
+            "message": "must be equal to one of the allowed values"
+          },
+          "value": {
+            "t": "object",
+            "v": [
+              [
+                [
+                  98
+                ],
+                {
+                  "t": "number",
+                  "v": "1"
+                }
+              ]
+            ]
+          }
+        }
+      },
+      {
+        "id": "2",
+        "input": {
+          "t": "boolean",
+          "v": false
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/enum",
+            "message": "must be equal to one of the allowed values"
+          },
+          "value": {
+            "t": "boolean",
+            "v": false
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "integer-and-bounds",
+    "schema": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2
+    },
+    "cases": [
+      {
+        "id": "0",
+        "input": {
+          "t": "number",
+          "v": "-1"
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/minimum",
+            "message": "must be >= 0"
+          },
+          "value": {
+            "t": "number",
+            "v": "-1"
+          }
+        }
+      },
+      {
+        "id": "1",
+        "input": {
+          "t": "number",
+          "v": "-0"
+        },
+        "expected": {
+          "valid": true,
+          "error": null,
+          "value": {
+            "t": "number",
+            "v": "-0"
+          }
+        }
+      },
+      {
+        "id": "2",
+        "input": {
+          "t": "number",
+          "v": "0"
+        },
+        "expected": {
+          "valid": true,
+          "error": null,
+          "value": {
+            "t": "number",
+            "v": "0"
+          }
+        }
+      },
+      {
+        "id": "3",
+        "input": {
+          "t": "number",
+          "v": "0.5"
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/type",
+            "message": "must be integer"
+          },
+          "value": {
+            "t": "number",
+            "v": "0.5"
+          }
+        }
+      },
+      {
+        "id": "4",
+        "input": {
+          "t": "number",
+          "v": "1"
+        },
+        "expected": {
+          "valid": true,
+          "error": null,
+          "value": {
+            "t": "number",
+            "v": "1"
+          }
+        }
+      },
+      {
+        "id": "5",
+        "input": {
+          "t": "number",
+          "v": "2"
+        },
+        "expected": {
+          "valid": true,
+          "error": null,
+          "value": {
+            "t": "number",
+            "v": "2"
+          }
+        }
+      },
+      {
+        "id": "6",
+        "input": {
+          "t": "number",
+          "v": "3"
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/maximum",
+            "message": "must be <= 2"
+          },
+          "value": {
+            "t": "number",
+            "v": "3"
+          }
+        }
+      },
+      {
+        "id": "7",
+        "input": {
+          "t": "number",
+          "v": "Infinity"
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/type",
+            "message": "must be integer"
+          },
+          "value": {
+            "t": "number",
+            "v": "Infinity"
+          }
+        }
+      },
+      {
+        "id": "8",
+        "input": {
+          "t": "number",
+          "v": "-Infinity"
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/type",
+            "message": "must be integer"
+          },
+          "value": {
+            "t": "number",
+            "v": "-Infinity"
+          }
+        }
+      },
+      {
+        "id": "9",
+        "input": {
+          "t": "number",
+          "v": "NaN"
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/type",
+            "message": "must be integer"
+          },
+          "value": {
+            "t": "number",
+            "v": "NaN"
+          }
+        }
+      },
+      {
+        "id": "10",
+        "input": {
+          "t": "string",
+          "v": [
+            49
+          ]
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/type",
+            "message": "must be integer"
+          },
+          "value": {
+            "t": "string",
+            "v": [
+              49
+            ]
+          }
+        }
+      },
+      {
+        "id": "11",
+        "input": {
+          "t": "null"
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/type",
+            "message": "must be integer"
+          },
+          "value": {
+            "t": "null"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "numbers-strict",
+    "schema": {
+      "type": "number",
+      "nullable": true,
+      "minimum": 0,
+      "maximum": 2
+    },
+    "cases": [
+      {
+        "id": "0",
+        "input": {
+          "t": "null"
+        },
+        "expected": {
+          "valid": true,
+          "error": null,
+          "value": {
+            "t": "null"
+          }
+        }
+      },
+      {
+        "id": "1",
+        "input": {
+          "t": "number",
+          "v": "-1"
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/minimum",
+            "message": "must be >= 0"
+          },
+          "value": {
+            "t": "number",
+            "v": "-1"
+          }
+        }
+      },
+      {
+        "id": "2",
+        "input": {
+          "t": "number",
+          "v": "0"
+        },
+        "expected": {
+          "valid": true,
+          "error": null,
+          "value": {
+            "t": "number",
+            "v": "0"
+          }
+        }
+      },
+      {
+        "id": "3",
+        "input": {
+          "t": "number",
+          "v": "0.5"
+        },
+        "expected": {
+          "valid": true,
+          "error": null,
+          "value": {
+            "t": "number",
+            "v": "0.5"
+          }
+        }
+      },
+      {
+        "id": "4",
+        "input": {
+          "t": "number",
+          "v": "1"
+        },
+        "expected": {
+          "valid": true,
+          "error": null,
+          "value": {
+            "t": "number",
+            "v": "1"
+          }
+        }
+      },
+      {
+        "id": "5",
+        "input": {
+          "t": "number",
+          "v": "2"
+        },
+        "expected": {
+          "valid": true,
+          "error": null,
+          "value": {
+            "t": "number",
+            "v": "2"
+          }
+        }
+      },
+      {
+        "id": "6",
+        "input": {
+          "t": "number",
+          "v": "3"
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/maximum",
+            "message": "must be <= 2"
+          },
+          "value": {
+            "t": "number",
+            "v": "3"
+          }
+        }
+      },
+      {
+        "id": "7",
+        "input": {
+          "t": "number",
+          "v": "Infinity"
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/type",
+            "message": "must be number"
+          },
+          "value": {
+            "t": "number",
+            "v": "Infinity"
+          }
+        }
+      },
+      {
+        "id": "8",
+        "input": {
+          "t": "number",
+          "v": "-Infinity"
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/type",
+            "message": "must be number"
+          },
+          "value": {
+            "t": "number",
+            "v": "-Infinity"
+          }
+        }
+      },
+      {
+        "id": "9",
+        "input": {
+          "t": "number",
+          "v": "NaN"
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/type",
+            "message": "must be number"
+          },
+          "value": {
+            "t": "number",
+            "v": "NaN"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "numeric-order",
+    "schema": {
+      "type": "number",
+      "maximum": 2,
+      "minimum": 5
+    },
+    "cases": [
+      {
+        "id": "0",
+        "input": {
+          "t": "number",
+          "v": "0"
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/minimum",
+            "message": "must be >= 5"
+          },
+          "value": {
+            "t": "number",
+            "v": "0"
+          }
+        }
+      },
+      {
+        "id": "1",
+        "input": {
+          "t": "number",
+          "v": "3"
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/maximum",
+            "message": "must be <= 2"
+          },
+          "value": {
+            "t": "number",
+            "v": "3"
+          }
+        }
+      },
+      {
+        "id": "2",
+        "input": {
+          "t": "number",
+          "v": "8"
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/maximum",
+            "message": "must be <= 2"
+          },
+          "value": {
+            "t": "number",
+            "v": "8"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "utf16-unicode-length",
+    "schema": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 3
+    },
+    "cases": [
+      {
+        "id": "0",
+        "input": {
+          "t": "string",
+          "v": []
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/minLength",
+            "message": "must NOT have fewer than 2 characters"
+          },
+          "value": {
+            "t": "string",
+            "v": []
+          }
+        }
+      },
+      {
+        "id": "1",
+        "input": {
+          "t": "string",
+          "v": [
+            97
+          ]
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/minLength",
+            "message": "must NOT have fewer than 2 characters"
+          },
+          "value": {
+            "t": "string",
+            "v": [
+              97
+            ]
+          }
+        }
+      },
+      {
+        "id": "2",
+        "input": {
+          "t": "string",
+          "v": [
+            55357,
+            56832
+          ]
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/minLength",
+            "message": "must NOT have fewer than 2 characters"
+          },
+          "value": {
+            "t": "string",
+            "v": [
+              55357,
+              56832
+            ]
+          }
+        }
+      },
+      {
+        "id": "3",
+        "input": {
+          "t": "string",
+          "v": [
+            55357,
+            56832,
+            97
+          ]
+        },
+        "expected": {
+          "valid": true,
+          "error": null,
+          "value": {
+            "t": "string",
+            "v": [
+              55357,
+              56832,
+              97
+            ]
+          }
+        }
+      },
+      {
+        "id": "4",
+        "input": {
+          "t": "string",
+          "v": [
+            55296,
+            97
+          ]
+        },
+        "expected": {
+          "valid": true,
+          "error": null,
+          "value": {
+            "t": "string",
+            "v": [
+              55296,
+              97
+            ]
+          }
+        }
+      },
+      {
+        "id": "5",
+        "input": {
+          "t": "string",
+          "v": [
+            55296,
+            55296
+          ]
+        },
+        "expected": {
+          "valid": true,
+          "error": null,
+          "value": {
+            "t": "string",
+            "v": [
+              55296,
+              55296
+            ]
+          }
+        }
+      },
+      {
+        "id": "6",
+        "input": {
+          "t": "string",
+          "v": [
+            55296,
+            57343
+          ]
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/minLength",
+            "message": "must NOT have fewer than 2 characters"
+          },
+          "value": {
+            "t": "string",
+            "v": [
+              55296,
+              57343
+            ]
+          }
+        }
+      },
+      {
+        "id": "7",
+        "input": {
+          "t": "string",
+          "v": [
+            97,
+            98,
+            99,
+            100
+          ]
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/maxLength",
+            "message": "must NOT have more than 3 characters"
+          },
+          "value": {
+            "t": "string",
+            "v": [
+              97,
+              98,
+              99,
+              100
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "id-format-final-terminator",
+    "schema": {
+      "type": "string",
+      "format": "misskey:id"
+    },
+    "cases": [
+      {
+        "id": "0",
+        "input": {
+          "t": "string",
+          "v": []
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/format",
+            "message": "must match format \"misskey:id\""
+          },
+          "value": {
+            "t": "string",
+            "v": []
+          }
+        }
+      },
+      {
+        "id": "1",
+        "input": {
+          "t": "string",
+          "v": [
+            97
+          ]
+        },
+        "expected": {
+          "valid": true,
+          "error": null,
+          "value": {
+            "t": "string",
+            "v": [
+              97
+            ]
+          }
+        }
+      },
+      {
+        "id": "2",
+        "input": {
+          "t": "string",
+          "v": [
+            97,
+            10
+          ]
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/format",
+            "message": "must match format \"misskey:id\""
+          },
+          "value": {
+            "t": "string",
+            "v": [
+              97,
+              10
+            ]
+          }
+        }
+      },
+      {
+        "id": "3",
+        "input": {
+          "t": "string",
+          "v": [
+            97,
+            13
+          ]
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/format",
+            "message": "must match format \"misskey:id\""
+          },
+          "value": {
+            "t": "string",
+            "v": [
+              97,
+              13
+            ]
+          }
+        }
+      },
+      {
+        "id": "4",
+        "input": {
+          "t": "string",
+          "v": [
+            97,
+            13,
+            10
+          ]
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/format",
+            "message": "must match format \"misskey:id\""
+          },
+          "value": {
+            "t": "string",
+            "v": [
+              97,
+              13,
+              10
+            ]
+          }
+        }
+      },
+      {
+        "id": "5",
+        "input": {
+          "t": "string",
+          "v": [
+            97,
+            8232
+          ]
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/format",
+            "message": "must match format \"misskey:id\""
+          },
+          "value": {
+            "t": "string",
+            "v": [
+              97,
+              8232
+            ]
+          }
+        }
+      },
+      {
+        "id": "6",
+        "input": {
+          "t": "string",
+          "v": [
+            97,
+            8233
+          ]
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/format",
+            "message": "must match format \"misskey:id\""
+          },
+          "value": {
+            "t": "string",
+            "v": [
+              97,
+              8233
+            ]
+          }
+        }
+      },
+      {
+        "id": "7",
+        "input": {
+          "t": "string",
+          "v": [
+            97,
+            10,
+            10
+          ]
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/format",
+            "message": "must match format \"misskey:id\""
+          },
+          "value": {
+            "t": "string",
+            "v": [
+              97,
+              10,
+              10
+            ]
+          }
+        }
+      },
+      {
+        "id": "8",
+        "input": {
+          "t": "string",
+          "v": [
+            12354
+          ]
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/format",
+            "message": "must match format \"misskey:id\""
+          },
+          "value": {
+            "t": "string",
+            "v": [
+              12354
+            ]
+          }
+        }
+      },
+      {
+        "id": "9",
+        "input": {
+          "t": "string",
+          "v": [
+            55296
+          ]
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/format",
+            "message": "must match format \"misskey:id\""
+          },
+          "value": {
+            "t": "string",
+            "v": [
+              55296
+            ]
+          }
+        }
+      },
+      {
+        "id": "10",
+        "input": {
+          "t": "string",
+          "v": [
+            97,
+            95
+          ]
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/format",
+            "message": "must match format \"misskey:id\""
+          },
+          "value": {
+            "t": "string",
+            "v": [
+              97,
+              95
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "unicode-pattern",
+    "schema": {
+      "type": "string",
+      "pattern": "[^\\s]+"
+    },
+    "cases": [
+      {
+        "id": "0",
+        "input": {
+          "t": "string",
+          "v": []
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/pattern",
+            "message": "must match pattern \"[^\\s]+\""
+          },
+          "value": {
+            "t": "string",
+            "v": []
+          }
+        }
+      },
+      {
+        "id": "1",
+        "input": {
+          "t": "string",
+          "v": [
+            32
+          ]
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/pattern",
+            "message": "must match pattern \"[^\\s]+\""
+          },
+          "value": {
+            "t": "string",
+            "v": [
+              32
+            ]
+          }
+        }
+      },
+      {
+        "id": "2",
+        "input": {
+          "t": "string",
+          "v": [
+            160
+          ]
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/pattern",
+            "message": "must match pattern \"[^\\s]+\""
+          },
+          "value": {
+            "t": "string",
+            "v": [
+              160
+            ]
+          }
+        }
+      },
+      {
+        "id": "3",
+        "input": {
+          "t": "string",
+          "v": [
+            6158
+          ]
+        },
+        "expected": {
+          "valid": true,
+          "error": null,
+          "value": {
+            "t": "string",
+            "v": [
+              6158
+            ]
+          }
+        }
+      },
+      {
+        "id": "4",
+        "input": {
+          "t": "string",
+          "v": [
+            8203
+          ]
+        },
+        "expected": {
+          "valid": true,
+          "error": null,
+          "value": {
+            "t": "string",
+            "v": [
+              8203
+            ]
+          }
+        }
+      },
+      {
+        "id": "5",
+        "input": {
+          "t": "string",
+          "v": [
+            55357,
+            56832
+          ]
+        },
+        "expected": {
+          "valid": true,
+          "error": null,
+          "value": {
+            "t": "string",
+            "v": [
+              55357,
+              56832
+            ]
+          }
+        }
+      },
+      {
+        "id": "6",
+        "input": {
+          "t": "string",
+          "v": [
+            55296
+          ]
+        },
+        "expected": {
+          "valid": true,
+          "error": null,
+          "value": {
+            "t": "string",
+            "v": [
+              55296
+            ]
+          }
+        }
+      },
+      {
+        "id": "7",
+        "input": {
+          "t": "string",
+          "v": [
+            8232
+          ]
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/pattern",
+            "message": "must match pattern \"[^\\s]+\""
+          },
+          "value": {
+            "t": "string",
+            "v": [
+              8232
+            ]
+          }
+        }
+      },
+      {
+        "id": "8",
+        "input": {
+          "t": "string",
+          "v": [
+            65279
+          ]
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/pattern",
+            "message": "must match pattern \"[^\\s]+\""
+          },
+          "value": {
+            "t": "string",
+            "v": [
+              65279
+            ]
+          }
+        }
+      },
+      {
+        "id": "9",
+        "input": {
+          "t": "string",
+          "v": [
+            32,
+            97,
+            32
+          ]
+        },
+        "expected": {
+          "valid": true,
+          "error": null,
+          "value": {
+            "t": "string",
+            "v": [
+              32,
+              97,
+              32
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "enum-nullability",
+    "schema": {
+      "type": "string",
+      "nullable": true,
+      "enum": [
+        "a"
+      ]
+    },
+    "cases": [
+      {
+        "id": "0",
+        "input": {
+          "t": "null"
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/enum",
+            "message": "must be equal to one of the allowed values"
+          },
+          "value": {
+            "t": "null"
+          }
+        }
+      },
+      {
+        "id": "1",
+        "input": {
+          "t": "number",
+          "v": "0"
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/type",
+            "message": "must be string"
+          },
+          "value": {
+            "t": "number",
+            "v": "0"
+          }
+        }
+      },
+      {
+        "id": "2",
+        "input": {
+          "t": "boolean",
+          "v": false
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/type",
+            "message": "must be string"
+          },
+          "value": {
+            "t": "boolean",
+            "v": false
+          }
+        }
+      },
+      {
+        "id": "3",
+        "input": {
+          "t": "string",
+          "v": [
+            97
+          ]
+        },
+        "expected": {
+          "valid": true,
+          "error": null,
+          "value": {
+            "t": "string",
+            "v": [
+              97
+            ]
+          }
+        }
+      },
+      {
+        "id": "4",
+        "input": {
+          "t": "string",
+          "v": [
+            98
+          ]
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/enum",
+            "message": "must be equal to one of the allowed values"
+          },
+          "value": {
+            "t": "string",
+            "v": [
+              98
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "array-typed-duplicates",
+    "schema": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 3,
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "cases": [
+      {
+        "id": "0",
+        "input": {
+          "t": "array",
+          "v": []
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/minItems",
+            "message": "must NOT have fewer than 1 items"
+          },
+          "value": {
+            "t": "array",
+            "v": []
+          }
+        }
+      },
+      {
+        "id": "1",
+        "input": {
+          "t": "array",
+          "v": [
+            {
+              "t": "string",
+              "v": [
+                97
+              ]
+            }
+          ]
+        },
+        "expected": {
+          "valid": true,
+          "error": null,
+          "value": {
+            "t": "array",
+            "v": [
+              {
+                "t": "string",
+                "v": [
+                  97
+                ]
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "2",
+        "input": {
+          "t": "array",
+          "v": [
+            {
+              "t": "string",
+              "v": [
+                97
+              ]
+            },
+            {
+              "t": "string",
+              "v": [
+                98
+              ]
+            },
+            {
+              "t": "string",
+              "v": [
+                97
+              ]
+            }
+          ]
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/uniqueItems",
+            "message": "must NOT have duplicate items (items ## 2 and 0 are identical)"
+          },
+          "value": {
+            "t": "array",
+            "v": [
+              {
+                "t": "string",
+                "v": [
+                  97
+                ]
+              },
+              {
+                "t": "string",
+                "v": [
+                  98
+                ]
+              },
+              {
+                "t": "string",
+                "v": [
+                  97
+                ]
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "3",
+        "input": {
+          "t": "array",
+          "v": [
+            {
+              "t": "string",
+              "v": [
+                97
+              ]
+            },
+            {
+              "t": "string",
+              "v": [
+                97
+              ]
+            },
+            {
+              "t": "string",
+              "v": [
+                97
+              ]
+            }
+          ]
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/uniqueItems",
+            "message": "must NOT have duplicate items (items ## 2 and 1 are identical)"
+          },
+          "value": {
+            "t": "array",
+            "v": [
+              {
+                "t": "string",
+                "v": [
+                  97
+                ]
+              },
+              {
+                "t": "string",
+                "v": [
+                  97
+                ]
+              },
+              {
+                "t": "string",
+                "v": [
+                  97
+                ]
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "4",
+        "input": {
+          "t": "array",
+          "v": [
+            {
+              "t": "string",
+              "v": [
+                97
+              ]
+            },
+            {
+              "t": "number",
+              "v": "1"
+            },
+            {
+              "t": "string",
+              "v": [
+                97
+              ]
+            }
+          ]
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/items/type",
+            "message": "must be string"
+          },
+          "value": {
+            "t": "array",
+            "v": [
+              {
+                "t": "string",
+                "v": [
+                  97
+                ]
+              },
+              {
+                "t": "number",
+                "v": "1"
+              },
+              {
+                "t": "string",
+                "v": [
+                  97
+                ]
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "5",
+        "input": {
+          "t": "array",
+          "v": [
+            {
+              "t": "number",
+              "v": "1"
+            },
+            {
+              "t": "number",
+              "v": "1"
+            }
+          ]
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/items/type",
+            "message": "must be string"
+          },
+          "value": {
+            "t": "array",
+            "v": [
+              {
+                "t": "number",
+                "v": "1"
+              },
+              {
+                "t": "number",
+                "v": "1"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "array-object-duplicates",
+    "schema": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object"
+      }
+    },
+    "cases": [
+      {
+        "id": "0",
+        "input": {
+          "t": "array",
+          "v": [
+            {
+              "t": "object",
+              "v": []
+            },
+            {
+              "t": "object",
+              "v": []
+            }
+          ]
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/uniqueItems",
+            "message": "must NOT have duplicate items (items ## 0 and 1 are identical)"
+          },
+          "value": {
+            "t": "array",
+            "v": [
+              {
+                "t": "object",
+                "v": []
+              },
+              {
+                "t": "object",
+                "v": []
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "1",
+        "input": {
+          "t": "array",
+          "v": [
+            {
+              "t": "object",
+              "v": [
+                [
+                  [
+                    97
+                  ],
+                  {
+                    "t": "number",
+                    "v": "1"
+                  }
+                ],
+                [
+                  [
+                    98
+                  ],
+                  {
+                    "t": "number",
+                    "v": "2"
+                  }
+                ]
+              ]
+            },
+            {
+              "t": "object",
+              "v": [
+                [
+                  [
+                    98
+                  ],
+                  {
+                    "t": "number",
+                    "v": "2"
+                  }
+                ],
+                [
+                  [
+                    97
+                  ],
+                  {
+                    "t": "number",
+                    "v": "1"
+                  }
+                ]
+              ]
+            }
+          ]
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/uniqueItems",
+            "message": "must NOT have duplicate items (items ## 0 and 1 are identical)"
+          },
+          "value": {
+            "t": "array",
+            "v": [
+              {
+                "t": "object",
+                "v": [
+                  [
+                    [
+                      97
+                    ],
+                    {
+                      "t": "number",
+                      "v": "1"
+                    }
+                  ],
+                  [
+                    [
+                      98
+                    ],
+                    {
+                      "t": "number",
+                      "v": "2"
+                    }
+                  ]
+                ]
+              },
+              {
+                "t": "object",
+                "v": [
+                  [
+                    [
+                      98
+                    ],
+                    {
+                      "t": "number",
+                      "v": "2"
+                    }
+                  ],
+                  [
+                    [
+                      97
+                    ],
+                    {
+                      "t": "number",
+                      "v": "1"
+                    }
+                  ]
+                ]
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "2",
+        "input": {
+          "t": "array",
+          "v": [
+            {
+              "t": "object",
+              "v": [
+                [
+                  [
+                    97
+                  ],
+                  {
+                    "t": "number",
+                    "v": "1"
+                  }
+                ]
+              ]
+            },
+            {
+              "t": "object",
+              "v": [
+                [
+                  [
+                    97
+                  ],
+                  {
+                    "t": "number",
+                    "v": "2"
+                  }
+                ]
+              ]
+            },
+            {
+              "t": "object",
+              "v": [
+                [
+                  [
+                    97
+                  ],
+                  {
+                    "t": "number",
+                    "v": "1"
+                  }
+                ]
+              ]
+            }
+          ]
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/uniqueItems",
+            "message": "must NOT have duplicate items (items ## 0 and 2 are identical)"
+          },
+          "value": {
+            "t": "array",
+            "v": [
+              {
+                "t": "object",
+                "v": [
+                  [
+                    [
+                      97
+                    ],
+                    {
+                      "t": "number",
+                      "v": "1"
+                    }
+                  ]
+                ]
+              },
+              {
+                "t": "object",
+                "v": [
+                  [
+                    [
+                      97
+                    ],
+                    {
+                      "t": "number",
+                      "v": "2"
+                    }
+                  ]
+                ]
+              },
+              {
+                "t": "object",
+                "v": [
+                  [
+                    [
+                      97
+                    ],
+                    {
+                      "t": "number",
+                      "v": "1"
+                    }
+                  ]
+                ]
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "array-item-before-unique",
+    "schema": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "cases": [
+      {
+        "id": "0",
+        "input": {
+          "t": "array",
+          "v": [
+            {
+              "t": "number",
+              "v": "-1"
+            },
+            {
+              "t": "number",
+              "v": "-1"
+            }
+          ]
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/items/minimum",
+            "message": "must be >= 0"
+          },
+          "value": {
+            "t": "array",
+            "v": [
+              {
+                "t": "number",
+                "v": "-1"
+              },
+              {
+                "t": "number",
+                "v": "-1"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "1",
+        "input": {
+          "t": "array",
+          "v": [
+            {
+              "t": "number",
+              "v": "1"
+            },
+            {
+              "t": "number",
+              "v": "1"
+            }
+          ]
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/uniqueItems",
+            "message": "must NOT have duplicate items (items ## 1 and 0 are identical)"
+          },
+          "value": {
+            "t": "array",
+            "v": [
+              {
+                "t": "number",
+                "v": "1"
+              },
+              {
+                "t": "number",
+                "v": "1"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "2",
+        "input": {
+          "t": "array",
+          "v": [
+            {
+              "t": "number",
+              "v": "1"
+            },
+            {
+              "t": "number",
+              "v": "2"
+            },
+            {
+              "t": "number",
+              "v": "2"
+            }
+          ]
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/uniqueItems",
+            "message": "must NOT have duplicate items (items ## 2 and 1 are identical)"
+          },
+          "value": {
+            "t": "array",
+            "v": [
+              {
+                "t": "number",
+                "v": "1"
+              },
+              {
+                "t": "number",
+                "v": "2"
+              },
+              {
+                "t": "number",
+                "v": "2"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "3",
+        "input": {
+          "t": "array",
+          "v": [
+            {
+              "t": "string",
+              "v": [
+                97
+              ]
+            },
+            {
+              "t": "string",
+              "v": [
+                97
+              ]
+            }
+          ]
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/items/type",
+            "message": "must be integer"
+          },
+          "value": {
+            "t": "array",
+            "v": [
+              {
+                "t": "string",
+                "v": [
+                  97
+                ]
+              },
+              {
+                "t": "string",
+                "v": [
+                  97
+                ]
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "anyof-first-error",
+    "schema": {
+      "type": "object",
+      "anyOf": [
+        {
+          "required": [
+            "a"
+          ]
+        },
+        {
+          "required": [
+            "b"
+          ]
+        }
+      ],
+      "properties": {
+        "a": {
+          "type": "integer"
+        },
+        "b": {
+          "type": "integer"
+        }
+      }
+    },
+    "cases": [
+      {
+        "id": "0",
+        "input": {
+          "t": "object",
+          "v": []
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/anyOf/0/required",
+            "message": "must have required property 'a'"
+          },
+          "value": {
+            "t": "object",
+            "v": []
+          }
+        }
+      },
+      {
+        "id": "1",
+        "input": {
+          "t": "object",
+          "v": [
+            [
+              [
+                97
+              ],
+              {
+                "t": "number",
+                "v": "1"
+              }
+            ]
+          ]
+        },
+        "expected": {
+          "valid": true,
+          "error": null,
+          "value": {
+            "t": "object",
+            "v": [
+              [
+                [
+                  97
+                ],
+                {
+                  "t": "number",
+                  "v": "1"
+                }
+              ]
+            ]
+          }
+        }
+      },
+      {
+        "id": "2",
+        "input": {
+          "t": "object",
+          "v": [
+            [
+              [
+                98
+              ],
+              {
+                "t": "number",
+                "v": "1"
+              }
+            ]
+          ]
+        },
+        "expected": {
+          "valid": true,
+          "error": null,
+          "value": {
+            "t": "object",
+            "v": [
+              [
+                [
+                  98
+                ],
+                {
+                  "t": "number",
+                  "v": "1"
+                }
+              ]
+            ]
+          }
+        }
+      },
+      {
+        "id": "3",
+        "input": {
+          "t": "object",
+          "v": [
+            [
+              [
+                97
+              ],
+              {
+                "t": "string",
+                "v": [
+                  120
+                ]
+              }
+            ]
+          ]
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/properties/a/type",
+            "message": "must be integer"
+          },
+          "value": {
+            "t": "object",
+            "v": [
+              [
+                [
+                  97
+                ],
+                {
+                  "t": "string",
+                  "v": [
+                    120
+                  ]
+                }
+              ]
+            ]
+          }
+        }
+      },
+      {
+        "id": "4",
+        "input": {
+          "t": "object",
+          "v": [
+            [
+              [
+                97
+              ],
+              {
+                "t": "number",
+                "v": "1"
+              }
+            ],
+            [
+              [
+                98
+              ],
+              {
+                "t": "string",
+                "v": [
+                  120
+                ]
+              }
+            ]
+          ]
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/properties/b/type",
+            "message": "must be integer"
+          },
+          "value": {
+            "t": "object",
+            "v": [
+              [
+                [
+                  97
+                ],
+                {
+                  "t": "number",
+                  "v": "1"
+                }
+              ],
+              [
+                [
+                  98
+                ],
+                {
+                  "t": "string",
+                  "v": [
+                    120
+                  ]
+                }
+              ]
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "oneof-first-error",
+    "schema": {
+      "oneOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "integer"
+        },
+        {
+          "type": "number"
+        }
+      ]
+    },
+    "cases": [
+      {
+        "id": "0",
+        "input": {
+          "t": "null"
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/oneOf/0/type",
+            "message": "must be boolean"
+          },
+          "value": {
+            "t": "null"
+          }
+        }
+      },
+      {
+        "id": "1",
+        "input": {
+          "t": "boolean",
+          "v": false
+        },
+        "expected": {
+          "valid": true,
+          "error": null,
+          "value": {
+            "t": "boolean",
+            "v": false
+          }
+        }
+      },
+      {
+        "id": "2",
+        "input": {
+          "t": "number",
+          "v": "1"
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/oneOf/0/type",
+            "message": "must be boolean"
+          },
+          "value": {
+            "t": "number",
+            "v": "1"
+          }
+        }
+      },
+      {
+        "id": "3",
+        "input": {
+          "t": "number",
+          "v": "0.5"
+        },
+        "expected": {
+          "valid": true,
+          "error": null,
+          "value": {
+            "t": "number",
+            "v": "0.5"
+          }
+        }
+      },
+      {
+        "id": "4",
+        "input": {
+          "t": "string",
+          "v": [
+            97
+          ]
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/oneOf/0/type",
+            "message": "must be boolean"
+          },
+          "value": {
+            "t": "string",
+            "v": [
+              97
+            ]
+          }
+        }
+      },
+      {
+        "id": "5",
+        "input": {
+          "t": "number",
+          "v": "Infinity"
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/oneOf/0/type",
+            "message": "must be boolean"
+          },
+          "value": {
+            "t": "number",
+            "v": "Infinity"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "allof-before-defaults",
+    "schema": {
+      "type": "object",
+      "allOf": [
+        {
+          "required": [
+            "a"
+          ]
+        }
+      ],
+      "properties": {
+        "a": {
+          "type": "integer",
+          "default": 1
+        }
+      }
+    },
+    "cases": [
+      {
+        "id": "0",
+        "input": {
+          "t": "object",
+          "v": []
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/allOf/0/required",
+            "message": "must have required property 'a'"
+          },
+          "value": {
+            "t": "object",
+            "v": []
+          }
+        }
+      },
+      {
+        "id": "1",
+        "input": {
+          "t": "object",
+          "v": [
+            [
+              [
+                97
+              ],
+              {
+                "t": "number",
+                "v": "1"
+              }
+            ]
+          ]
+        },
+        "expected": {
+          "valid": true,
+          "error": null,
+          "value": {
+            "t": "object",
+            "v": [
+              [
+                [
+                  97
+                ],
+                {
+                  "t": "number",
+                  "v": "1"
+                }
+              ]
+            ]
+          }
+        }
+      },
+      {
+        "id": "2",
+        "input": {
+          "t": "object",
+          "v": [
+            [
+              [
+                97
+              ],
+              {
+                "t": "null"
+              }
+            ]
+          ]
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/properties/a/type",
+            "message": "must be integer"
+          },
+          "value": {
+            "t": "object",
+            "v": [
+              [
+                [
+                  97
+                ],
+                {
+                  "t": "null"
+                }
+              ]
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "allof-defaults-shared",
+    "schema": {
+      "type": "object",
+      "allOf": [
+        {
+          "type": "object",
+          "properties": {
+            "a": {
+              "type": "integer",
+              "default": 1
+            }
+          }
+        },
+        {
+          "required": [
+            "a"
+          ]
+        }
+      ],
+      "properties": {
+        "b": {
+          "type": "string",
+          "default": "b"
+        }
+      }
+    },
+    "cases": [
+      {
+        "id": "0",
+        "input": {
+          "t": "object",
+          "v": []
+        },
+        "expected": {
+          "valid": true,
+          "error": null,
+          "value": {
+            "t": "object",
+            "v": [
+              [
+                [
+                  97
+                ],
+                {
+                  "t": "number",
+                  "v": "1"
+                }
+              ],
+              [
+                [
+                  98
+                ],
+                {
+                  "t": "string",
+                  "v": [
+                    98
+                  ]
+                }
+              ]
+            ]
+          }
+        }
+      },
+      {
+        "id": "1",
+        "input": {
+          "t": "object",
+          "v": [
+            [
+              [
+                97
+              ],
+              {
+                "t": "null"
+              }
+            ]
+          ]
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/allOf/0/properties/a/type",
+            "message": "must be integer"
+          },
+          "value": {
+            "t": "object",
+            "v": [
+              [
+                [
+                  97
+                ],
+                {
+                  "t": "null"
+                }
+              ]
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "if-before-defaults",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string",
+          "default": "default"
+        },
+        "flag": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "if": {
+        "properties": {
+          "flag": {
+            "const": false
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "text"
+        ]
+      }
+    },
+    "cases": [
+      {
+        "id": "0",
+        "input": {
+          "t": "object",
+          "v": []
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/then/required",
+            "message": "must have required property 'text'"
+          },
+          "value": {
+            "t": "object",
+            "v": []
+          }
+        }
+      },
+      {
+        "id": "1",
+        "input": {
+          "t": "object",
+          "v": [
+            [
+              [
+                102,
+                108,
+                97,
+                103
+              ],
+              {
+                "t": "boolean",
+                "v": true
+              }
+            ]
+          ]
+        },
+        "expected": {
+          "valid": true,
+          "error": null,
+          "value": {
+            "t": "object",
+            "v": [
+              [
+                [
+                  102,
+                  108,
+                  97,
+                  103
+                ],
+                {
+                  "t": "boolean",
+                  "v": true
+                }
+              ],
+              [
+                [
+                  116,
+                  101,
+                  120,
+                  116
+                ],
+                {
+                  "t": "string",
+                  "v": [
+                    100,
+                    101,
+                    102,
+                    97,
+                    117,
+                    108,
+                    116
+                  ]
+                }
+              ]
+            ]
+          }
+        }
+      },
+      {
+        "id": "2",
+        "input": {
+          "t": "object",
+          "v": [
+            [
+              [
+                102,
+                108,
+                97,
+                103
+              ],
+              {
+                "t": "boolean",
+                "v": false
+              }
+            ]
+          ]
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/then/required",
+            "message": "must have required property 'text'"
+          },
+          "value": {
+            "t": "object",
+            "v": [
+              [
+                [
+                  102,
+                  108,
+                  97,
+                  103
+                ],
+                {
+                  "t": "boolean",
+                  "v": false
+                }
+              ]
+            ]
+          }
+        }
+      },
+      {
+        "id": "3",
+        "input": {
+          "t": "object",
+          "v": [
+            [
+              [
+                116,
+                101,
+                120,
+                116
+              ],
+              {
+                "t": "string",
+                "v": [
+                  120
+                ]
+              }
+            ]
+          ]
+        },
+        "expected": {
+          "valid": true,
+          "error": null,
+          "value": {
+            "t": "object",
+            "v": [
+              [
+                [
+                  116,
+                  101,
+                  120,
+                  116
+                ],
+                {
+                  "t": "string",
+                  "v": [
+                    120
+                  ]
+                }
+              ],
+              [
+                [
+                  102,
+                  108,
+                  97,
+                  103
+                ],
+                {
+                  "t": "boolean",
+                  "v": false
+                }
+              ]
+            ]
+          }
+        }
+      },
+      {
+        "id": "4",
+        "input": {
+          "t": "object",
+          "v": [
+            [
+              [
+                116,
+                101,
+                120,
+                116
+              ],
+              {
+                "t": "null"
+              }
+            ]
+          ]
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/properties/text/type",
+            "message": "must be string"
+          },
+          "value": {
+            "t": "object",
+            "v": [
+              [
+                [
+                  116,
+                  101,
+                  120,
+                  116
+                ],
+                {
+                  "t": "null"
+                }
+              ],
+              [
+                [
+                  102,
+                  108,
+                  97,
+                  103
+                ],
+                {
+                  "t": "boolean",
+                  "v": false
+                }
+              ]
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "additional-property-errors",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false
+    },
+    "cases": [
+      {
+        "id": "0",
+        "input": {
+          "t": "object",
+          "v": []
+        },
+        "expected": {
+          "valid": true,
+          "error": null,
+          "value": {
+            "t": "object",
+            "v": []
+          }
+        }
+      },
+      {
+        "id": "1",
+        "input": {
+          "t": "object",
+          "v": [
+            [
+              [
+                97
+              ],
+              {
+                "t": "number",
+                "v": "1"
+              }
+            ]
+          ]
+        },
+        "expected": {
+          "valid": true,
+          "error": null,
+          "value": {
+            "t": "object",
+            "v": [
+              [
+                [
+                  97
+                ],
+                {
+                  "t": "number",
+                  "v": "1"
+                }
+              ]
+            ]
+          }
+        }
+      },
+      {
+        "id": "2",
+        "input": {
+          "t": "object",
+          "v": [
+            [
+              [
+                97
+              ],
+              {
+                "t": "number",
+                "v": "1"
+              }
+            ],
+            [
+              [
+                98
+              ],
+              {
+                "t": "number",
+                "v": "2"
+              }
+            ]
+          ]
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/additionalProperties",
+            "message": "must NOT have additional properties"
+          },
+          "value": {
+            "t": "object",
+            "v": [
+              [
+                [
+                  97
+                ],
+                {
+                  "t": "number",
+                  "v": "1"
+                }
+              ],
+              [
+                [
+                  98
+                ],
+                {
+                  "t": "number",
+                  "v": "2"
+                }
+              ]
+            ]
+          }
+        }
+      },
+      {
+        "id": "3",
+        "input": {
+          "t": "object",
+          "v": [
+            [
+              [
+                122
+              ],
+              {
+                "t": "number",
+                "v": "1"
+              }
+            ],
+            [
+              [
+                97
+              ],
+              {
+                "t": "string",
+                "v": [
+                  98,
+                  97,
+                  100
+                ]
+              }
+            ]
+          ]
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/additionalProperties",
+            "message": "must NOT have additional properties"
+          },
+          "value": {
+            "t": "object",
+            "v": [
+              [
+                [
+                  122
+                ],
+                {
+                  "t": "number",
+                  "v": "1"
+                }
+              ],
+              [
+                [
+                  97
+                ],
+                {
+                  "t": "string",
+                  "v": [
+                    98,
+                    97,
+                    100
+                  ]
+                }
+              ]
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "schema-key-path-escaping",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "a/b~ c😀": {
+          "type": "integer"
+        }
+      }
+    },
+    "cases": [
+      {
+        "id": "0",
+        "input": {
+          "t": "object",
+          "v": [
+            [
+              [
+                97,
+                47,
+                98,
+                126,
+                32,
+                99,
+                55357,
+                56832
+              ],
+              {
+                "t": "string",
+                "v": [
+                  120
+                ]
+              }
+            ]
+          ]
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/properties/a~1b~0%20c%F0%9F%98%80/type",
+            "message": "must be integer"
+          },
+          "value": {
+            "t": "object",
+            "v": [
+              [
+                [
+                  97,
+                  47,
+                  98,
+                  126,
+                  32,
+                  99,
+                  55357,
+                  56832
+                ],
+                {
+                  "t": "string",
+                  "v": [
+                    120
+                  ]
+                }
+              ]
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "object-enum-order",
+    "schema": {
+      "enum": [
+        {
+          "a": 1,
+          "b": 2
+        }
+      ]
+    },
+    "cases": [
+      {
+        "id": "0",
+        "input": {
+          "t": "object",
+          "v": [
+            [
+              [
+                97
+              ],
+              {
+                "t": "number",
+                "v": "1"
+              }
+            ],
+            [
+              [
+                98
+              ],
+              {
+                "t": "number",
+                "v": "2"
+              }
+            ]
+          ]
+        },
+        "expected": {
+          "valid": true,
+          "error": null,
+          "value": {
+            "t": "object",
+            "v": [
+              [
+                [
+                  97
+                ],
+                {
+                  "t": "number",
+                  "v": "1"
+                }
+              ],
+              [
+                [
+                  98
+                ],
+                {
+                  "t": "number",
+                  "v": "2"
+                }
+              ]
+            ]
+          }
+        }
+      },
+      {
+        "id": "1",
+        "input": {
+          "t": "object",
+          "v": [
+            [
+              [
+                98
+              ],
+              {
+                "t": "number",
+                "v": "2"
+              }
+            ],
+            [
+              [
+                97
+              ],
+              {
+                "t": "number",
+                "v": "1"
+              }
+            ]
+          ]
+        },
+        "expected": {
+          "valid": true,
+          "error": null,
+          "value": {
+            "t": "object",
+            "v": [
+              [
+                [
+                  98
+                ],
+                {
+                  "t": "number",
+                  "v": "2"
+                }
+              ],
+              [
+                [
+                  97
+                ],
+                {
+                  "t": "number",
+                  "v": "1"
+                }
+              ]
+            ]
+          }
+        }
+      },
+      {
+        "id": "2",
+        "input": {
+          "t": "object",
+          "v": [
+            [
+              [
+                97
+              ],
+              {
+                "t": "number",
+                "v": "1"
+              }
+            ],
+            [
+              [
+                98
+              ],
+              {
+                "t": "number",
+                "v": "2"
+              }
+            ],
+            [
+              [
+                99
+              ],
+              {
+                "t": "number",
+                "v": "3"
+              }
+            ]
+          ]
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/enum",
+            "message": "must be equal to one of the allowed values"
+          },
+          "value": {
+            "t": "object",
+            "v": [
+              [
+                [
+                  97
+                ],
+                {
+                  "t": "number",
+                  "v": "1"
+                }
+              ],
+              [
+                [
+                  98
+                ],
+                {
+                  "t": "number",
+                  "v": "2"
+                }
+              ],
+              [
+                [
+                  99
+                ],
+                {
+                  "t": "number",
+                  "v": "3"
+                }
+              ]
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "literal-boolean-schema",
+    "schema": false,
+    "cases": [
+      {
+        "id": "0",
+        "input": {
+          "t": "object",
+          "v": []
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/false schema",
+            "message": "boolean schema is false"
+          },
+          "value": {
+            "t": "object",
+            "v": []
+          }
+        }
+      },
+      {
+        "id": "1",
+        "input": {
+          "t": "null"
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/false schema",
+            "message": "boolean schema is false"
+          },
+          "value": {
+            "t": "null"
+          }
+        }
+      },
+      {
+        "id": "2",
+        "input": {
+          "t": "number",
+          "v": "1"
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/false schema",
+            "message": "boolean schema is false"
+          },
+          "value": {
+            "t": "number",
+            "v": "1"
+          }
+        }
+      },
+      {
+        "id": "3",
+        "input": {
+          "t": "string",
+          "v": []
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/false schema",
+            "message": "boolean schema is false"
+          },
+          "value": {
+            "t": "string",
+            "v": []
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "not-first-error",
+    "schema": {
+      "not": {
+        "type": "integer"
+      }
+    },
+    "cases": [
+      {
+        "id": "0",
+        "input": {
+          "t": "number",
+          "v": "0"
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/not",
+            "message": "must NOT be valid"
+          },
+          "value": {
+            "t": "number",
+            "v": "0"
+          }
+        }
+      },
+      {
+        "id": "1",
+        "input": {
+          "t": "number",
+          "v": "1"
+        },
+        "expected": {
+          "valid": false,
+          "error": {
+            "schemaPath": "#/not",
+            "message": "must NOT be valid"
+          },
+          "value": {
+            "t": "number",
+            "v": "1"
+          }
+        }
+      },
+      {
+        "id": "2",
+        "input": {
+          "t": "string",
+          "v": [
+            97
+          ]
+        },
+        "expected": {
+          "valid": true,
+          "error": null,
+          "value": {
+            "t": "string",
+            "v": [
+              97
+            ]
+          }
+        }
+      },
+      {
+        "id": "3",
+        "input": {
+          "t": "null"
+        },
+        "expected": {
+          "valid": true,
+          "error": null,
+          "value": {
+            "t": "null"
+          }
+        }
+      }
+    ]
+  }
+]

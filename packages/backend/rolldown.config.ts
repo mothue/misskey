@@ -1,3 +1,5 @@
+import { readdirSync } from 'node:fs';
+import { resolve, join } from 'node:path';
 import { defineConfig } from 'rolldown';
 import { version as summalyVersion } from '@misskey-dev/summaly';
 import type { Plugin, ExternalOption } from 'rolldown';
@@ -51,7 +53,20 @@ function backendDevServerPlugin(): Plugin {
 
 	return {
 		name: 'backend-dev-server',
+		buildStart() {
+			const visit = (directory: string) => {
+				for (const entry of readdirSync(directory, { withFileTypes: true })) {
+					if (entry.name === 'built' || entry.name === 'node_modules') continue;
+					const path = join(directory, entry.name);
+					if (entry.isDirectory()) visit(path);
+					else this.addWatchFile(path);
+				}
+			};
+			visit(resolve('../backend-rust'));
+		},
 		async closeBundle() {
+			await killBackendProcess();
+			await execa(process.execPath, ['run', '--filter', 'backend-rust', 'build:native'], { cwd: '../..', stdio: 'inherit' });
 			await buildOptionalTarball();
 			if (backendProcess) {
 				await killBackendProcess();
@@ -163,7 +178,7 @@ export default defineConfig((args) => {
 				format: 'esm',
 			},
 			watch: {
-				include: ['src/**/*.{ts,js,mjs,cjs,tsx,json}'],
+				include: ['src/**/*.{ts,js,mjs,cjs,tsx,json}', '../backend-rust/**'],
 				clearScreen: false,
 			},
 			// ビルドの高速化のために、watchモードのときは外部モジュールは全てバンドルしないようにする

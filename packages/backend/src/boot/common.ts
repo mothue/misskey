@@ -10,6 +10,8 @@ import { envOption } from '@/env.js';
 import type { Config } from '@/config.js';
 
 let slaccInitialized = false;
+let activeServer: { dispose(): Promise<void> } | undefined;
+export async function stopServer(): Promise<void> { await activeServer?.dispose(); }
 
 export function initExtraThreadPool(config: Config) {
 	if (slaccInitialized) return;
@@ -30,7 +32,8 @@ export async function server() {
 	});
 
 	const serverService = app.get(ServerService);
-	await serverService.launch();
+	activeServer = serverService;
+	try { await serverService.launch(); } catch (error) { await serverService.dispose(); throw error; }
 
 	if (process.env.NODE_ENV !== 'test' && !envOption.noDaemons) {
 		const { ChartManagementService } = await import('../core/chart/ChartManagementService.js');

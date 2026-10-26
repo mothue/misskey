@@ -1,0 +1,190 @@
+{
+  "source": "actual installed redis-parser@3.0.0 parser.execute -> parseInteger -> parseSimpleNumbers; options match ioredis numeric mode",
+  "sourcePath": "redis-parser@3.0.0/lib/parser.js",
+  "sourceSha256": "284b9aed60f46d88543007d7604c9be1eda28b082fb43d2563d3b05ef4e8549c",
+  "runtime": {
+    "bun": "1.4.4",
+    "nodeCompatibility": "v26.3.0"
+  },
+  "guards": {
+    "networkAttempts": 0,
+    "processAttempts": 0
+  },
+  "modelNote": "roundedIntegerModel is Number(BigInt(decimal)), the correctly rounded IEEE754 integer-conversion model; Rust itself was not compiled or executed",
+  "summary": {
+    "cases": 17,
+    "differ": 7
+  },
+  "cases": [
+    {
+      "decimal": "0",
+      "sourceValue": 0,
+      "sourceJson": "0",
+      "sourceBits": "0000000000000000",
+      "roundedIntegerModel": 0,
+      "roundedIntegerModelJson": "0",
+      "roundedIntegerModelBits": "0000000000000000",
+      "differsFromRoundedIntegerModel": false
+    },
+    {
+      "decimal": "1",
+      "sourceValue": 1,
+      "sourceJson": "1",
+      "sourceBits": "3ff0000000000000",
+      "roundedIntegerModel": 1,
+      "roundedIntegerModelJson": "1",
+      "roundedIntegerModelBits": "3ff0000000000000",
+      "differsFromRoundedIntegerModel": false
+    },
+    {
+      "decimal": "17",
+      "sourceValue": 17,
+      "sourceJson": "17",
+      "sourceBits": "4031000000000000",
+      "roundedIntegerModel": 17,
+      "roundedIntegerModelJson": "17",
+      "roundedIntegerModelBits": "4031000000000000",
+      "differsFromRoundedIntegerModel": false
+    },
+    {
+      "decimal": "999999999",
+      "sourceValue": 999999999,
+      "sourceJson": "999999999",
+      "sourceBits": "41cdcd64ff800000",
+      "roundedIntegerModel": 999999999,
+      "roundedIntegerModelJson": "999999999",
+      "roundedIntegerModelBits": "41cdcd64ff800000",
+      "differsFromRoundedIntegerModel": false
+    },
+    {
+      "decimal": "9007199254740991",
+      "sourceValue": 9007199254740991,
+      "sourceJson": "9007199254740991",
+      "sourceBits": "433fffffffffffff",
+      "roundedIntegerModel": 9007199254740991,
+      "roundedIntegerModelJson": "9007199254740991",
+      "roundedIntegerModelBits": "433fffffffffffff",
+      "differsFromRoundedIntegerModel": false
+    },
+    {
+      "decimal": "9007199254740992",
+      "sourceValue": 9007199254740992,
+      "sourceJson": "9007199254740992",
+      "sourceBits": "4340000000000000",
+      "roundedIntegerModel": 9007199254740992,
+      "roundedIntegerModelJson": "9007199254740992",
+      "roundedIntegerModelBits": "4340000000000000",
+      "differsFromRoundedIntegerModel": false
+    },
+    {
+      "decimal": "9007199254740993",
+      "sourceValue": 9007199254740992,
+      "sourceJson": "9007199254740992",
+      "sourceBits": "4340000000000000",
+      "roundedIntegerModel": 9007199254740992,
+      "roundedIntegerModelJson": "9007199254740992",
+      "roundedIntegerModelBits": "4340000000000000",
+      "differsFromRoundedIntegerModel": false
+    },
+    {
+      "decimal": "9007199254740995",
+      "sourceValue": 9007199254740996,
+      "sourceJson": "9007199254740996",
+      "sourceBits": "4340000000000002",
+      "roundedIntegerModel": 9007199254740996,
+      "roundedIntegerModelJson": "9007199254740996",
+      "roundedIntegerModelBits": "4340000000000002",
+      "differsFromRoundedIntegerModel": false
+    },
+    {
+      "decimal": "99999999999999999",
+      "sourceValue": 100000000000000020,
+      "sourceJson": "100000000000000020",
+      "sourceBits": "4376345785d8a001",
+      "roundedIntegerModel": 100000000000000000,
+      "roundedIntegerModelJson": "100000000000000000",
+      "roundedIntegerModelBits": "4376345785d8a000",
+      "differsFromRoundedIntegerModel": true
+    },
+    {
+      "decimal": "1000000000000000128",
+      "sourceValue": 1000000000000000000,
+      "sourceJson": "1000000000000000000",
+      "sourceBits": "43abc16d674ec800",
+      "roundedIntegerModel": 1000000000000000100,
+      "roundedIntegerModelJson": "1000000000000000100",
+      "roundedIntegerModelBits": "43abc16d674ec801",
+      "differsFromRoundedIntegerModel": true
+    },
+    {
+      "decimal": "1234567890123456789",
+      "sourceValue": 1234567890123457000,
+      "sourceJson": "1234567890123457000",
+      "sourceBits": "43b12210f47de982",
+      "roundedIntegerModel": 1234567890123456800,
+      "roundedIntegerModelJson": "1234567890123456800",
+      "roundedIntegerModelBits": "43b12210f47de981",
+      "differsFromRoundedIntegerModel": true
+    },
+    {
+      "decimal": "9223372036854775000",
+      "sourceValue": 9223372036854776000,
+      "sourceJson": "9223372036854776000",
+      "sourceBits": "43e0000000000000",
+      "roundedIntegerModel": 9223372036854775000,
+      "roundedIntegerModelJson": "9223372036854775000",
+      "roundedIntegerModelBits": "43dfffffffffffff",
+      "differsFromRoundedIntegerModel": true
+    },
+    {
+      "decimal": "9223372036854775807",
+      "sourceValue": 9223372036854778000,
+      "sourceJson": "9223372036854778000",
+      "sourceBits": "43e0000000000001",
+      "roundedIntegerModel": 9223372036854776000,
+      "roundedIntegerModelJson": "9223372036854776000",
+      "roundedIntegerModelBits": "43e0000000000000",
+      "differsFromRoundedIntegerModel": true
+    },
+    {
+      "decimal": "-1",
+      "sourceValue": -1,
+      "sourceJson": "-1",
+      "sourceBits": "bff0000000000000",
+      "roundedIntegerModel": -1,
+      "roundedIntegerModelJson": "-1",
+      "roundedIntegerModelBits": "bff0000000000000",
+      "differsFromRoundedIntegerModel": false
+    },
+    {
+      "decimal": "-9007199254740993",
+      "sourceValue": -9007199254740992,
+      "sourceJson": "-9007199254740992",
+      "sourceBits": "c340000000000000",
+      "roundedIntegerModel": -9007199254740992,
+      "roundedIntegerModelJson": "-9007199254740992",
+      "roundedIntegerModelBits": "c340000000000000",
+      "differsFromRoundedIntegerModel": false
+    },
+    {
+      "decimal": "-99999999999999999",
+      "sourceValue": -100000000000000020,
+      "sourceJson": "-100000000000000020",
+      "sourceBits": "c376345785d8a001",
+      "roundedIntegerModel": -100000000000000000,
+      "roundedIntegerModelJson": "-100000000000000000",
+      "roundedIntegerModelBits": "c376345785d8a000",
+      "differsFromRoundedIntegerModel": true
+    },
+    {
+      "decimal": "-9223372036854775808",
+      "sourceValue": -9223372036854778000,
+      "sourceJson": "-9223372036854778000",
+      "sourceBits": "c3e0000000000001",
+      "roundedIntegerModel": -9223372036854776000,
+      "roundedIntegerModelJson": "-9223372036854776000",
+      "roundedIntegerModelBits": "c3e0000000000000",
+      "differsFromRoundedIntegerModel": true
+    }
+  ]
+}

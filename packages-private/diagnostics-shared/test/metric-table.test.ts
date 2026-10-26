@@ -33,7 +33,7 @@ describe('renderMetricComparisonTable', () => {
 		expect(table.split('\n')).toStrictEqual([
 			'| Metric | @&nbsp;Base | @&nbsp;Head | Δ | MAD |',
 			'| --- | ---: | ---: | ---: | ---: |',
-			'| <strong>Metric</strong> | 100 units <br> ±\u00A00 units | 120 units <br> ±\u00A00 units | $\\color{orange}{\\text{+20~units}}$<br>$\\color{orange}{\\text{+20\\\\%}}$ | 0 units |',
+			'| <strong>Metric</strong> | 100 units <br> ±\u00A00 units | 120 units <br> ±\u00A00 units | $\\color{orange}{\\text{+20~units}}$<br>$\\color{orange}{\\text{+20}}$% | 0 units |',
 		]);
 	});
 
@@ -62,7 +62,7 @@ describe('renderMetricComparisonTable', () => {
 		const head = samples(109, 109, 109);
 		const table = renderMetricComparisonTable(base, head, [defaultRow]);
 
-		expect(table).toContain('$\\text{+9~units}$<br>$\\text{+9\\\\%}$');
+		expect(table).toContain('$\\text{+9~units}$<br>$\\text{+9}$%');
 		expect(table).not.toContain('\\color{');
 		expect(renderMetricComparisonTable(base, head, [defaultRow], {
 			onlySignificantChanges: true,
@@ -86,7 +86,7 @@ describe('renderMetricComparisonTable', () => {
 		);
 
 		expect(table).toContain('$\\color{orange}{\\text{+10~units}}$');
-		expect(table).toContain('$\\color{orange}{\\text{+10\\\\%}}$');
+		expect(table).toContain('$\\color{orange}{\\text{+10}}$%');
 	});
 
 	test('requires the delta to be strictly outside three combined MADs', () => {
@@ -111,7 +111,7 @@ describe('renderMetricComparisonTable', () => {
 		expect(boundary).toContain('$\\text{+30~units}$');
 		expect(boundary).not.toContain('\\color{');
 		expect(outside).toContain('$\\color{orange}{\\text{+31~units}}$');
-		expect(outside).toContain('$\\color{orange}{\\text{+31\\\\%}}$');
+		expect(outside).toContain('$\\color{orange}{\\text{+31}}$%');
 	});
 
 	test('colours a significant decrease green on both delta lines', () => {
@@ -122,7 +122,7 @@ describe('renderMetricComparisonTable', () => {
 		);
 
 		expect(table).toContain('$\\color{green}{\\text{-20~units}}$');
-		expect(table).toContain('$\\color{green}{\\text{-16.7\\\\%}}$');
+		expect(table).toContain('$\\color{green}{\\text{-16.7}}$%');
 	});
 
 	test('shows a dash for percentage when the base median is zero', () => {

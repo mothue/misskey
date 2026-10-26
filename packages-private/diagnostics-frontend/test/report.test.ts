@@ -179,7 +179,7 @@ test('renders the difference of independent medians instead of the paired median
 
 	expect(row).toContain('100 <br> ±\u00A00');
 	expect(row).toContain('200 <br> ±\u00A00');
-	expect(row).toContain('$\\color{orange}{\\text{+100}}$<br>$\\color{orange}{\\text{+100\\\\%}}$');
+	expect(row).toContain('$\\color{orange}{\\text{+100}}$<br>$\\color{orange}{\\text{+100}}$%');
 	expect(row).toContain('| 0 |');
 	expect(row.split('|')).toHaveLength(7);
 	expect(row).not.toMatch(/increase|decrease|within noise|inconclusive/);
@@ -269,7 +269,7 @@ test('colours absolute and relative deltas together when the row is significant'
 	const row = requireMetricRow(await renderReport(null, { base, head }), 'Encoded network');
 
 	expect(row).toContain('100\u00A0MB <br> ±\u00A00\u00A0B');
-	expect(row).toContain('$\\color{orange}{\\text{+20\u00A0KB}}$<br>$\\color{orange}{\\text{+0\\\\%}}$');
+	expect(row).toContain('$\\color{orange}{\\text{+20\u00A0KB}}$<br>$\\color{orange}{\\text{+0}}$%');
 	expect(row).toContain('| 0\u00A0B |');
 	expect(row.split('|')).toHaveLength(7);
 });

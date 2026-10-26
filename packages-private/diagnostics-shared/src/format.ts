@@ -86,15 +86,15 @@ export function formatDeltaBytes(deltaBytes: number, colorThreshold = 0) {
 }
 
 export function formatDeltaPercent(deltaPercent: number, colorThreshold = 0) {
-	return formatColoredDelta(deltaPercent, formatPercent, colorThreshold);
+	return `${formatColoredDelta(deltaPercent, formatNumber, colorThreshold)}%`;
 }
 
 /**
  * Markdownのテーブルセル内に置く差分パーセント。
- * LaTeX由来の `\%` がMarkdownのエスケープで食われるため二重エスケープする。
+ * パーセント記号は数式の外に置き、Markdownによるエスケープの消費を避ける。
  */
 export function formatDeltaPercentInMdTable(deltaPercent: number, colorThreshold = 0) {
-	return formatDeltaPercent(deltaPercent, colorThreshold).replaceAll('\\%', '\\\\%');
+	return formatDeltaPercent(deltaPercent, colorThreshold);
 }
 
 export function calcAndFormatDeltaNumber(before: number | null | undefined, after: number | null | undefined, colorThreshold = 0) {
@@ -113,5 +113,5 @@ export function calcAndFormatDeltaPercent(before: number | null | undefined, aft
 }
 
 export function calcAndFormatDeltaPercentInMdTable(before: number | null | undefined, after: number | null | undefined, colorThreshold = 0) {
-	return calcAndFormatDeltaPercent(before, after, colorThreshold).replaceAll('\\%', '\\\\%');
+	return calcAndFormatDeltaPercent(before, after, colorThreshold);
 }

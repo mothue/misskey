@@ -185,6 +185,7 @@ try {
 	await command([...compose, 'up', '-d', '--wait']);
 	await command([process.execPath, 'run', 'build:metadata']);
 	await command([process.execPath, 'run', '--filter', 'i18n', '--filter', 'misskey-reversi', '--filter', 'misskey-js', 'build']);
+	await command([process.execPath, 'run', '--filter', 'backend-rust', 'build:native']);
 	await command([process.execPath, 'run', '--bun', 'rolldown', '-c', '--benchmark'], { cwd: backend });
 	await rm(resolve(work, 'storage'), { recursive: true, force: true });
 	await mkdir(resolve(work, 'storage'), { recursive: true });

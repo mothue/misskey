@@ -24,7 +24,7 @@ import {
 	initTelemetry,
 	shutdownTelemetry,
 } from "@/core/telemetry/telemetry-registry.js";
-import { initExtraThreadPool, jobQueue, server } from "./common.js";
+import { initExtraThreadPool, jobQueue, server, stopServer } from "./common.js";
 import { installShutdownSignalHandlers } from "./shutdown-handler.js";
 
 const logger = new Logger("core", "cyan");
@@ -139,7 +139,7 @@ export async function masterMain() {
 		process.exit(1);
 	}
 	installShutdownSignalHandlers({
-		shutdownTasks: [shutdownTelemetry, shutdownLogging],
+		shutdownTasks: [stopServer, shutdownTelemetry, shutdownLogging],
 		onRegistered: (message) => bootLogger.info(message),
 	});
 

@@ -31,11 +31,17 @@ services:
         condition: service_healthy
       redis.test:
         condition: service_healthy
+      rust-builder:
+        condition: service_completed_successfully
       setup:
         condition: service_completed_successfully
     networks:
       - internal_network_a
     volumes:
+      - type: volume
+        source: backend-rust-built
+        target: /misskey/packages/backend-rust/built
+        read_only: true
       - type: bind
         source: ./.config/a.test.config.json
         target: /misskey/built/._config_.json

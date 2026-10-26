@@ -1,0 +1,315 @@
+[
+  {
+    "id": "ping",
+    "endpoint": "ping",
+    "body": "{}",
+    "method": "POST",
+    "expectedStatus": 200
+  },
+  {
+    "id": "test-defaults",
+    "endpoint": "test",
+    "body": "{\"required\":true}",
+    "method": "POST",
+    "expectedStatus": 200
+  },
+  {
+    "id": "test-false-null",
+    "endpoint": "test",
+    "body": "{\"required\":false,\"nullableDefault\":null}",
+    "method": "POST",
+    "expectedStatus": 200
+  },
+  {
+    "id": "test-missing",
+    "endpoint": "test",
+    "body": "{}",
+    "method": "POST",
+    "expectedStatus": 400
+  },
+  {
+    "id": "test-null",
+    "endpoint": "test",
+    "body": "{\"required\":null}",
+    "method": "POST",
+    "expectedStatus": 400
+  },
+  {
+    "id": "test-type",
+    "endpoint": "test",
+    "body": "{\"required\":\"true\"}",
+    "method": "POST",
+    "expectedStatus": 400
+  },
+  {
+    "id": "test-default-null",
+    "endpoint": "test",
+    "body": "{\"required\":true,\"default\":null}",
+    "method": "POST",
+    "expectedStatus": 400
+  },
+  {
+    "id": "test-id-invalid",
+    "endpoint": "test",
+    "body": "{\"required\":true,\"id\":\"!\"}",
+    "method": "POST",
+    "expectedStatus": 400
+  },
+  {
+    "id": "test-invalid-json",
+    "endpoint": "test",
+    "body": "{",
+    "method": "POST",
+    "expectedStatus": 400
+  },
+  {
+    "id": "test-duplicate",
+    "endpoint": "test",
+    "body": "{\"required\":false,\"required\":true}",
+    "method": "POST",
+    "expectedStatus": 200
+  },
+  {
+    "id": "test-extra",
+    "endpoint": "test",
+    "body": "{\"required\":true,\"extra\":{\"nested\":[null,{},[],\"日本語😀\"]}}",
+    "method": "POST",
+    "expectedStatus": 200
+  },
+  {
+    "id": "test-surrogates",
+    "endpoint": "test",
+    "body": "{\"required\":true,\"string\":\"\\ud800x\\udfff\"}",
+    "method": "POST",
+    "expectedStatus": 200
+  },
+  {
+    "id": "test-numeric",
+    "endpoint": "test",
+    "body": "{\"required\":true,\"extra\":[-0,9007199254740993,1e308,1e309,5e-324]}",
+    "method": "POST",
+    "expectedStatus": 200
+  },
+  {
+    "id": "test-invalid-auth",
+    "endpoint": "test",
+    "body": "{\"required\":true,\"i\":\"invalid-fixture-token\"}",
+    "method": "POST",
+    "expectedStatus": 401
+  },
+  {
+    "id": "test-proto",
+    "endpoint": "test",
+    "body": "{\"required\":true,\"__proto__\":{\"x\":1}}",
+    "method": "POST",
+    "expectedStatus": 400
+  },
+  {
+    "id": "endpoint-unknown",
+    "endpoint": "endpoint",
+    "body": "{\"endpoint\":\"not-existing\"}",
+    "method": "POST",
+    "expectedStatus": 204
+  },
+  {
+    "id": "endpoint-empty",
+    "endpoint": "endpoint",
+    "body": "{\"endpoint\":\"\"}",
+    "method": "POST",
+    "expectedStatus": 204
+  },
+  {
+    "id": "endpoint-case",
+    "endpoint": "endpoint",
+    "body": "{\"endpoint\":\"Ping\"}",
+    "method": "POST",
+    "expectedStatus": 204
+  },
+  {
+    "id": "endpoint-missing",
+    "endpoint": "endpoint",
+    "body": "{}",
+    "method": "POST",
+    "expectedStatus": 400
+  },
+  {
+    "id": "endpoint-null",
+    "endpoint": "endpoint",
+    "body": "{\"endpoint\":null}",
+    "method": "POST",
+    "expectedStatus": 400
+  },
+  {
+    "id": "endpoint-surrogate",
+    "endpoint": "endpoint",
+    "body": "{\"endpoint\":\"\\ud800\"}",
+    "method": "POST",
+    "expectedStatus": 204
+  },
+  {
+    "id": "ping-GET",
+    "endpoint": "ping",
+    "body": null,
+    "method": "GET",
+    "expectedStatus": 405
+  },
+  {
+    "id": "test-GET",
+    "endpoint": "test",
+    "body": null,
+    "method": "GET",
+    "expectedStatus": 405
+  },
+  {
+    "id": "endpoint-GET",
+    "endpoint": "endpoint",
+    "body": null,
+    "method": "GET",
+    "expectedStatus": 405
+  },
+  {
+    "id": "test-body-1048575",
+    "endpoint": "test",
+    "method": "POST",
+    "bodyBytes": 1048575,
+    "expectedStatus": 200
+  },
+  {
+    "id": "test-body-1048576",
+    "endpoint": "test",
+    "method": "POST",
+    "bodyBytes": 1048576,
+    "expectedStatus": 200
+  },
+  {
+    "id": "test-body-1048577",
+    "endpoint": "test",
+    "method": "POST",
+    "bodyBytes": 1048577,
+    "expectedStatus": 413
+  },
+  {
+    "id": "test-depth-128",
+    "endpoint": "test",
+    "method": "POST",
+    "depth": 128,
+    "expectedStatus": 200
+  },
+  {
+    "id": "test-depth-1000",
+    "endpoint": "test",
+    "method": "POST",
+    "depth": 1000,
+    "expectedStatus": 200
+  },
+  {
+    "id": "test-depth-10000",
+    "endpoint": "test",
+    "method": "POST",
+    "depth": 10000,
+    "expectedStatus": 200
+  },
+  {
+    "id": "test-exponent-1048575",
+    "endpoint": "test",
+    "method": "POST",
+    "bodyBytes": 1048575,
+    "pattern": "exponent",
+    "expectedStatus": 200
+  },
+  {
+    "id": "test-exponent-1048576",
+    "endpoint": "test",
+    "method": "POST",
+    "bodyBytes": 1048576,
+    "pattern": "exponent",
+    "expectedStatus": 200
+  },
+  {
+    "id": "test-exponent-1048577",
+    "endpoint": "test",
+    "method": "POST",
+    "bodyBytes": 1048577,
+    "pattern": "exponent",
+    "expectedStatus": 413
+  },
+  {
+    "id": "test-surrogate-1048575",
+    "endpoint": "test",
+    "method": "POST",
+    "bodyBytes": 1048575,
+    "pattern": "surrogate",
+    "expectedStatus": 200
+  },
+  {
+    "id": "test-surrogate-1048576",
+    "endpoint": "test",
+    "method": "POST",
+    "bodyBytes": 1048576,
+    "pattern": "surrogate",
+    "expectedStatus": 200
+  },
+  {
+    "id": "test-surrogate-1048577",
+    "endpoint": "test",
+    "method": "POST",
+    "bodyBytes": 1048577,
+    "pattern": "surrogate",
+    "expectedStatus": 413
+  },
+  {
+    "id": "endpoints",
+    "endpoint": "endpoints",
+    "body": "{}",
+    "method": "POST",
+    "expectedStatus": 200
+  },
+  {
+    "id": "endpoints-extra",
+    "endpoint": "endpoints",
+    "body": "{\"endpoint\":\"\",\"extra\":null}",
+    "method": "POST",
+    "expectedStatus": 200
+  },
+  {
+    "id": "endpoints-array",
+    "endpoint": "endpoints",
+    "body": "[]",
+    "method": "POST",
+    "expectedStatus": 400
+  },
+  {
+    "id": "endpoints-null",
+    "endpoint": "endpoints",
+    "body": "null",
+    "method": "POST",
+    "expectedStatus": 400
+  },
+  {
+    "id": "endpoints-empty-body",
+    "endpoint": "endpoints",
+    "body": "",
+    "method": "POST",
+    "expectedStatus": 400
+  },
+  {
+    "id": "endpoints-invalid-json",
+    "endpoint": "endpoints",
+    "body": "{",
+    "method": "POST",
+    "expectedStatus": 400
+  },
+  {
+    "id": "endpoints-get",
+    "endpoint": "endpoints",
+    "method": "GET",
+    "expectedStatus": 405
+  },
+  {
+    "id": "endpoints-body-limit",
+    "endpoint": "endpoints",
+    "method": "POST",
+    "bodyBytes": 1048577,
+    "expectedStatus": 413
+  }
+]

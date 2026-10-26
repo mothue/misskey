@@ -1,0 +1,3674 @@
+{
+  "parser": "fast-querystring",
+  "version": "1.1.2",
+  "cases": [
+    {
+      "input": "",
+      "json": "{}"
+    },
+    {
+      "input": "&",
+      "json": "{}"
+    },
+    {
+      "input": "&&",
+      "json": "{}"
+    },
+    {
+      "input": "=",
+      "json": "{\"\":\"\"}"
+    },
+    {
+      "input": "==",
+      "json": "{\"\":\"=\"}"
+    },
+    {
+      "input": "&&=&&",
+      "json": "{\"\":\"\"}"
+    },
+    {
+      "input": "bare",
+      "json": "{\"bare\":\"\"}"
+    },
+    {
+      "input": "a==b",
+      "json": "{\"a\":\"=b\"}"
+    },
+    {
+      "input": "a=1&a=2&a=3",
+      "json": "{\"a\":[\"1\",\"2\",\"3\"]}"
+    },
+    {
+      "input": "x=%41%ZZ&x=A%ZZ",
+      "json": "{\"x\":[\"%41%ZZ\",\"A%ZZ\"]}"
+    },
+    {
+      "input": "%41%ZZ=one&A%ZZ=two",
+      "json": "{\"%41%ZZ\":\"one\",\"A%ZZ\":\"two\"}"
+    },
+    {
+      "input": "a+b=one&a%20b=two",
+      "json": "{\"a b\":[\"one\",\"two\"]}"
+    },
+    {
+      "input": "__proto__=one&__proto__=two&constructor=x&constructor=y&toString=z",
+      "json": "{\"__proto__\":[\"one\",\"two\"],\"constructor\":[\"x\",\"y\"],\"toString\":\"z\"}"
+    },
+    {
+      "input": "2=b&10=c&1=a&x=first&x=second&01=leading",
+      "json": "{\"1\":\"a\",\"2\":\"b\",\"10\":\"c\",\"x\":[\"first\",\"second\"],\"01\":\"leading\"}"
+    },
+    {
+      "input": "x=",
+      "json": "{\"x\":\"\"}"
+    },
+    {
+      "input": "=value",
+      "json": "{\"\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%",
+      "json": "{\"x\":\"%\"}"
+    },
+    {
+      "input": "%=value",
+      "json": "{\"%\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%0",
+      "json": "{\"x\":\"%0\"}"
+    },
+    {
+      "input": "%0=value",
+      "json": "{\"%0\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%0&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%0\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%GG",
+      "json": "{\"x\":\"%GG\"}"
+    },
+    {
+      "input": "%GG=value",
+      "json": "{\"%GG\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%GG&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%GG\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%0G",
+      "json": "{\"x\":\"%0G\"}"
+    },
+    {
+      "input": "%0G=value",
+      "json": "{\"%0G\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%0G&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%0G\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%G0",
+      "json": "{\"x\":\"%G0\"}"
+    },
+    {
+      "input": "%G0=value",
+      "json": "{\"%G0\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%G0&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%G0\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%41%ZZ",
+      "json": "{\"x\":\"%41%ZZ\"}"
+    },
+    {
+      "input": "%41%ZZ=value",
+      "json": "{\"%41%ZZ\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%41%ZZ&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%41%ZZ\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%41%",
+      "json": "{\"x\":\"%41%\"}"
+    },
+    {
+      "input": "%41%=value",
+      "json": "{\"%41%\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%41%&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%41%\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%41%4",
+      "json": "{\"x\":\"%41%4\"}"
+    },
+    {
+      "input": "%41%4=value",
+      "json": "{\"%41%4\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%41%4&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%41%4\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%41%FF",
+      "json": "{\"x\":\"%41%FF\"}"
+    },
+    {
+      "input": "%41%FF=value",
+      "json": "{\"%41%FF\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%41%FF&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%41%FF\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%FF",
+      "json": "{\"x\":\"%FF\"}"
+    },
+    {
+      "input": "%FF=value",
+      "json": "{\"%FF\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%FF&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%FF\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%80",
+      "json": "{\"x\":\"%80\"}"
+    },
+    {
+      "input": "%80=value",
+      "json": "{\"%80\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%80&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%80\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%BF",
+      "json": "{\"x\":\"%BF\"}"
+    },
+    {
+      "input": "%BF=value",
+      "json": "{\"%BF\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%BF&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%BF\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%C0%AF",
+      "json": "{\"x\":\"%C0%AF\"}"
+    },
+    {
+      "input": "%C0%AF=value",
+      "json": "{\"%C0%AF\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%C0%AF&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%C0%AF\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%C1%BF",
+      "json": "{\"x\":\"%C1%BF\"}"
+    },
+    {
+      "input": "%C1%BF=value",
+      "json": "{\"%C1%BF\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%C1%BF&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%C1%BF\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%C2",
+      "json": "{\"x\":\"%C2\"}"
+    },
+    {
+      "input": "%C2=value",
+      "json": "{\"%C2\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%C2&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%C2\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%C2%80",
+      "json": "{\"x\":\"\"}"
+    },
+    {
+      "input": "%C2%80=value",
+      "json": "{\"\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%C2%80&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%DF%BF",
+      "json": "{\"x\":\"߿\"}"
+    },
+    {
+      "input": "%DF%BF=value",
+      "json": "{\"߿\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%DF%BF&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"߿\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%E0%80%AF",
+      "json": "{\"x\":\"%E0%80%AF\"}"
+    },
+    {
+      "input": "%E0%80%AF=value",
+      "json": "{\"%E0%80%AF\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%E0%80%AF&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%E0%80%AF\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%E0%A0%80",
+      "json": "{\"x\":\"ࠀ\"}"
+    },
+    {
+      "input": "%E0%A0%80=value",
+      "json": "{\"ࠀ\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%E0%A0%80&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"ࠀ\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%ED%A0%80",
+      "json": "{\"x\":\"%ED%A0%80\"}"
+    },
+    {
+      "input": "%ED%A0%80=value",
+      "json": "{\"%ED%A0%80\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%ED%A0%80&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%ED%A0%80\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%ED%BF%BF",
+      "json": "{\"x\":\"%ED%BF%BF\"}"
+    },
+    {
+      "input": "%ED%BF%BF=value",
+      "json": "{\"%ED%BF%BF\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%ED%BF%BF&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%ED%BF%BF\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%EF%BF%BD",
+      "json": "{\"x\":\"�\"}"
+    },
+    {
+      "input": "%EF%BF%BD=value",
+      "json": "{\"�\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%EF%BF%BD&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"�\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%E2%82",
+      "json": "{\"x\":\"%E2%82\"}"
+    },
+    {
+      "input": "%E2%82=value",
+      "json": "{\"%E2%82\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%E2%82&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%E2%82\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%E2%82%AC",
+      "json": "{\"x\":\"€\"}"
+    },
+    {
+      "input": "%E2%82%AC=value",
+      "json": "{\"€\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%E2%82%AC&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"€\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%F0%80%80%AF",
+      "json": "{\"x\":\"%F0%80%80%AF\"}"
+    },
+    {
+      "input": "%F0%80%80%AF=value",
+      "json": "{\"%F0%80%80%AF\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%F0%80%80%AF&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%F0%80%80%AF\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%F0%90%80%80",
+      "json": "{\"x\":\"𐀀\"}"
+    },
+    {
+      "input": "%F0%90%80%80=value",
+      "json": "{\"𐀀\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%F0%90%80%80&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"𐀀\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%F4%8F%BF%BF",
+      "json": "{\"x\":\"􏿿\"}"
+    },
+    {
+      "input": "%F4%8F%BF%BF=value",
+      "json": "{\"􏿿\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%F4%8F%BF%BF&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"􏿿\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%F4%90%80%80",
+      "json": "{\"x\":\"%F4%90%80%80\"}"
+    },
+    {
+      "input": "%F4%90%80%80=value",
+      "json": "{\"%F4%90%80%80\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%F4%90%80%80&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%F4%90%80%80\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%F5%80%80%80",
+      "json": "{\"x\":\"%F5%80%80%80\"}"
+    },
+    {
+      "input": "%F5%80%80%80=value",
+      "json": "{\"%F5%80%80%80\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%F5%80%80%80&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%F5%80%80%80\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%F8%80%80%80%80",
+      "json": "{\"x\":\"%F8%80%80%80%80\"}"
+    },
+    {
+      "input": "%F8%80%80%80%80=value",
+      "json": "{\"%F8%80%80%80%80\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%F8%80%80%80%80&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%F8%80%80%80%80\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%FC%80%80%80%80%80",
+      "json": "{\"x\":\"%FC%80%80%80%80%80\"}"
+    },
+    {
+      "input": "%FC%80%80%80%80%80=value",
+      "json": "{\"%FC%80%80%80%80%80\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%FC%80%80%80%80%80&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%FC%80%80%80%80%80\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%ED%A0%BD%ED%B8%80",
+      "json": "{\"x\":\"%ED%A0%BD%ED%B8%80\"}"
+    },
+    {
+      "input": "%ED%A0%BD%ED%B8%80=value",
+      "json": "{\"%ED%A0%BD%ED%B8%80\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%ED%A0%BD%ED%B8%80&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%ED%A0%BD%ED%B8%80\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%F0%9F%90%88",
+      "json": "{\"x\":\"🐈\"}"
+    },
+    {
+      "input": "%F0%9F%90%88=value",
+      "json": "{\"🐈\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%F0%9F%90%88&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"🐈\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%E2x%82%AC",
+      "json": "{\"x\":\"%E2x%82%AC\"}"
+    },
+    {
+      "input": "%E2x%82%AC=value",
+      "json": "{\"%E2x%82%AC\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%E2x%82%AC&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%E2x%82%AC\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%E2%82x%AC",
+      "json": "{\"x\":\"%E2%82x%AC\"}"
+    },
+    {
+      "input": "%E2%82x%AC=value",
+      "json": "{\"%E2%82x%AC\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%E2%82x%AC&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%E2%82x%AC\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=+",
+      "json": "{\"x\":\" \"}"
+    },
+    {
+      "input": "+=value",
+      "json": "{\" \":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=+&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\" \",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%2B",
+      "json": "{\"x\":\"+\"}"
+    },
+    {
+      "input": "%2B=value",
+      "json": "{\"+\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%2B&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"+\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=a+b%2Bc",
+      "json": "{\"x\":\"a b+c\"}"
+    },
+    {
+      "input": "a+b%2Bc=value",
+      "json": "{\"a b+c\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=a+b%2Bc&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"a b+c\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%41+%ZZ",
+      "json": "{\"x\":\"%41 %ZZ\"}"
+    },
+    {
+      "input": "%41+%ZZ=value",
+      "json": "{\"%41 %ZZ\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%41+%ZZ&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%41 %ZZ\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%41%ZZ+%2B",
+      "json": "{\"x\":\"%41%ZZ %2B\"}"
+    },
+    {
+      "input": "%41%ZZ+%2B=value",
+      "json": "{\"%41%ZZ %2B\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%41%ZZ+%2B&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%41%ZZ %2B\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=é🐈",
+      "json": "{\"x\":\"é🐈\"}"
+    },
+    {
+      "input": "é🐈=value",
+      "json": "{\"é🐈\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=é🐈&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"é🐈\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=é%41🐈",
+      "json": "{\"x\":\"éA🐈\"}"
+    },
+    {
+      "input": "é%41🐈=value",
+      "json": "{\"éA🐈\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=é%41🐈&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"éA🐈\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%25",
+      "json": "{\"x\":\"%\"}"
+    },
+    {
+      "input": "%25=value",
+      "json": "{\"%\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%25&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%252B",
+      "json": "{\"x\":\"%2B\"}"
+    },
+    {
+      "input": "%252B=value",
+      "json": "{\"%2B\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%252B&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%2B\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%00",
+      "json": "{\"x\":\"\\u0000\"}"
+    },
+    {
+      "input": "%00=value",
+      "json": "{\"\\u0000\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%00&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"\\u0000\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%3D",
+      "json": "{\"x\":\"=\"}"
+    },
+    {
+      "input": "%3D=value",
+      "json": "{\"=\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%3D&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"=\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%26",
+      "json": "{\"x\":\"&\"}"
+    },
+    {
+      "input": "%26=value",
+      "json": "{\"&\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%26&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"&\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%2b%2B+",
+      "json": "{\"x\":\"++ \"}"
+    },
+    {
+      "input": "%2b%2B+=value",
+      "json": "{\"++ \":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%2b%2B+&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"++ \",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%01",
+      "json": "{\"x\":\"\\u0001\"}"
+    },
+    {
+      "input": "%01=value",
+      "json": "{\"\\u0001\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%01&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"\\u0001\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%02",
+      "json": "{\"x\":\"\\u0002\"}"
+    },
+    {
+      "input": "%02=value",
+      "json": "{\"\\u0002\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%02&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"\\u0002\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%03",
+      "json": "{\"x\":\"\\u0003\"}"
+    },
+    {
+      "input": "%03=value",
+      "json": "{\"\\u0003\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%03&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"\\u0003\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%04",
+      "json": "{\"x\":\"\\u0004\"}"
+    },
+    {
+      "input": "%04=value",
+      "json": "{\"\\u0004\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%04&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"\\u0004\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%05",
+      "json": "{\"x\":\"\\u0005\"}"
+    },
+    {
+      "input": "%05=value",
+      "json": "{\"\\u0005\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%05&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"\\u0005\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%06",
+      "json": "{\"x\":\"\\u0006\"}"
+    },
+    {
+      "input": "%06=value",
+      "json": "{\"\\u0006\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%06&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"\\u0006\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%07",
+      "json": "{\"x\":\"\\u0007\"}"
+    },
+    {
+      "input": "%07=value",
+      "json": "{\"\\u0007\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%07&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"\\u0007\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%08",
+      "json": "{\"x\":\"\\b\"}"
+    },
+    {
+      "input": "%08=value",
+      "json": "{\"\\b\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%08&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"\\b\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%09",
+      "json": "{\"x\":\"\\t\"}"
+    },
+    {
+      "input": "%09=value",
+      "json": "{\"\\t\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%09&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"\\t\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%0a",
+      "json": "{\"x\":\"\\n\"}"
+    },
+    {
+      "input": "%0a=value",
+      "json": "{\"\\n\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%0a&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"\\n\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%0b",
+      "json": "{\"x\":\"\\u000b\"}"
+    },
+    {
+      "input": "%0b=value",
+      "json": "{\"\\u000b\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%0b&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"\\u000b\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%0c",
+      "json": "{\"x\":\"\\f\"}"
+    },
+    {
+      "input": "%0c=value",
+      "json": "{\"\\f\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%0c&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"\\f\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%0d",
+      "json": "{\"x\":\"\\r\"}"
+    },
+    {
+      "input": "%0d=value",
+      "json": "{\"\\r\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%0d&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"\\r\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%0e",
+      "json": "{\"x\":\"\\u000e\"}"
+    },
+    {
+      "input": "%0e=value",
+      "json": "{\"\\u000e\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%0e&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"\\u000e\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%0f",
+      "json": "{\"x\":\"\\u000f\"}"
+    },
+    {
+      "input": "%0f=value",
+      "json": "{\"\\u000f\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%0f&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"\\u000f\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%10",
+      "json": "{\"x\":\"\\u0010\"}"
+    },
+    {
+      "input": "%10=value",
+      "json": "{\"\\u0010\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%10&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"\\u0010\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%11",
+      "json": "{\"x\":\"\\u0011\"}"
+    },
+    {
+      "input": "%11=value",
+      "json": "{\"\\u0011\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%11&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"\\u0011\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%12",
+      "json": "{\"x\":\"\\u0012\"}"
+    },
+    {
+      "input": "%12=value",
+      "json": "{\"\\u0012\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%12&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"\\u0012\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%13",
+      "json": "{\"x\":\"\\u0013\"}"
+    },
+    {
+      "input": "%13=value",
+      "json": "{\"\\u0013\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%13&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"\\u0013\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%14",
+      "json": "{\"x\":\"\\u0014\"}"
+    },
+    {
+      "input": "%14=value",
+      "json": "{\"\\u0014\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%14&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"\\u0014\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%15",
+      "json": "{\"x\":\"\\u0015\"}"
+    },
+    {
+      "input": "%15=value",
+      "json": "{\"\\u0015\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%15&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"\\u0015\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%16",
+      "json": "{\"x\":\"\\u0016\"}"
+    },
+    {
+      "input": "%16=value",
+      "json": "{\"\\u0016\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%16&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"\\u0016\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%17",
+      "json": "{\"x\":\"\\u0017\"}"
+    },
+    {
+      "input": "%17=value",
+      "json": "{\"\\u0017\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%17&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"\\u0017\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%18",
+      "json": "{\"x\":\"\\u0018\"}"
+    },
+    {
+      "input": "%18=value",
+      "json": "{\"\\u0018\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%18&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"\\u0018\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%19",
+      "json": "{\"x\":\"\\u0019\"}"
+    },
+    {
+      "input": "%19=value",
+      "json": "{\"\\u0019\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%19&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"\\u0019\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%1a",
+      "json": "{\"x\":\"\\u001a\"}"
+    },
+    {
+      "input": "%1a=value",
+      "json": "{\"\\u001a\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%1a&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"\\u001a\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%1b",
+      "json": "{\"x\":\"\\u001b\"}"
+    },
+    {
+      "input": "%1b=value",
+      "json": "{\"\\u001b\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%1b&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"\\u001b\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%1c",
+      "json": "{\"x\":\"\\u001c\"}"
+    },
+    {
+      "input": "%1c=value",
+      "json": "{\"\\u001c\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%1c&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"\\u001c\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%1d",
+      "json": "{\"x\":\"\\u001d\"}"
+    },
+    {
+      "input": "%1d=value",
+      "json": "{\"\\u001d\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%1d&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"\\u001d\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%1e",
+      "json": "{\"x\":\"\\u001e\"}"
+    },
+    {
+      "input": "%1e=value",
+      "json": "{\"\\u001e\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%1e&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"\\u001e\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%1f",
+      "json": "{\"x\":\"\\u001f\"}"
+    },
+    {
+      "input": "%1f=value",
+      "json": "{\"\\u001f\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%1f&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"\\u001f\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%20",
+      "json": "{\"x\":\" \"}"
+    },
+    {
+      "input": "%20=value",
+      "json": "{\" \":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%20&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\" \",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%21",
+      "json": "{\"x\":\"!\"}"
+    },
+    {
+      "input": "%21=value",
+      "json": "{\"!\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%21&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"!\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%22",
+      "json": "{\"x\":\"\\\"\"}"
+    },
+    {
+      "input": "%22=value",
+      "json": "{\"\\\"\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%22&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"\\\"\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%23",
+      "json": "{\"x\":\"#\"}"
+    },
+    {
+      "input": "%23=value",
+      "json": "{\"#\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%23&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"#\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%24",
+      "json": "{\"x\":\"$\"}"
+    },
+    {
+      "input": "%24=value",
+      "json": "{\"$\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%24&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"$\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%27",
+      "json": "{\"x\":\"'\"}"
+    },
+    {
+      "input": "%27=value",
+      "json": "{\"'\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%27&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"'\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%28",
+      "json": "{\"x\":\"(\"}"
+    },
+    {
+      "input": "%28=value",
+      "json": "{\"(\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%28&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"(\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%29",
+      "json": "{\"x\":\")\"}"
+    },
+    {
+      "input": "%29=value",
+      "json": "{\")\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%29&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\")\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%2a",
+      "json": "{\"x\":\"*\"}"
+    },
+    {
+      "input": "%2a=value",
+      "json": "{\"*\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%2a&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"*\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%2b",
+      "json": "{\"x\":\"+\"}"
+    },
+    {
+      "input": "%2b=value",
+      "json": "{\"+\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%2b&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"+\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%2c",
+      "json": "{\"x\":\",\"}"
+    },
+    {
+      "input": "%2c=value",
+      "json": "{\",\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%2c&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\",\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%2d",
+      "json": "{\"x\":\"-\"}"
+    },
+    {
+      "input": "%2d=value",
+      "json": "{\"-\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%2d&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"-\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%2e",
+      "json": "{\"x\":\".\"}"
+    },
+    {
+      "input": "%2e=value",
+      "json": "{\".\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%2e&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\".\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%2f",
+      "json": "{\"x\":\"/\"}"
+    },
+    {
+      "input": "%2f=value",
+      "json": "{\"/\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%2f&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"/\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%30",
+      "json": "{\"x\":\"0\"}"
+    },
+    {
+      "input": "%30=value",
+      "json": "{\"0\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%30&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"0\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%31",
+      "json": "{\"x\":\"1\"}"
+    },
+    {
+      "input": "%31=value",
+      "json": "{\"1\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%31&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"1\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%32",
+      "json": "{\"x\":\"2\"}"
+    },
+    {
+      "input": "%32=value",
+      "json": "{\"2\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%32&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"2\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%33",
+      "json": "{\"x\":\"3\"}"
+    },
+    {
+      "input": "%33=value",
+      "json": "{\"3\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%33&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"3\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%34",
+      "json": "{\"x\":\"4\"}"
+    },
+    {
+      "input": "%34=value",
+      "json": "{\"4\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%34&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"4\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%35",
+      "json": "{\"x\":\"5\"}"
+    },
+    {
+      "input": "%35=value",
+      "json": "{\"5\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%35&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"5\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%36",
+      "json": "{\"x\":\"6\"}"
+    },
+    {
+      "input": "%36=value",
+      "json": "{\"6\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%36&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"6\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%37",
+      "json": "{\"x\":\"7\"}"
+    },
+    {
+      "input": "%37=value",
+      "json": "{\"7\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%37&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"7\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%38",
+      "json": "{\"x\":\"8\"}"
+    },
+    {
+      "input": "%38=value",
+      "json": "{\"8\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%38&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"8\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%39",
+      "json": "{\"x\":\"9\"}"
+    },
+    {
+      "input": "%39=value",
+      "json": "{\"9\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%39&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"9\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%3a",
+      "json": "{\"x\":\":\"}"
+    },
+    {
+      "input": "%3a=value",
+      "json": "{\":\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%3a&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\":\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%3b",
+      "json": "{\"x\":\";\"}"
+    },
+    {
+      "input": "%3b=value",
+      "json": "{\";\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%3b&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\";\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%3c",
+      "json": "{\"x\":\"<\"}"
+    },
+    {
+      "input": "%3c=value",
+      "json": "{\"<\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%3c&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"<\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%3d",
+      "json": "{\"x\":\"=\"}"
+    },
+    {
+      "input": "%3d=value",
+      "json": "{\"=\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%3d&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"=\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%3e",
+      "json": "{\"x\":\">\"}"
+    },
+    {
+      "input": "%3e=value",
+      "json": "{\">\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%3e&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\">\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%3f",
+      "json": "{\"x\":\"?\"}"
+    },
+    {
+      "input": "%3f=value",
+      "json": "{\"?\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%3f&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"?\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%40",
+      "json": "{\"x\":\"@\"}"
+    },
+    {
+      "input": "%40=value",
+      "json": "{\"@\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%40&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"@\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%41",
+      "json": "{\"x\":\"A\"}"
+    },
+    {
+      "input": "%41=value",
+      "json": "{\"A\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%41&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"A\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%42",
+      "json": "{\"x\":\"B\"}"
+    },
+    {
+      "input": "%42=value",
+      "json": "{\"B\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%42&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"B\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%43",
+      "json": "{\"x\":\"C\"}"
+    },
+    {
+      "input": "%43=value",
+      "json": "{\"C\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%43&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"C\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%44",
+      "json": "{\"x\":\"D\"}"
+    },
+    {
+      "input": "%44=value",
+      "json": "{\"D\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%44&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"D\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%45",
+      "json": "{\"x\":\"E\"}"
+    },
+    {
+      "input": "%45=value",
+      "json": "{\"E\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%45&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"E\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%46",
+      "json": "{\"x\":\"F\"}"
+    },
+    {
+      "input": "%46=value",
+      "json": "{\"F\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%46&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"F\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%47",
+      "json": "{\"x\":\"G\"}"
+    },
+    {
+      "input": "%47=value",
+      "json": "{\"G\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%47&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"G\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%48",
+      "json": "{\"x\":\"H\"}"
+    },
+    {
+      "input": "%48=value",
+      "json": "{\"H\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%48&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"H\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%49",
+      "json": "{\"x\":\"I\"}"
+    },
+    {
+      "input": "%49=value",
+      "json": "{\"I\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%49&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"I\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%4a",
+      "json": "{\"x\":\"J\"}"
+    },
+    {
+      "input": "%4a=value",
+      "json": "{\"J\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%4a&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"J\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%4b",
+      "json": "{\"x\":\"K\"}"
+    },
+    {
+      "input": "%4b=value",
+      "json": "{\"K\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%4b&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"K\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%4c",
+      "json": "{\"x\":\"L\"}"
+    },
+    {
+      "input": "%4c=value",
+      "json": "{\"L\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%4c&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"L\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%4d",
+      "json": "{\"x\":\"M\"}"
+    },
+    {
+      "input": "%4d=value",
+      "json": "{\"M\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%4d&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"M\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%4e",
+      "json": "{\"x\":\"N\"}"
+    },
+    {
+      "input": "%4e=value",
+      "json": "{\"N\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%4e&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"N\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%4f",
+      "json": "{\"x\":\"O\"}"
+    },
+    {
+      "input": "%4f=value",
+      "json": "{\"O\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%4f&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"O\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%50",
+      "json": "{\"x\":\"P\"}"
+    },
+    {
+      "input": "%50=value",
+      "json": "{\"P\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%50&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"P\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%51",
+      "json": "{\"x\":\"Q\"}"
+    },
+    {
+      "input": "%51=value",
+      "json": "{\"Q\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%51&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"Q\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%52",
+      "json": "{\"x\":\"R\"}"
+    },
+    {
+      "input": "%52=value",
+      "json": "{\"R\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%52&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"R\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%53",
+      "json": "{\"x\":\"S\"}"
+    },
+    {
+      "input": "%53=value",
+      "json": "{\"S\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%53&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"S\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%54",
+      "json": "{\"x\":\"T\"}"
+    },
+    {
+      "input": "%54=value",
+      "json": "{\"T\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%54&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"T\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%55",
+      "json": "{\"x\":\"U\"}"
+    },
+    {
+      "input": "%55=value",
+      "json": "{\"U\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%55&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"U\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%56",
+      "json": "{\"x\":\"V\"}"
+    },
+    {
+      "input": "%56=value",
+      "json": "{\"V\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%56&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"V\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%57",
+      "json": "{\"x\":\"W\"}"
+    },
+    {
+      "input": "%57=value",
+      "json": "{\"W\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%57&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"W\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%58",
+      "json": "{\"x\":\"X\"}"
+    },
+    {
+      "input": "%58=value",
+      "json": "{\"X\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%58&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"X\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%59",
+      "json": "{\"x\":\"Y\"}"
+    },
+    {
+      "input": "%59=value",
+      "json": "{\"Y\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%59&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"Y\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%5a",
+      "json": "{\"x\":\"Z\"}"
+    },
+    {
+      "input": "%5a=value",
+      "json": "{\"Z\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%5a&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"Z\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%5b",
+      "json": "{\"x\":\"[\"}"
+    },
+    {
+      "input": "%5b=value",
+      "json": "{\"[\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%5b&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"[\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%5c",
+      "json": "{\"x\":\"\\\\\"}"
+    },
+    {
+      "input": "%5c=value",
+      "json": "{\"\\\\\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%5c&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"\\\\\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%5d",
+      "json": "{\"x\":\"]\"}"
+    },
+    {
+      "input": "%5d=value",
+      "json": "{\"]\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%5d&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"]\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%5e",
+      "json": "{\"x\":\"^\"}"
+    },
+    {
+      "input": "%5e=value",
+      "json": "{\"^\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%5e&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"^\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%5f",
+      "json": "{\"x\":\"_\"}"
+    },
+    {
+      "input": "%5f=value",
+      "json": "{\"_\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%5f&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"_\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%60",
+      "json": "{\"x\":\"`\"}"
+    },
+    {
+      "input": "%60=value",
+      "json": "{\"`\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%60&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"`\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%61",
+      "json": "{\"x\":\"a\"}"
+    },
+    {
+      "input": "%61=value",
+      "json": "{\"a\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%61&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"a\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%62",
+      "json": "{\"x\":\"b\"}"
+    },
+    {
+      "input": "%62=value",
+      "json": "{\"b\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%62&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"b\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%63",
+      "json": "{\"x\":\"c\"}"
+    },
+    {
+      "input": "%63=value",
+      "json": "{\"c\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%63&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"c\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%64",
+      "json": "{\"x\":\"d\"}"
+    },
+    {
+      "input": "%64=value",
+      "json": "{\"d\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%64&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"d\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%65",
+      "json": "{\"x\":\"e\"}"
+    },
+    {
+      "input": "%65=value",
+      "json": "{\"e\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%65&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"e\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%66",
+      "json": "{\"x\":\"f\"}"
+    },
+    {
+      "input": "%66=value",
+      "json": "{\"f\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%66&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"f\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%67",
+      "json": "{\"x\":\"g\"}"
+    },
+    {
+      "input": "%67=value",
+      "json": "{\"g\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%67&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"g\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%68",
+      "json": "{\"x\":\"h\"}"
+    },
+    {
+      "input": "%68=value",
+      "json": "{\"h\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%68&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"h\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%69",
+      "json": "{\"x\":\"i\"}"
+    },
+    {
+      "input": "%69=value",
+      "json": "{\"i\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%69&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"i\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%6a",
+      "json": "{\"x\":\"j\"}"
+    },
+    {
+      "input": "%6a=value",
+      "json": "{\"j\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%6a&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"j\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%6b",
+      "json": "{\"x\":\"k\"}"
+    },
+    {
+      "input": "%6b=value",
+      "json": "{\"k\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%6b&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"k\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%6c",
+      "json": "{\"x\":\"l\"}"
+    },
+    {
+      "input": "%6c=value",
+      "json": "{\"l\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%6c&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"l\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%6d",
+      "json": "{\"x\":\"m\"}"
+    },
+    {
+      "input": "%6d=value",
+      "json": "{\"m\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%6d&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"m\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%6e",
+      "json": "{\"x\":\"n\"}"
+    },
+    {
+      "input": "%6e=value",
+      "json": "{\"n\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%6e&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"n\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%6f",
+      "json": "{\"x\":\"o\"}"
+    },
+    {
+      "input": "%6f=value",
+      "json": "{\"o\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%6f&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"o\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%70",
+      "json": "{\"x\":\"p\"}"
+    },
+    {
+      "input": "%70=value",
+      "json": "{\"p\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%70&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"p\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%71",
+      "json": "{\"x\":\"q\"}"
+    },
+    {
+      "input": "%71=value",
+      "json": "{\"q\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%71&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"q\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%72",
+      "json": "{\"x\":\"r\"}"
+    },
+    {
+      "input": "%72=value",
+      "json": "{\"r\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%72&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"r\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%73",
+      "json": "{\"x\":\"s\"}"
+    },
+    {
+      "input": "%73=value",
+      "json": "{\"s\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%73&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"s\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%74",
+      "json": "{\"x\":\"t\"}"
+    },
+    {
+      "input": "%74=value",
+      "json": "{\"t\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%74&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"t\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%75",
+      "json": "{\"x\":\"u\"}"
+    },
+    {
+      "input": "%75=value",
+      "json": "{\"u\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%75&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"u\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%76",
+      "json": "{\"x\":\"v\"}"
+    },
+    {
+      "input": "%76=value",
+      "json": "{\"v\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%76&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"v\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%77",
+      "json": "{\"x\":\"w\"}"
+    },
+    {
+      "input": "%77=value",
+      "json": "{\"w\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%77&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"w\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%78",
+      "json": "{\"x\":\"x\"}"
+    },
+    {
+      "input": "%78=value",
+      "json": "{\"x\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%78&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"x\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%79",
+      "json": "{\"x\":\"y\"}"
+    },
+    {
+      "input": "%79=value",
+      "json": "{\"y\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%79&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"y\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%7a",
+      "json": "{\"x\":\"z\"}"
+    },
+    {
+      "input": "%7a=value",
+      "json": "{\"z\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%7a&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"z\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%7b",
+      "json": "{\"x\":\"{\"}"
+    },
+    {
+      "input": "%7b=value",
+      "json": "{\"{\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%7b&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"{\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%7c",
+      "json": "{\"x\":\"|\"}"
+    },
+    {
+      "input": "%7c=value",
+      "json": "{\"|\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%7c&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"|\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%7d",
+      "json": "{\"x\":\"}\"}"
+    },
+    {
+      "input": "%7d=value",
+      "json": "{\"}\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%7d&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"}\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%7e",
+      "json": "{\"x\":\"~\"}"
+    },
+    {
+      "input": "%7e=value",
+      "json": "{\"~\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%7e&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"~\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%7f",
+      "json": "{\"x\":\"\"}"
+    },
+    {
+      "input": "%7f=value",
+      "json": "{\"\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%7f&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%81",
+      "json": "{\"x\":\"%81\"}"
+    },
+    {
+      "input": "%81=value",
+      "json": "{\"%81\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%81&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%81\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%82",
+      "json": "{\"x\":\"%82\"}"
+    },
+    {
+      "input": "%82=value",
+      "json": "{\"%82\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%82&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%82\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%83",
+      "json": "{\"x\":\"%83\"}"
+    },
+    {
+      "input": "%83=value",
+      "json": "{\"%83\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%83&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%83\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%84",
+      "json": "{\"x\":\"%84\"}"
+    },
+    {
+      "input": "%84=value",
+      "json": "{\"%84\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%84&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%84\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%85",
+      "json": "{\"x\":\"%85\"}"
+    },
+    {
+      "input": "%85=value",
+      "json": "{\"%85\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%85&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%85\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%86",
+      "json": "{\"x\":\"%86\"}"
+    },
+    {
+      "input": "%86=value",
+      "json": "{\"%86\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%86&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%86\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%87",
+      "json": "{\"x\":\"%87\"}"
+    },
+    {
+      "input": "%87=value",
+      "json": "{\"%87\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%87&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%87\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%88",
+      "json": "{\"x\":\"%88\"}"
+    },
+    {
+      "input": "%88=value",
+      "json": "{\"%88\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%88&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%88\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%89",
+      "json": "{\"x\":\"%89\"}"
+    },
+    {
+      "input": "%89=value",
+      "json": "{\"%89\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%89&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%89\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%8a",
+      "json": "{\"x\":\"%8a\"}"
+    },
+    {
+      "input": "%8a=value",
+      "json": "{\"%8a\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%8a&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%8a\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%8b",
+      "json": "{\"x\":\"%8b\"}"
+    },
+    {
+      "input": "%8b=value",
+      "json": "{\"%8b\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%8b&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%8b\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%8c",
+      "json": "{\"x\":\"%8c\"}"
+    },
+    {
+      "input": "%8c=value",
+      "json": "{\"%8c\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%8c&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%8c\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%8d",
+      "json": "{\"x\":\"%8d\"}"
+    },
+    {
+      "input": "%8d=value",
+      "json": "{\"%8d\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%8d&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%8d\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%8e",
+      "json": "{\"x\":\"%8e\"}"
+    },
+    {
+      "input": "%8e=value",
+      "json": "{\"%8e\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%8e&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%8e\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%8f",
+      "json": "{\"x\":\"%8f\"}"
+    },
+    {
+      "input": "%8f=value",
+      "json": "{\"%8f\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%8f&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%8f\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%90",
+      "json": "{\"x\":\"%90\"}"
+    },
+    {
+      "input": "%90=value",
+      "json": "{\"%90\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%90&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%90\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%91",
+      "json": "{\"x\":\"%91\"}"
+    },
+    {
+      "input": "%91=value",
+      "json": "{\"%91\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%91&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%91\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%92",
+      "json": "{\"x\":\"%92\"}"
+    },
+    {
+      "input": "%92=value",
+      "json": "{\"%92\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%92&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%92\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%93",
+      "json": "{\"x\":\"%93\"}"
+    },
+    {
+      "input": "%93=value",
+      "json": "{\"%93\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%93&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%93\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%94",
+      "json": "{\"x\":\"%94\"}"
+    },
+    {
+      "input": "%94=value",
+      "json": "{\"%94\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%94&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%94\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%95",
+      "json": "{\"x\":\"%95\"}"
+    },
+    {
+      "input": "%95=value",
+      "json": "{\"%95\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%95&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%95\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%96",
+      "json": "{\"x\":\"%96\"}"
+    },
+    {
+      "input": "%96=value",
+      "json": "{\"%96\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%96&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%96\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%97",
+      "json": "{\"x\":\"%97\"}"
+    },
+    {
+      "input": "%97=value",
+      "json": "{\"%97\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%97&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%97\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%98",
+      "json": "{\"x\":\"%98\"}"
+    },
+    {
+      "input": "%98=value",
+      "json": "{\"%98\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%98&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%98\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%99",
+      "json": "{\"x\":\"%99\"}"
+    },
+    {
+      "input": "%99=value",
+      "json": "{\"%99\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%99&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%99\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%9a",
+      "json": "{\"x\":\"%9a\"}"
+    },
+    {
+      "input": "%9a=value",
+      "json": "{\"%9a\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%9a&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%9a\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%9b",
+      "json": "{\"x\":\"%9b\"}"
+    },
+    {
+      "input": "%9b=value",
+      "json": "{\"%9b\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%9b&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%9b\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%9c",
+      "json": "{\"x\":\"%9c\"}"
+    },
+    {
+      "input": "%9c=value",
+      "json": "{\"%9c\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%9c&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%9c\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%9d",
+      "json": "{\"x\":\"%9d\"}"
+    },
+    {
+      "input": "%9d=value",
+      "json": "{\"%9d\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%9d&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%9d\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%9e",
+      "json": "{\"x\":\"%9e\"}"
+    },
+    {
+      "input": "%9e=value",
+      "json": "{\"%9e\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%9e&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%9e\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%9f",
+      "json": "{\"x\":\"%9f\"}"
+    },
+    {
+      "input": "%9f=value",
+      "json": "{\"%9f\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%9f&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%9f\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%a0",
+      "json": "{\"x\":\"%a0\"}"
+    },
+    {
+      "input": "%a0=value",
+      "json": "{\"%a0\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%a0&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%a0\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%a1",
+      "json": "{\"x\":\"%a1\"}"
+    },
+    {
+      "input": "%a1=value",
+      "json": "{\"%a1\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%a1&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%a1\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%a2",
+      "json": "{\"x\":\"%a2\"}"
+    },
+    {
+      "input": "%a2=value",
+      "json": "{\"%a2\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%a2&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%a2\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%a3",
+      "json": "{\"x\":\"%a3\"}"
+    },
+    {
+      "input": "%a3=value",
+      "json": "{\"%a3\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%a3&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%a3\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%a4",
+      "json": "{\"x\":\"%a4\"}"
+    },
+    {
+      "input": "%a4=value",
+      "json": "{\"%a4\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%a4&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%a4\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%a5",
+      "json": "{\"x\":\"%a5\"}"
+    },
+    {
+      "input": "%a5=value",
+      "json": "{\"%a5\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%a5&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%a5\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%a6",
+      "json": "{\"x\":\"%a6\"}"
+    },
+    {
+      "input": "%a6=value",
+      "json": "{\"%a6\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%a6&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%a6\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%a7",
+      "json": "{\"x\":\"%a7\"}"
+    },
+    {
+      "input": "%a7=value",
+      "json": "{\"%a7\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%a7&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%a7\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%a8",
+      "json": "{\"x\":\"%a8\"}"
+    },
+    {
+      "input": "%a8=value",
+      "json": "{\"%a8\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%a8&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%a8\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%a9",
+      "json": "{\"x\":\"%a9\"}"
+    },
+    {
+      "input": "%a9=value",
+      "json": "{\"%a9\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%a9&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%a9\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%aa",
+      "json": "{\"x\":\"%aa\"}"
+    },
+    {
+      "input": "%aa=value",
+      "json": "{\"%aa\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%aa&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%aa\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%ab",
+      "json": "{\"x\":\"%ab\"}"
+    },
+    {
+      "input": "%ab=value",
+      "json": "{\"%ab\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%ab&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%ab\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%ac",
+      "json": "{\"x\":\"%ac\"}"
+    },
+    {
+      "input": "%ac=value",
+      "json": "{\"%ac\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%ac&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%ac\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%ad",
+      "json": "{\"x\":\"%ad\"}"
+    },
+    {
+      "input": "%ad=value",
+      "json": "{\"%ad\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%ad&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%ad\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%ae",
+      "json": "{\"x\":\"%ae\"}"
+    },
+    {
+      "input": "%ae=value",
+      "json": "{\"%ae\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%ae&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%ae\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%af",
+      "json": "{\"x\":\"%af\"}"
+    },
+    {
+      "input": "%af=value",
+      "json": "{\"%af\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%af&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%af\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%b0",
+      "json": "{\"x\":\"%b0\"}"
+    },
+    {
+      "input": "%b0=value",
+      "json": "{\"%b0\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%b0&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%b0\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%b1",
+      "json": "{\"x\":\"%b1\"}"
+    },
+    {
+      "input": "%b1=value",
+      "json": "{\"%b1\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%b1&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%b1\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%b2",
+      "json": "{\"x\":\"%b2\"}"
+    },
+    {
+      "input": "%b2=value",
+      "json": "{\"%b2\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%b2&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%b2\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%b3",
+      "json": "{\"x\":\"%b3\"}"
+    },
+    {
+      "input": "%b3=value",
+      "json": "{\"%b3\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%b3&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%b3\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%b4",
+      "json": "{\"x\":\"%b4\"}"
+    },
+    {
+      "input": "%b4=value",
+      "json": "{\"%b4\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%b4&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%b4\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%b5",
+      "json": "{\"x\":\"%b5\"}"
+    },
+    {
+      "input": "%b5=value",
+      "json": "{\"%b5\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%b5&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%b5\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%b6",
+      "json": "{\"x\":\"%b6\"}"
+    },
+    {
+      "input": "%b6=value",
+      "json": "{\"%b6\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%b6&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%b6\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%b7",
+      "json": "{\"x\":\"%b7\"}"
+    },
+    {
+      "input": "%b7=value",
+      "json": "{\"%b7\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%b7&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%b7\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%b8",
+      "json": "{\"x\":\"%b8\"}"
+    },
+    {
+      "input": "%b8=value",
+      "json": "{\"%b8\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%b8&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%b8\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%b9",
+      "json": "{\"x\":\"%b9\"}"
+    },
+    {
+      "input": "%b9=value",
+      "json": "{\"%b9\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%b9&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%b9\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%ba",
+      "json": "{\"x\":\"%ba\"}"
+    },
+    {
+      "input": "%ba=value",
+      "json": "{\"%ba\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%ba&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%ba\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%bb",
+      "json": "{\"x\":\"%bb\"}"
+    },
+    {
+      "input": "%bb=value",
+      "json": "{\"%bb\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%bb&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%bb\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%bc",
+      "json": "{\"x\":\"%bc\"}"
+    },
+    {
+      "input": "%bc=value",
+      "json": "{\"%bc\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%bc&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%bc\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%bd",
+      "json": "{\"x\":\"%bd\"}"
+    },
+    {
+      "input": "%bd=value",
+      "json": "{\"%bd\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%bd&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%bd\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%be",
+      "json": "{\"x\":\"%be\"}"
+    },
+    {
+      "input": "%be=value",
+      "json": "{\"%be\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%be&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%be\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%bf",
+      "json": "{\"x\":\"%bf\"}"
+    },
+    {
+      "input": "%bf=value",
+      "json": "{\"%bf\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%bf&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%bf\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%c0",
+      "json": "{\"x\":\"%c0\"}"
+    },
+    {
+      "input": "%c0=value",
+      "json": "{\"%c0\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%c0&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%c0\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%c1",
+      "json": "{\"x\":\"%c1\"}"
+    },
+    {
+      "input": "%c1=value",
+      "json": "{\"%c1\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%c1&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%c1\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%c2",
+      "json": "{\"x\":\"%c2\"}"
+    },
+    {
+      "input": "%c2=value",
+      "json": "{\"%c2\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%c2&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%c2\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%c3",
+      "json": "{\"x\":\"%c3\"}"
+    },
+    {
+      "input": "%c3=value",
+      "json": "{\"%c3\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%c3&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%c3\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%c4",
+      "json": "{\"x\":\"%c4\"}"
+    },
+    {
+      "input": "%c4=value",
+      "json": "{\"%c4\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%c4&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%c4\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%c5",
+      "json": "{\"x\":\"%c5\"}"
+    },
+    {
+      "input": "%c5=value",
+      "json": "{\"%c5\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%c5&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%c5\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%c6",
+      "json": "{\"x\":\"%c6\"}"
+    },
+    {
+      "input": "%c6=value",
+      "json": "{\"%c6\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%c6&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%c6\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%c7",
+      "json": "{\"x\":\"%c7\"}"
+    },
+    {
+      "input": "%c7=value",
+      "json": "{\"%c7\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%c7&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%c7\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%c8",
+      "json": "{\"x\":\"%c8\"}"
+    },
+    {
+      "input": "%c8=value",
+      "json": "{\"%c8\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%c8&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%c8\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%c9",
+      "json": "{\"x\":\"%c9\"}"
+    },
+    {
+      "input": "%c9=value",
+      "json": "{\"%c9\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%c9&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%c9\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%ca",
+      "json": "{\"x\":\"%ca\"}"
+    },
+    {
+      "input": "%ca=value",
+      "json": "{\"%ca\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%ca&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%ca\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%cb",
+      "json": "{\"x\":\"%cb\"}"
+    },
+    {
+      "input": "%cb=value",
+      "json": "{\"%cb\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%cb&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%cb\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%cc",
+      "json": "{\"x\":\"%cc\"}"
+    },
+    {
+      "input": "%cc=value",
+      "json": "{\"%cc\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%cc&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%cc\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%cd",
+      "json": "{\"x\":\"%cd\"}"
+    },
+    {
+      "input": "%cd=value",
+      "json": "{\"%cd\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%cd&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%cd\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%ce",
+      "json": "{\"x\":\"%ce\"}"
+    },
+    {
+      "input": "%ce=value",
+      "json": "{\"%ce\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%ce&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%ce\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%cf",
+      "json": "{\"x\":\"%cf\"}"
+    },
+    {
+      "input": "%cf=value",
+      "json": "{\"%cf\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%cf&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%cf\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%d0",
+      "json": "{\"x\":\"%d0\"}"
+    },
+    {
+      "input": "%d0=value",
+      "json": "{\"%d0\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%d0&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%d0\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%d1",
+      "json": "{\"x\":\"%d1\"}"
+    },
+    {
+      "input": "%d1=value",
+      "json": "{\"%d1\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%d1&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%d1\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%d2",
+      "json": "{\"x\":\"%d2\"}"
+    },
+    {
+      "input": "%d2=value",
+      "json": "{\"%d2\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%d2&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%d2\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%d3",
+      "json": "{\"x\":\"%d3\"}"
+    },
+    {
+      "input": "%d3=value",
+      "json": "{\"%d3\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%d3&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%d3\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%d4",
+      "json": "{\"x\":\"%d4\"}"
+    },
+    {
+      "input": "%d4=value",
+      "json": "{\"%d4\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%d4&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%d4\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%d5",
+      "json": "{\"x\":\"%d5\"}"
+    },
+    {
+      "input": "%d5=value",
+      "json": "{\"%d5\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%d5&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%d5\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%d6",
+      "json": "{\"x\":\"%d6\"}"
+    },
+    {
+      "input": "%d6=value",
+      "json": "{\"%d6\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%d6&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%d6\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%d7",
+      "json": "{\"x\":\"%d7\"}"
+    },
+    {
+      "input": "%d7=value",
+      "json": "{\"%d7\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%d7&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%d7\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%d8",
+      "json": "{\"x\":\"%d8\"}"
+    },
+    {
+      "input": "%d8=value",
+      "json": "{\"%d8\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%d8&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%d8\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%d9",
+      "json": "{\"x\":\"%d9\"}"
+    },
+    {
+      "input": "%d9=value",
+      "json": "{\"%d9\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%d9&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%d9\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%da",
+      "json": "{\"x\":\"%da\"}"
+    },
+    {
+      "input": "%da=value",
+      "json": "{\"%da\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%da&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%da\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%db",
+      "json": "{\"x\":\"%db\"}"
+    },
+    {
+      "input": "%db=value",
+      "json": "{\"%db\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%db&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%db\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%dc",
+      "json": "{\"x\":\"%dc\"}"
+    },
+    {
+      "input": "%dc=value",
+      "json": "{\"%dc\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%dc&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%dc\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%dd",
+      "json": "{\"x\":\"%dd\"}"
+    },
+    {
+      "input": "%dd=value",
+      "json": "{\"%dd\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%dd&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%dd\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%de",
+      "json": "{\"x\":\"%de\"}"
+    },
+    {
+      "input": "%de=value",
+      "json": "{\"%de\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%de&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%de\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%df",
+      "json": "{\"x\":\"%df\"}"
+    },
+    {
+      "input": "%df=value",
+      "json": "{\"%df\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%df&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%df\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%e0",
+      "json": "{\"x\":\"%e0\"}"
+    },
+    {
+      "input": "%e0=value",
+      "json": "{\"%e0\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%e0&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%e0\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%e1",
+      "json": "{\"x\":\"%e1\"}"
+    },
+    {
+      "input": "%e1=value",
+      "json": "{\"%e1\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%e1&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%e1\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%e2",
+      "json": "{\"x\":\"%e2\"}"
+    },
+    {
+      "input": "%e2=value",
+      "json": "{\"%e2\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%e2&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%e2\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%e3",
+      "json": "{\"x\":\"%e3\"}"
+    },
+    {
+      "input": "%e3=value",
+      "json": "{\"%e3\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%e3&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%e3\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%e4",
+      "json": "{\"x\":\"%e4\"}"
+    },
+    {
+      "input": "%e4=value",
+      "json": "{\"%e4\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%e4&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%e4\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%e5",
+      "json": "{\"x\":\"%e5\"}"
+    },
+    {
+      "input": "%e5=value",
+      "json": "{\"%e5\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%e5&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%e5\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%e6",
+      "json": "{\"x\":\"%e6\"}"
+    },
+    {
+      "input": "%e6=value",
+      "json": "{\"%e6\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%e6&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%e6\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%e7",
+      "json": "{\"x\":\"%e7\"}"
+    },
+    {
+      "input": "%e7=value",
+      "json": "{\"%e7\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%e7&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%e7\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%e8",
+      "json": "{\"x\":\"%e8\"}"
+    },
+    {
+      "input": "%e8=value",
+      "json": "{\"%e8\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%e8&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%e8\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%e9",
+      "json": "{\"x\":\"%e9\"}"
+    },
+    {
+      "input": "%e9=value",
+      "json": "{\"%e9\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%e9&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%e9\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%ea",
+      "json": "{\"x\":\"%ea\"}"
+    },
+    {
+      "input": "%ea=value",
+      "json": "{\"%ea\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%ea&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%ea\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%eb",
+      "json": "{\"x\":\"%eb\"}"
+    },
+    {
+      "input": "%eb=value",
+      "json": "{\"%eb\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%eb&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%eb\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%ec",
+      "json": "{\"x\":\"%ec\"}"
+    },
+    {
+      "input": "%ec=value",
+      "json": "{\"%ec\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%ec&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%ec\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%ed",
+      "json": "{\"x\":\"%ed\"}"
+    },
+    {
+      "input": "%ed=value",
+      "json": "{\"%ed\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%ed&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%ed\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%ee",
+      "json": "{\"x\":\"%ee\"}"
+    },
+    {
+      "input": "%ee=value",
+      "json": "{\"%ee\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%ee&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%ee\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%ef",
+      "json": "{\"x\":\"%ef\"}"
+    },
+    {
+      "input": "%ef=value",
+      "json": "{\"%ef\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%ef&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%ef\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%f0",
+      "json": "{\"x\":\"%f0\"}"
+    },
+    {
+      "input": "%f0=value",
+      "json": "{\"%f0\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%f0&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%f0\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%f1",
+      "json": "{\"x\":\"%f1\"}"
+    },
+    {
+      "input": "%f1=value",
+      "json": "{\"%f1\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%f1&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%f1\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%f2",
+      "json": "{\"x\":\"%f2\"}"
+    },
+    {
+      "input": "%f2=value",
+      "json": "{\"%f2\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%f2&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%f2\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%f3",
+      "json": "{\"x\":\"%f3\"}"
+    },
+    {
+      "input": "%f3=value",
+      "json": "{\"%f3\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%f3&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%f3\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%f4",
+      "json": "{\"x\":\"%f4\"}"
+    },
+    {
+      "input": "%f4=value",
+      "json": "{\"%f4\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%f4&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%f4\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%f5",
+      "json": "{\"x\":\"%f5\"}"
+    },
+    {
+      "input": "%f5=value",
+      "json": "{\"%f5\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%f5&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%f5\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%f6",
+      "json": "{\"x\":\"%f6\"}"
+    },
+    {
+      "input": "%f6=value",
+      "json": "{\"%f6\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%f6&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%f6\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%f7",
+      "json": "{\"x\":\"%f7\"}"
+    },
+    {
+      "input": "%f7=value",
+      "json": "{\"%f7\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%f7&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%f7\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%f8",
+      "json": "{\"x\":\"%f8\"}"
+    },
+    {
+      "input": "%f8=value",
+      "json": "{\"%f8\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%f8&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%f8\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%f9",
+      "json": "{\"x\":\"%f9\"}"
+    },
+    {
+      "input": "%f9=value",
+      "json": "{\"%f9\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%f9&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%f9\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%fa",
+      "json": "{\"x\":\"%fa\"}"
+    },
+    {
+      "input": "%fa=value",
+      "json": "{\"%fa\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%fa&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%fa\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%fb",
+      "json": "{\"x\":\"%fb\"}"
+    },
+    {
+      "input": "%fb=value",
+      "json": "{\"%fb\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%fb&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%fb\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%fc",
+      "json": "{\"x\":\"%fc\"}"
+    },
+    {
+      "input": "%fc=value",
+      "json": "{\"%fc\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%fc&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%fc\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%fd",
+      "json": "{\"x\":\"%fd\"}"
+    },
+    {
+      "input": "%fd=value",
+      "json": "{\"%fd\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%fd&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%fd\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%fe",
+      "json": "{\"x\":\"%fe\"}"
+    },
+    {
+      "input": "%fe=value",
+      "json": "{\"%fe\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%fe&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%fe\",\"last\":\"B\"}"
+    },
+    {
+      "input": "x=%ff",
+      "json": "{\"x\":\"%ff\"}"
+    },
+    {
+      "input": "%ff=value",
+      "json": "{\"%ff\":\"value\"}"
+    },
+    {
+      "input": "ok=%41&bad=%ff&last=%42",
+      "json": "{\"ok\":\"A\",\"bad\":\"%ff\",\"last\":\"B\"}"
+    }
+  ]
+}

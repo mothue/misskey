@@ -1,0 +1,921 @@
+{
+  "status": "PASS",
+  "scope": "Actual extracted callback and Channel.pack with controlled repositories, ID date and public URL. No socket, DB, HTTP, common auth/body validation, real date parser or URL policy evidence.",
+  "metadata": {
+    "meta": {
+      "tags": [
+        "channels",
+        "account"
+      ],
+      "requireCredential": true,
+      "kind": "read:channels",
+      "res": {
+        "type": "array",
+        "optional": false,
+        "nullable": false,
+        "items": {
+          "type": "object",
+          "optional": false,
+          "nullable": false,
+          "ref": "Channel"
+        }
+      }
+    },
+    "paramDef": {
+      "type": "object",
+      "properties": {},
+      "required": []
+    }
+  },
+  "fragments": {
+    "meta": "a907668236230b1e4eeeafb5e94ec89650497451f8f065bfa93026915d8fc95b",
+    "paramDef": "c7cd896bda498eec977614c0fbdcd851913b68d82e1efa5dc82d6480e0454975",
+    "callback": "b5d58160437515ed9446a91d0de4a691eda617ea4c84e40536a1878840b838d7",
+    "pack": "5cf2799a08beb484404e9eef82215421b5fe1b570cae9d800c6636c9ab06ca98"
+  },
+  "sources": {
+    "packages/backend/src/server/api/endpoints/channels/my-favorites.ts": "96d8219a3b9c4a9863a0dae867e015d0c96ad59a2bcc8385d7636cc84ee44265",
+    "packages/backend/src/core/entities/ChannelEntityService.ts": "ca5caeb2c097e452bde13db460cfcdc32cd35e340a72e0978cbf6a78b0a39e81"
+  },
+  "cases": [
+    {
+      "name": "empty",
+      "calls": [
+        {
+          "op": "createQueryBuilder",
+          "alias": "favorite"
+        },
+        {
+          "op": "where",
+          "sql": "favorite.userId = :meId",
+          "bindings": {
+            "meId": "controlled-viewer"
+          }
+        },
+        {
+          "op": "leftJoinAndSelect",
+          "relation": "favorite.channel",
+          "alias": "channel"
+        },
+        {
+          "op": "getMany"
+        }
+      ],
+      "controlledOutput": []
+    },
+    {
+      "name": "independent-flags-expiry-not-filtered",
+      "calls": [
+        {
+          "op": "createQueryBuilder",
+          "alias": "favorite"
+        },
+        {
+          "op": "where",
+          "sql": "favorite.userId = :meId",
+          "bindings": {
+            "meId": "controlled-viewer"
+          }
+        },
+        {
+          "op": "leftJoinAndSelect",
+          "relation": "favorite.channel",
+          "alias": "channel"
+        },
+        {
+          "op": "getMany"
+        },
+        {
+          "op": "pack-start",
+          "id": "b",
+          "argumentCount": 2,
+          "sameViewer": true
+        },
+        {
+          "op": "following",
+          "where": {
+            "where": {
+              "followerId": "controlled-viewer",
+              "followeeId": "b"
+            }
+          }
+        },
+        {
+          "op": "favorite",
+          "where": {
+            "where": {
+              "userId": "controlled-viewer",
+              "channelId": "b"
+            }
+          }
+        },
+        {
+          "op": "muting",
+          "where": {
+            "where": {
+              "userId": "controlled-viewer",
+              "channelId": "b"
+            }
+          }
+        },
+        {
+          "op": "createdAt",
+          "id": "b"
+        }
+      ],
+      "controlledOutput": [
+        {
+          "id": "b",
+          "createdAt": "2000-01-01T00:00:00.000Z",
+          "lastNotedAt": null,
+          "name": "b",
+          "description": null,
+          "userId": null,
+          "bannerUrl": null,
+          "bannerId": null,
+          "pinnedNoteIds": [],
+          "color": "",
+          "isArchived": false,
+          "usersCount": 0,
+          "notesCount": 0,
+          "isSensitive": false,
+          "allowRenoteToExternal": true,
+          "isFollowing": false,
+          "isFavorited": false,
+          "isMuting": true,
+          "hasUnreadNote": false
+        }
+      ]
+    },
+    {
+      "name": "banner-pins-unused-malformed-note",
+      "calls": [
+        {
+          "op": "createQueryBuilder",
+          "alias": "favorite"
+        },
+        {
+          "op": "where",
+          "sql": "favorite.userId = :meId",
+          "bindings": {
+            "meId": "controlled-viewer"
+          }
+        },
+        {
+          "op": "leftJoinAndSelect",
+          "relation": "favorite.channel",
+          "alias": "channel"
+        },
+        {
+          "op": "getMany"
+        },
+        {
+          "op": "pack-start",
+          "id": "b",
+          "argumentCount": 2,
+          "sameViewer": true
+        },
+        {
+          "op": "banner",
+          "id": "opaque-banner"
+        },
+        {
+          "op": "following",
+          "where": {
+            "where": {
+              "followerId": "controlled-viewer",
+              "followeeId": "b"
+            }
+          }
+        },
+        {
+          "op": "favorite",
+          "where": {
+            "where": {
+              "userId": "controlled-viewer",
+              "channelId": "b"
+            }
+          }
+        },
+        {
+          "op": "muting",
+          "where": {
+            "where": {
+              "userId": "controlled-viewer",
+              "channelId": "b"
+            }
+          }
+        },
+        {
+          "op": "unused-pinned-read",
+          "values": [
+            "note",
+            "note",
+            "missing"
+          ]
+        },
+        {
+          "op": "createdAt",
+          "id": "b"
+        },
+        {
+          "op": "public-url",
+          "id": "opaque-banner"
+        }
+      ],
+      "controlledOutput": [
+        {
+          "id": "b",
+          "createdAt": "2000-01-01T00:00:00.000Z",
+          "lastNotedAt": null,
+          "name": "b",
+          "description": null,
+          "userId": null,
+          "bannerUrl": "controlled-url-only",
+          "bannerId": "opaque-banner",
+          "pinnedNoteIds": [
+            "note",
+            "note",
+            "missing"
+          ],
+          "color": "",
+          "isArchived": false,
+          "usersCount": 0,
+          "notesCount": 0,
+          "isSensitive": false,
+          "allowRenoteToExternal": true,
+          "isFollowing": true,
+          "isFavorited": false,
+          "isMuting": true,
+          "hasUnreadNote": false
+        }
+      ]
+    },
+    {
+      "name": "legal-pins-3",
+      "calls": [
+        {
+          "op": "createQueryBuilder",
+          "alias": "favorite"
+        },
+        {
+          "op": "where",
+          "sql": "favorite.userId = :meId",
+          "bindings": {
+            "meId": "controlled-viewer"
+          }
+        },
+        {
+          "op": "leftJoinAndSelect",
+          "relation": "favorite.channel",
+          "alias": "channel"
+        },
+        {
+          "op": "getMany"
+        },
+        {
+          "op": "pack-start",
+          "id": "pins",
+          "argumentCount": 2,
+          "sameViewer": true
+        },
+        {
+          "op": "following",
+          "where": {
+            "where": {
+              "followerId": "controlled-viewer",
+              "followeeId": "pins"
+            }
+          }
+        },
+        {
+          "op": "favorite",
+          "where": {
+            "where": {
+              "userId": "controlled-viewer",
+              "channelId": "pins"
+            }
+          }
+        },
+        {
+          "op": "muting",
+          "where": {
+            "where": {
+              "userId": "controlled-viewer",
+              "channelId": "pins"
+            }
+          }
+        },
+        {
+          "op": "createdAt",
+          "id": "pins"
+        }
+      ],
+      "controlledOutput": [
+        {
+          "id": "pins",
+          "createdAt": "2000-01-01T00:00:00.000Z",
+          "lastNotedAt": null,
+          "name": "pins",
+          "description": null,
+          "userId": null,
+          "bannerUrl": null,
+          "bannerId": null,
+          "pinnedNoteIds": [],
+          "color": "",
+          "isArchived": false,
+          "usersCount": 0,
+          "notesCount": 0,
+          "isSensitive": false,
+          "allowRenoteToExternal": true,
+          "isFollowing": true,
+          "isFavorited": false,
+          "isMuting": true,
+          "hasUnreadNote": false
+        }
+      ]
+    },
+    {
+      "name": "legal-pins-4",
+      "calls": [
+        {
+          "op": "createQueryBuilder",
+          "alias": "favorite"
+        },
+        {
+          "op": "where",
+          "sql": "favorite.userId = :meId",
+          "bindings": {
+            "meId": "controlled-viewer"
+          }
+        },
+        {
+          "op": "leftJoinAndSelect",
+          "relation": "favorite.channel",
+          "alias": "channel"
+        },
+        {
+          "op": "getMany"
+        },
+        {
+          "op": "pack-start",
+          "id": "pins",
+          "argumentCount": 2,
+          "sameViewer": true
+        },
+        {
+          "op": "following",
+          "where": {
+            "where": {
+              "followerId": "controlled-viewer",
+              "followeeId": "pins"
+            }
+          }
+        },
+        {
+          "op": "favorite",
+          "where": {
+            "where": {
+              "userId": "controlled-viewer",
+              "channelId": "pins"
+            }
+          }
+        },
+        {
+          "op": "muting",
+          "where": {
+            "where": {
+              "userId": "controlled-viewer",
+              "channelId": "pins"
+            }
+          }
+        },
+        {
+          "op": "unused-pinned-read",
+          "values": [
+            null
+          ]
+        },
+        {
+          "op": "createdAt",
+          "id": "pins"
+        }
+      ],
+      "controlledOutput": [
+        {
+          "id": "pins",
+          "createdAt": "2000-01-01T00:00:00.000Z",
+          "lastNotedAt": null,
+          "name": "pins",
+          "description": null,
+          "userId": null,
+          "bannerUrl": null,
+          "bannerId": null,
+          "pinnedNoteIds": [
+            null
+          ],
+          "color": "",
+          "isArchived": false,
+          "usersCount": 0,
+          "notesCount": 0,
+          "isSensitive": false,
+          "allowRenoteToExternal": true,
+          "isFollowing": true,
+          "isFavorited": false,
+          "isMuting": true,
+          "hasUnreadNote": false
+        }
+      ]
+    },
+    {
+      "name": "legal-pins-5",
+      "calls": [
+        {
+          "op": "createQueryBuilder",
+          "alias": "favorite"
+        },
+        {
+          "op": "where",
+          "sql": "favorite.userId = :meId",
+          "bindings": {
+            "meId": "controlled-viewer"
+          }
+        },
+        {
+          "op": "leftJoinAndSelect",
+          "relation": "favorite.channel",
+          "alias": "channel"
+        },
+        {
+          "op": "getMany"
+        },
+        {
+          "op": "pack-start",
+          "id": "pins",
+          "argumentCount": 2,
+          "sameViewer": true
+        },
+        {
+          "op": "following",
+          "where": {
+            "where": {
+              "followerId": "controlled-viewer",
+              "followeeId": "pins"
+            }
+          }
+        },
+        {
+          "op": "favorite",
+          "where": {
+            "where": {
+              "userId": "controlled-viewer",
+              "channelId": "pins"
+            }
+          }
+        },
+        {
+          "op": "muting",
+          "where": {
+            "where": {
+              "userId": "controlled-viewer",
+              "channelId": "pins"
+            }
+          }
+        },
+        {
+          "op": "unused-pinned-read",
+          "values": [
+            [
+              "quote\"",
+              "back\\slash"
+            ],
+            [
+              null,
+              "雪😀"
+            ]
+          ]
+        },
+        {
+          "op": "createdAt",
+          "id": "pins"
+        }
+      ],
+      "controlledOutput": [
+        {
+          "id": "pins",
+          "createdAt": "2000-01-01T00:00:00.000Z",
+          "lastNotedAt": null,
+          "name": "pins",
+          "description": null,
+          "userId": null,
+          "bannerUrl": null,
+          "bannerId": null,
+          "pinnedNoteIds": [
+            [
+              "quote\"",
+              "back\\slash"
+            ],
+            [
+              null,
+              "雪😀"
+            ]
+          ],
+          "color": "",
+          "isArchived": false,
+          "usersCount": 0,
+          "notesCount": 0,
+          "isSensitive": false,
+          "allowRenoteToExternal": true,
+          "isFollowing": true,
+          "isFavorited": false,
+          "isMuting": true,
+          "hasUnreadNote": false
+        }
+      ]
+    },
+    {
+      "name": "eager-all-start-source-favorite-order",
+      "calls": [
+        {
+          "op": "createQueryBuilder",
+          "alias": "favorite"
+        },
+        {
+          "op": "where",
+          "sql": "favorite.userId = :meId",
+          "bindings": {
+            "meId": "controlled-viewer"
+          }
+        },
+        {
+          "op": "leftJoinAndSelect",
+          "relation": "favorite.channel",
+          "alias": "channel"
+        },
+        {
+          "op": "getMany"
+        },
+        {
+          "op": "pack-start",
+          "id": "z",
+          "argumentCount": 2,
+          "sameViewer": true
+        },
+        {
+          "op": "pack-start",
+          "id": "a",
+          "argumentCount": 2,
+          "sameViewer": true
+        },
+        {
+          "op": "pack-start",
+          "id": "m",
+          "argumentCount": 2,
+          "sameViewer": true
+        }
+      ],
+      "controlledOutput": [
+        {
+          "id": "z"
+        },
+        {
+          "id": "a"
+        },
+        {
+          "id": "m"
+        }
+      ]
+    },
+    {
+      "name": "createdAt-rejection-after-reads-before-URL-other-packs-start",
+      "calls": [
+        {
+          "op": "createQueryBuilder",
+          "alias": "favorite"
+        },
+        {
+          "op": "where",
+          "sql": "favorite.userId = :meId",
+          "bindings": {
+            "meId": "controlled-viewer"
+          }
+        },
+        {
+          "op": "leftJoinAndSelect",
+          "relation": "favorite.channel",
+          "alias": "channel"
+        },
+        {
+          "op": "getMany"
+        },
+        {
+          "op": "pack-start",
+          "id": "first",
+          "argumentCount": 2,
+          "sameViewer": true
+        },
+        {
+          "op": "banner",
+          "id": "banner"
+        },
+        {
+          "op": "pack-start",
+          "id": "later",
+          "argumentCount": 2,
+          "sameViewer": true
+        },
+        {
+          "op": "following",
+          "where": {
+            "where": {
+              "followerId": "controlled-viewer",
+              "followeeId": "later"
+            }
+          }
+        },
+        {
+          "op": "following",
+          "where": {
+            "where": {
+              "followerId": "controlled-viewer",
+              "followeeId": "first"
+            }
+          }
+        },
+        {
+          "op": "favorite",
+          "where": {
+            "where": {
+              "userId": "controlled-viewer",
+              "channelId": "later"
+            }
+          }
+        },
+        {
+          "op": "favorite",
+          "where": {
+            "where": {
+              "userId": "controlled-viewer",
+              "channelId": "first"
+            }
+          }
+        },
+        {
+          "op": "muting",
+          "where": {
+            "where": {
+              "userId": "controlled-viewer",
+              "channelId": "later"
+            }
+          }
+        },
+        {
+          "op": "muting",
+          "where": {
+            "where": {
+              "userId": "controlled-viewer",
+              "channelId": "first"
+            }
+          }
+        },
+        {
+          "op": "createdAt",
+          "id": "later"
+        },
+        {
+          "op": "unused-pinned-read",
+          "values": [
+            "pin"
+          ]
+        },
+        {
+          "op": "createdAt",
+          "id": "first"
+        }
+      ],
+      "controlledError": {
+        "name": "RangeError",
+        "message": "controlled-createdAt-failure"
+      }
+    },
+    {
+      "name": "lastNotedAt-after-createdAt-before-url",
+      "calls": [
+        {
+          "op": "createQueryBuilder",
+          "alias": "favorite"
+        },
+        {
+          "op": "where",
+          "sql": "favorite.userId = :meId",
+          "bindings": {
+            "meId": "controlled-viewer"
+          }
+        },
+        {
+          "op": "leftJoinAndSelect",
+          "relation": "favorite.channel",
+          "alias": "channel"
+        },
+        {
+          "op": "getMany"
+        },
+        {
+          "op": "pack-start",
+          "id": "date",
+          "argumentCount": 2,
+          "sameViewer": true
+        },
+        {
+          "op": "banner",
+          "id": "banner"
+        },
+        {
+          "op": "following",
+          "where": {
+            "where": {
+              "followerId": "controlled-viewer",
+              "followeeId": "date"
+            }
+          }
+        },
+        {
+          "op": "favorite",
+          "where": {
+            "where": {
+              "userId": "controlled-viewer",
+              "channelId": "date"
+            }
+          }
+        },
+        {
+          "op": "muting",
+          "where": {
+            "where": {
+              "userId": "controlled-viewer",
+              "channelId": "date"
+            }
+          }
+        },
+        {
+          "op": "createdAt",
+          "id": "date"
+        }
+      ],
+      "controlledError": {
+        "name": "TypeError",
+        "message": "controlled-lastNotedAt-callsite"
+      }
+    },
+    {
+      "name": "callback-ignores-params-public-body-gates-unproved-9",
+      "calls": [
+        {
+          "op": "createQueryBuilder",
+          "alias": "favorite"
+        },
+        {
+          "op": "where",
+          "sql": "favorite.userId = :meId",
+          "bindings": {
+            "meId": "controlled-viewer"
+          }
+        },
+        {
+          "op": "leftJoinAndSelect",
+          "relation": "favorite.channel",
+          "alias": "channel"
+        },
+        {
+          "op": "getMany"
+        }
+      ],
+      "controlledOutput": []
+    },
+    {
+      "name": "callback-ignores-params-public-body-gates-unproved-10",
+      "calls": [
+        {
+          "op": "createQueryBuilder",
+          "alias": "favorite"
+        },
+        {
+          "op": "where",
+          "sql": "favorite.userId = :meId",
+          "bindings": {
+            "meId": "controlled-viewer"
+          }
+        },
+        {
+          "op": "leftJoinAndSelect",
+          "relation": "favorite.channel",
+          "alias": "channel"
+        },
+        {
+          "op": "getMany"
+        }
+      ],
+      "controlledOutput": []
+    },
+    {
+      "name": "callback-ignores-params-public-body-gates-unproved-11",
+      "calls": [
+        {
+          "op": "createQueryBuilder",
+          "alias": "favorite"
+        },
+        {
+          "op": "where",
+          "sql": "favorite.userId = :meId",
+          "bindings": {
+            "meId": "controlled-viewer"
+          }
+        },
+        {
+          "op": "leftJoinAndSelect",
+          "relation": "favorite.channel",
+          "alias": "channel"
+        },
+        {
+          "op": "getMany"
+        }
+      ],
+      "controlledOutput": []
+    },
+    {
+      "name": "callback-ignores-params-public-body-gates-unproved-12",
+      "calls": [
+        {
+          "op": "createQueryBuilder",
+          "alias": "favorite"
+        },
+        {
+          "op": "where",
+          "sql": "favorite.userId = :meId",
+          "bindings": {
+            "meId": "controlled-viewer"
+          }
+        },
+        {
+          "op": "leftJoinAndSelect",
+          "relation": "favorite.channel",
+          "alias": "channel"
+        },
+        {
+          "op": "getMany"
+        }
+      ],
+      "controlledOutput": []
+    },
+    {
+      "name": "callback-ignores-params-public-body-gates-unproved-13",
+      "calls": [
+        {
+          "op": "createQueryBuilder",
+          "alias": "favorite"
+        },
+        {
+          "op": "where",
+          "sql": "favorite.userId = :meId",
+          "bindings": {
+            "meId": "controlled-viewer"
+          }
+        },
+        {
+          "op": "leftJoinAndSelect",
+          "relation": "favorite.channel",
+          "alias": "channel"
+        },
+        {
+          "op": "getMany"
+        }
+      ],
+      "controlledOutput": []
+    },
+    {
+      "name": "callback-ignores-params-public-body-gates-unproved-14",
+      "calls": [
+        {
+          "op": "createQueryBuilder",
+          "alias": "favorite"
+        },
+        {
+          "op": "where",
+          "sql": "favorite.userId = :meId",
+          "bindings": {
+            "meId": "controlled-viewer"
+          }
+        },
+        {
+          "op": "leftJoinAndSelect",
+          "relation": "favorite.channel",
+          "alias": "channel"
+        },
+        {
+          "op": "getMany"
+        }
+      ],
+      "controlledOutput": []
+    }
+  ]
+}

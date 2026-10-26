@@ -228,6 +228,9 @@
         "utf-8-validate": "6.0.6",
       },
     },
+    "packages/backend-rust": {
+      "name": "backend-rust",
+    },
     "packages/frontend": {
       "name": "frontend",
       "dependencies": {
@@ -1776,6 +1779,8 @@
     "babel-walk": ["babel-walk@3.0.0-canary-5", "https://registry.npmjs.org/babel-walk/-/babel-walk-3.0.0-canary-5.tgz", { "dependencies": { "@babel/types": "^7.9.6" } }, "sha512-GAwkz0AihzY5bkwIY5QDR+LvsRQgB/B+1foMPvi0FZPMl5fjD7ICiznUiBdLYMH1QYe6vqu4gWYytZOccLouFw=="],
 
     "backend": ["backend@workspace:packages/backend"],
+
+    "backend-rust": ["backend-rust@workspace:packages/backend-rust"],
 
     "bail": ["bail@2.0.2", "https://registry.npmjs.org/bail/-/bail-2.0.2.tgz", {}, "sha512-0xO6mYd7JB2YesxDKplafRpsiOzPt9V02ddPCLbY1xYGPOX24NTyN50qnUxgCPcSoYMhKpAuBTjQoRZCAkUDRw=="],
 

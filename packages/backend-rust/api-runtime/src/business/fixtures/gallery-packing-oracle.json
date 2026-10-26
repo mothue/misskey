@@ -1,0 +1,664 @@
+{
+  "source": "actual GalleryShow callback + GalleryPostEntityService.pack + DriveFileEntityService.packManyByIds/packMany/packNullable/public URL/properties + VideoProcessingService.getExternalVideoThumbnailUrl + IdService.parse; UserLite output stub and controlled fake repositories",
+  "runtime": {
+    "bun": "1.4.4",
+    "nodeCompatibility": "v26.3.0"
+  },
+  "guards": {
+    "networkAttempts": 0,
+    "processAttempts": 0,
+    "realRepositoryAttempts": 0,
+    "idGenerationAttempts": 0,
+    "unrelatedHelperAttempts": 0
+  },
+  "sourceHashes": {
+    "server/api/endpoints/gallery/posts/show.ts": "55e73f51119795038eb2c7afb916bf277a14b4d038d72b592f4b512573cc1717",
+    "core/entities/GalleryPostEntityService.ts": "5fd8a38e9d78ca602c67f23208a786bb3acf6385b952531c97137d26cfa25cf5",
+    "core/entities/DriveFileEntityService.ts": "a48a07792b784a3ded4364594d346e2cd2d9a7e0a506b56b082325a8f41ca738",
+    "core/VideoProcessingService.ts": "f04fdc97cfb4bcaaf8f45a64325cb14158cb3c501cbf72001b2dc95d878ffe0c",
+    "core/IdService.ts": "237d9410066fb6acfe872e7e617e6f4ce7b0093989e88baad1c29066b69f4f65",
+    "misc/prelude/await-all.ts": "2fd2ebc896251cb3a16b9e2c2d7b32e42544d019266ee3a61a451eb3de03d873"
+  },
+  "excludedProjectionFields": [
+    "user",
+    "files"
+  ],
+  "limitations": [
+    "UserLite contents are stubbed and excluded from expectations",
+    "Public attachment contents belong to shared-helper and actual HTTP coverage",
+    "Only successful source projection cases are included; error text comes from actual HTTP fixture"
+  ],
+  "summary": {
+    "success": 18
+  },
+  "cases": [
+    {
+      "name": "anonymous-tags-empty-isLiked-omitted",
+      "method": "aidx",
+      "input": {
+        "post": {
+          "id": "0000000100000000",
+          "updatedAt": "2026-01-02T03:04:05.123Z",
+          "userId": "0000000200000000",
+          "title": "gallery \ud83d\ude00 e\u0301",
+          "description": "",
+          "fileIds": [
+            "0000000400000000"
+          ],
+          "tags": [],
+          "isSensitive": false,
+          "likedCount": 13
+        },
+        "viewer": null
+      },
+      "expectedProjection": {
+        "id": "0000000100000000",
+        "createdAt": "2000-01-01T00:00:00.001Z",
+        "updatedAt": "2026-01-02T03:04:05.123Z",
+        "userId": "0000000200000000",
+        "title": "gallery \ud83d\ude00 e\u0301",
+        "description": "",
+        "fileIds": [
+          "0000000400000000"
+        ],
+        "isSensitive": false,
+        "likedCount": 13
+      }
+    },
+    {
+      "name": "owner-unliked-isLiked-false",
+      "method": "aidx",
+      "input": {
+        "post": {
+          "id": "0000000100000000",
+          "updatedAt": "2026-01-02T03:04:05.123Z",
+          "userId": "0000000200000000",
+          "title": "gallery \ud83d\ude00 e\u0301",
+          "description": "",
+          "fileIds": [
+            "0000000400000000"
+          ],
+          "tags": [],
+          "isSensitive": false,
+          "likedCount": 13
+        },
+        "viewer": {
+          "id": "0000000200000000"
+        }
+      },
+      "expectedProjection": {
+        "id": "0000000100000000",
+        "createdAt": "2000-01-01T00:00:00.001Z",
+        "updatedAt": "2026-01-02T03:04:05.123Z",
+        "userId": "0000000200000000",
+        "title": "gallery \ud83d\ude00 e\u0301",
+        "description": "",
+        "fileIds": [
+          "0000000400000000"
+        ],
+        "isSensitive": false,
+        "likedCount": 13,
+        "isLiked": false
+      }
+    },
+    {
+      "name": "other-liked-isLiked-true",
+      "method": "aidx",
+      "input": {
+        "post": {
+          "id": "0000000100000000",
+          "updatedAt": "2026-01-02T03:04:05.123Z",
+          "userId": "0000000200000000",
+          "title": "gallery \ud83d\ude00 e\u0301",
+          "description": "",
+          "fileIds": [
+            "0000000400000000"
+          ],
+          "tags": [],
+          "isSensitive": false,
+          "likedCount": 13
+        },
+        "viewer": {
+          "id": "0000000300000000"
+        }
+      },
+      "expectedProjection": {
+        "id": "0000000100000000",
+        "createdAt": "2000-01-01T00:00:00.001Z",
+        "updatedAt": "2026-01-02T03:04:05.123Z",
+        "userId": "0000000200000000",
+        "title": "gallery \ud83d\ude00 e\u0301",
+        "description": "",
+        "fileIds": [
+          "0000000400000000"
+        ],
+        "isSensitive": false,
+        "likedCount": 13,
+        "isLiked": true
+      }
+    },
+    {
+      "name": "actual-viewer-forwarded-to-userlite",
+      "method": "aidx",
+      "input": {
+        "post": {
+          "id": "0000000100000000",
+          "updatedAt": "2026-01-02T03:04:05.123Z",
+          "userId": "0000000200000000",
+          "title": "gallery \ud83d\ude00 e\u0301",
+          "description": "",
+          "fileIds": [
+            "0000000400000000"
+          ],
+          "tags": [],
+          "isSensitive": false,
+          "likedCount": 13
+        },
+        "viewer": {
+          "id": "0000000800000000"
+        }
+      },
+      "expectedProjection": {
+        "id": "0000000100000000",
+        "createdAt": "2000-01-01T00:00:00.001Z",
+        "updatedAt": "2026-01-02T03:04:05.123Z",
+        "userId": "0000000200000000",
+        "title": "gallery \ud83d\ude00 e\u0301",
+        "description": "",
+        "fileIds": [
+          "0000000400000000"
+        ],
+        "isSensitive": false,
+        "likedCount": 13,
+        "isLiked": false
+      }
+    },
+    {
+      "name": "duplicate-missing-reordered-files-sensitive-nonempty-tags",
+      "method": "aidx",
+      "input": {
+        "post": {
+          "id": "0000000100000000",
+          "updatedAt": "2026-01-02T03:04:05.123Z",
+          "userId": "0000000200000000",
+          "title": "gallery \ud83d\ude00 e\u0301",
+          "description": "",
+          "fileIds": [
+            "0000000500000000",
+            "0000000000000000",
+            "0000000400000000",
+            "0000000500000000"
+          ],
+          "tags": [
+            "tag",
+            "tag",
+            "",
+            "\ud83d\ude00",
+            "__proto__"
+          ],
+          "isSensitive": true,
+          "likedCount": 37
+        },
+        "viewer": {
+          "id": "0000000300000000"
+        }
+      },
+      "expectedProjection": {
+        "id": "0000000100000000",
+        "createdAt": "2000-01-01T00:00:00.001Z",
+        "updatedAt": "2026-01-02T03:04:05.123Z",
+        "userId": "0000000200000000",
+        "title": "gallery \ud83d\ude00 e\u0301",
+        "description": "",
+        "fileIds": [
+          "0000000500000000",
+          "0000000000000000",
+          "0000000400000000",
+          "0000000500000000"
+        ],
+        "tags": [
+          "tag",
+          "tag",
+          "",
+          "\ud83d\ude00",
+          "__proto__"
+        ],
+        "isSensitive": true,
+        "likedCount": 37,
+        "isLiked": true
+      }
+    },
+    {
+      "name": "empty-files-null-description",
+      "method": "aidx",
+      "input": {
+        "post": {
+          "id": "0000000100000000",
+          "updatedAt": "2026-01-02T03:04:05.123Z",
+          "userId": "0000000200000000",
+          "title": "gallery \ud83d\ude00 e\u0301",
+          "description": null,
+          "fileIds": [],
+          "tags": [],
+          "isSensitive": false,
+          "likedCount": 13
+        },
+        "viewer": null
+      },
+      "expectedProjection": {
+        "id": "0000000100000000",
+        "createdAt": "2000-01-01T00:00:00.001Z",
+        "updatedAt": "2026-01-02T03:04:05.123Z",
+        "userId": "0000000200000000",
+        "title": "gallery \ud83d\ude00 e\u0301",
+        "description": null,
+        "fileIds": [],
+        "isSensitive": false,
+        "likedCount": 13
+      }
+    },
+    {
+      "name": "tags-null-only-array-retained",
+      "method": "aidx",
+      "input": {
+        "post": {
+          "id": "0000000100000000",
+          "updatedAt": "2026-01-02T03:04:05.123Z",
+          "userId": "0000000200000000",
+          "title": "gallery \ud83d\ude00 e\u0301",
+          "description": "",
+          "fileIds": [],
+          "tags": [
+            null
+          ],
+          "isSensitive": false,
+          "likedCount": 13
+        },
+        "viewer": null
+      },
+      "expectedProjection": {
+        "id": "0000000100000000",
+        "createdAt": "2000-01-01T00:00:00.001Z",
+        "updatedAt": "2026-01-02T03:04:05.123Z",
+        "userId": "0000000200000000",
+        "title": "gallery \ud83d\ude00 e\u0301",
+        "description": "",
+        "fileIds": [],
+        "tags": [
+          null
+        ],
+        "isSensitive": false,
+        "likedCount": 13
+      }
+    },
+    {
+      "name": "tags-null-elements-mixed-retained",
+      "method": "aidx",
+      "input": {
+        "post": {
+          "id": "0000000100000000",
+          "updatedAt": "2026-01-02T03:04:05.123Z",
+          "userId": "0000000200000000",
+          "title": "gallery \ud83d\ude00 e\u0301",
+          "description": "",
+          "fileIds": [
+            "0000000400000000"
+          ],
+          "tags": [
+            null,
+            "tag",
+            null,
+            ""
+          ],
+          "isSensitive": false,
+          "likedCount": 13
+        },
+        "viewer": null
+      },
+      "expectedProjection": {
+        "id": "0000000100000000",
+        "createdAt": "2000-01-01T00:00:00.001Z",
+        "updatedAt": "2026-01-02T03:04:05.123Z",
+        "userId": "0000000200000000",
+        "title": "gallery \ud83d\ude00 e\u0301",
+        "description": "",
+        "fileIds": [
+          "0000000400000000"
+        ],
+        "tags": [
+          null,
+          "tag",
+          null,
+          ""
+        ],
+        "isSensitive": false,
+        "likedCount": 13
+      }
+    },
+    {
+      "name": "fileIds-null-only-array-raw-retained-files-empty",
+      "method": "aidx",
+      "input": {
+        "post": {
+          "id": "0000000100000000",
+          "updatedAt": "2026-01-02T03:04:05.123Z",
+          "userId": "0000000200000000",
+          "title": "gallery \ud83d\ude00 e\u0301",
+          "description": "",
+          "fileIds": [
+            null
+          ],
+          "tags": [],
+          "isSensitive": false,
+          "likedCount": 13
+        },
+        "viewer": null
+      },
+      "expectedProjection": {
+        "id": "0000000100000000",
+        "createdAt": "2000-01-01T00:00:00.001Z",
+        "updatedAt": "2026-01-02T03:04:05.123Z",
+        "userId": "0000000200000000",
+        "title": "gallery \ud83d\ude00 e\u0301",
+        "description": "",
+        "fileIds": [
+          null
+        ],
+        "isSensitive": false,
+        "likedCount": 13
+      }
+    },
+    {
+      "name": "mixed-null-duplicate-missing-fileIds-and-tags",
+      "method": "aidx",
+      "input": {
+        "post": {
+          "id": "0000000100000000",
+          "updatedAt": "2026-01-02T03:04:05.123Z",
+          "userId": "0000000200000000",
+          "title": "gallery \ud83d\ude00 e\u0301",
+          "description": "",
+          "fileIds": [
+            "0000000500000000",
+            null,
+            "0000000000000000",
+            "0000000400000000",
+            "0000000500000000",
+            null
+          ],
+          "tags": [
+            null,
+            "tag",
+            null
+          ],
+          "isSensitive": false,
+          "likedCount": 13
+        },
+        "viewer": null
+      },
+      "expectedProjection": {
+        "id": "0000000100000000",
+        "createdAt": "2000-01-01T00:00:00.001Z",
+        "updatedAt": "2026-01-02T03:04:05.123Z",
+        "userId": "0000000200000000",
+        "title": "gallery \ud83d\ude00 e\u0301",
+        "description": "",
+        "fileIds": [
+          "0000000500000000",
+          null,
+          "0000000000000000",
+          "0000000400000000",
+          "0000000500000000",
+          null
+        ],
+        "tags": [
+          null,
+          "tag",
+          null
+        ],
+        "isSensitive": false,
+        "likedCount": 13
+      }
+    },
+    {
+      "name": "video-thumbnail-url-construction-only",
+      "method": "aidx",
+      "input": {
+        "post": {
+          "id": "0000000100000000",
+          "updatedAt": "2026-01-02T03:04:05.123Z",
+          "userId": "0000000200000000",
+          "title": "gallery \ud83d\ude00 e\u0301",
+          "description": "",
+          "fileIds": [
+            "0000000600000000"
+          ],
+          "tags": [],
+          "isSensitive": false,
+          "likedCount": 13
+        },
+        "viewer": null
+      },
+      "expectedProjection": {
+        "id": "0000000100000000",
+        "createdAt": "2000-01-01T00:00:00.001Z",
+        "updatedAt": "2026-01-02T03:04:05.123Z",
+        "userId": "0000000200000000",
+        "title": "gallery \ud83d\ude00 e\u0301",
+        "description": "",
+        "fileIds": [
+          "0000000600000000"
+        ],
+        "isSensitive": false,
+        "likedCount": 13
+      }
+    },
+    {
+      "name": "remote-link-media-proxy",
+      "method": "aidx",
+      "input": {
+        "post": {
+          "id": "0000000100000000",
+          "updatedAt": "2026-01-02T03:04:05.123Z",
+          "userId": "0000000200000000",
+          "title": "gallery \ud83d\ude00 e\u0301",
+          "description": "",
+          "fileIds": [
+            "0000000400000000"
+          ],
+          "tags": [],
+          "isSensitive": false,
+          "likedCount": 13
+        },
+        "viewer": null
+      },
+      "expectedProjection": {
+        "id": "0000000100000000",
+        "createdAt": "2000-01-01T00:00:00.001Z",
+        "updatedAt": "2026-01-02T03:04:05.123Z",
+        "userId": "0000000200000000",
+        "title": "gallery \ud83d\ude00 e\u0301",
+        "description": "",
+        "fileIds": [
+          "0000000400000000"
+        ],
+        "isSensitive": false,
+        "likedCount": 13
+      }
+    },
+    {
+      "name": "id-parse-aid",
+      "method": "aid",
+      "input": {
+        "post": {
+          "id": "0000000100",
+          "updatedAt": "2026-01-02T03:04:05.123Z",
+          "userId": "0000000200000000",
+          "title": "gallery \ud83d\ude00 e\u0301",
+          "description": "",
+          "fileIds": [],
+          "tags": [],
+          "isSensitive": false,
+          "likedCount": 13
+        },
+        "viewer": null
+      },
+      "expectedProjection": {
+        "id": "0000000100",
+        "createdAt": "2000-01-01T00:00:00.001Z",
+        "updatedAt": "2026-01-02T03:04:05.123Z",
+        "userId": "0000000200000000",
+        "title": "gallery \ud83d\ude00 e\u0301",
+        "description": "",
+        "fileIds": [],
+        "isSensitive": false,
+        "likedCount": 13
+      }
+    },
+    {
+      "name": "id-parse-aidx",
+      "method": "aidx",
+      "input": {
+        "post": {
+          "id": "0000000100000000",
+          "updatedAt": "2026-01-02T03:04:05.123Z",
+          "userId": "0000000200000000",
+          "title": "gallery \ud83d\ude00 e\u0301",
+          "description": "",
+          "fileIds": [],
+          "tags": [],
+          "isSensitive": false,
+          "likedCount": 13
+        },
+        "viewer": null
+      },
+      "expectedProjection": {
+        "id": "0000000100000000",
+        "createdAt": "2000-01-01T00:00:00.001Z",
+        "updatedAt": "2026-01-02T03:04:05.123Z",
+        "userId": "0000000200000000",
+        "title": "gallery \ud83d\ude00 e\u0301",
+        "description": "",
+        "fileIds": [],
+        "isSensitive": false,
+        "likedCount": 13
+      }
+    },
+    {
+      "name": "id-parse-meid",
+      "method": "meid",
+      "input": {
+        "post": {
+          "id": "800000000001000000000000",
+          "updatedAt": "2026-01-02T03:04:05.123Z",
+          "userId": "0000000200000000",
+          "title": "gallery \ud83d\ude00 e\u0301",
+          "description": "",
+          "fileIds": [],
+          "tags": [],
+          "isSensitive": false,
+          "likedCount": 13
+        },
+        "viewer": null
+      },
+      "expectedProjection": {
+        "id": "800000000001000000000000",
+        "createdAt": "1970-01-01T00:00:00.001Z",
+        "updatedAt": "2026-01-02T03:04:05.123Z",
+        "userId": "0000000200000000",
+        "title": "gallery \ud83d\ude00 e\u0301",
+        "description": "",
+        "fileIds": [],
+        "isSensitive": false,
+        "likedCount": 13
+      }
+    },
+    {
+      "name": "id-parse-meidg",
+      "method": "meidg",
+      "input": {
+        "post": {
+          "id": "g00000000001000000000000",
+          "updatedAt": "2026-01-02T03:04:05.123Z",
+          "userId": "0000000200000000",
+          "title": "gallery \ud83d\ude00 e\u0301",
+          "description": "",
+          "fileIds": [],
+          "tags": [],
+          "isSensitive": false,
+          "likedCount": 13
+        },
+        "viewer": null
+      },
+      "expectedProjection": {
+        "id": "g00000000001000000000000",
+        "createdAt": "1970-01-01T00:00:00.001Z",
+        "updatedAt": "2026-01-02T03:04:05.123Z",
+        "userId": "0000000200000000",
+        "title": "gallery \ud83d\ude00 e\u0301",
+        "description": "",
+        "fileIds": [],
+        "isSensitive": false,
+        "likedCount": 13
+      }
+    },
+    {
+      "name": "id-parse-objectid",
+      "method": "objectid",
+      "input": {
+        "post": {
+          "id": "000000010000000000000000",
+          "updatedAt": "2026-01-02T03:04:05.123Z",
+          "userId": "0000000200000000",
+          "title": "gallery \ud83d\ude00 e\u0301",
+          "description": "",
+          "fileIds": [],
+          "tags": [],
+          "isSensitive": false,
+          "likedCount": 13
+        },
+        "viewer": null
+      },
+      "expectedProjection": {
+        "id": "000000010000000000000000",
+        "createdAt": "1970-01-01T00:00:01.000Z",
+        "updatedAt": "2026-01-02T03:04:05.123Z",
+        "userId": "0000000200000000",
+        "title": "gallery \ud83d\ude00 e\u0301",
+        "description": "",
+        "fileIds": [],
+        "isSensitive": false,
+        "likedCount": 13
+      }
+    },
+    {
+      "name": "id-parse-ulid",
+      "method": "ulid",
+      "input": {
+        "post": {
+          "id": "00000000010000000000000000",
+          "updatedAt": "2026-01-02T03:04:05.123Z",
+          "userId": "0000000200000000",
+          "title": "gallery \ud83d\ude00 e\u0301",
+          "description": "",
+          "fileIds": [],
+          "tags": [],
+          "isSensitive": false,
+          "likedCount": 13
+        },
+        "viewer": null
+      },
+      "expectedProjection": {
+        "id": "00000000010000000000000000",
+        "createdAt": "1970-01-01T00:00:00.001Z",
+        "updatedAt": "2026-01-02T03:04:05.123Z",
+        "userId": "0000000200000000",
+        "title": "gallery \ud83d\ude00 e\u0301",
+        "description": "",
+        "fileIds": [],
+        "isSensitive": false,
+        "likedCount": 13
+      }
+    }
+  ]
+}
