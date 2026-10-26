@@ -2,6 +2,8 @@
 
 ## Authority and scope
 
+The complete [Flash featured candidate](flash-featured-validation.md) matches58 public HTTP cases and reuses native Flash/UserLite batch packing. Its first paired eleven-condition gate has eight passes and three failures, so the whole business operation remains on TS. All conditions were measured; no exception or favorable rerun is taken.
+
 The complete [Flash detail slice](flash-show-validation.md) reuses native actual-viewer UserLite packing and the existing DB lane. Public/private detail access, author/like/Date evaluation order and omission semantics match44 actual TS HTTP cases; all eight first-attempt paired throughput/p95 gates pass. Fresh batch acceptance is tracked there.
 
 The complete [Gallery featured candidate](gallery-featured-validation.md) matches81 public HTTP comparisons and reuses native Gallery/UserLite/file packing, but remains on TS after small-list application-token throughput regresses4.41%. Six conditions are measured; five remain skipped. No performance exception is taken.

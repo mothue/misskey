@@ -1,6 +1,6 @@
 # Complete native flash/show
 
-`flash/show` executes the whole business operation through the existing native PostgreSQL lane and actual-viewer UserLite formatter. The public listener remains TS; no TS business callback, new connection, internal crate, cache, schema, frontend or slacc change is added. All eight first-attempt paired throughput/p95 gates pass. Fresh Linux federation passes; final pushed-SHA CI remains pending below.
+`flash/show` executes the whole business operation through the existing native PostgreSQL lane and actual-viewer UserLite formatter. The public listener remains TS; no TS business callback, new connection, internal crate, cache, schema, frontend or slacc change is added. All eight first-attempt paired throughput/p95 gates pass. Fresh Linux federation and final pushed-SHA CI pass, as recorded below.
 
 The query is compiled from actual Flash/FlashLike entity layouts, with quoted identifiers and bound values. Missing Flash retains NO_SUCH_FLASH400 and its existing error ID. This public endpoint has no required kind. Stored `private` visibility controls profile listing, rather than introducing an owner-only detail gate: anonymous and unrelated viewers retain TS success. UserLite receives the actual viewer. Anonymous isLiked is omitted; authenticated false/true, signed int4 likedCount, raw visibility and exact string contents remain unchanged. Permissions metadata is checked, but permissions values are neither projected nor decoded because TS does not consume them.
 
@@ -23,7 +23,7 @@ Private root: `/workspace/native-queue/flash-show`. Root commands, cwd, exit cod
 | Independent review | PASS |Fresh-context source/runtime/metrics/docs review finds no actionable issue; all56 metric rows and eight gates independently recomputed. Fresh Linux federation evidence is reviewed separately. |
 | Paired measurement/gate | PASS, exit0 |Eight normal scenarios, all throughput/p95 gates pass on the first attempt.48,000 measured +4,800 warm-up +six descriptive cold-first responses all match; six measured server lifetimes exit0 and collect children/ports. |
 | Fresh Linux federation | PASS, exit0;13 skipped |Fresh Linux build114.772s and test84.587s: nine files92 passed/13 skipped. Source1,217, host JS195, harness11 and committed0ed8fbc5ad674130c1d2b326490f200d093fac15 remain unchanged; first owned cleanup passes. |
-| Final pushed-SHA CI | NOT RUN |Final commit has not been pushed yet. |
+| Final pushed-SHA CI | PASS |`7a012dd142cf6838bcc74e9ebeef9346d3b0f234`:18 successful workflows and one skipped Storybook, all first attempt. The delayed FFmpeg installation recovered and its build/unit job passed without rerun. |
 
 The missing-copied-file candidate preflight stops before HTTP/data mutation. The initial SDK orchestration assertion incorrectly requires sampled controls to equal the native set; the real checker subsequently uses the same immutable twelve fresh side captures, retains all controls and verifies the exact required set. Both private harness failures remain preserved; neither is labeled a product regression or a fresh successful recapture.
 

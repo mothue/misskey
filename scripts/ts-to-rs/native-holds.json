@@ -2,6 +2,12 @@
   "version": 1,
   "holds": [
     {
+      "endpoint": "flash/featured",
+      "kind": "performance",
+      "reason": "Complete native candidate matches 58 HTTP cases, but the first paired eleven-condition gate fails maximum-list application throughput (-0.2043%), empty anonymous p95 (+13.0457%), and empty account throughput/p95 (-3.6414%/+2.6156%). Keep the complete TS body; all eleven conditions were measured and no exception or favorable rerun was taken.",
+      "evidence": "flash-featured-validation.md"
+    },
+    {
       "endpoint": "gallery/featured",
       "kind": "performance",
       "reason": "Complete native candidate matches 81 HTTP cases, but paired small-list application-token throughput regressed 4.4147% while p95 improved 2.0426%. Keep the complete TS body; default-list and maximum-list measurement remain skipped after the valid gate failure.",

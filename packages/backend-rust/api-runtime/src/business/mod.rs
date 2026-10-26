@@ -279,6 +279,9 @@ pub(super) async fn execute(
     if name == "flash/show" {
         return Some(flash::show(runtime, params, auth).await);
     }
+    if name == "flash/featured" {
+        return Some(flash::featured(runtime, params, auth).await);
+    }
     if name == "gallery/featured" {
         return Some(gallery::featured(runtime, params, auth).await);
     }
