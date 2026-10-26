@@ -6,7 +6,7 @@ Native means the complete business handler is selected in Rust; the public TS li
 
 | Total | Native | TS | Held (TS) |
 | ---: | ---: | ---: | ---: |
-| 438 | 41 | 384 | 13 |
+| 438 | 41 | 383 | 14 |
 
 Names and enumeration order come from the API registry. Native core selection and the business allowlist are read from Rust source. Rust advertises those selections at bootstrap; the TS callback guard consumes the validated names without a second list. Hold reasons come from the hold manifest.
 
@@ -141,7 +141,7 @@ Names and enumeration order come from the API registry. Native core selection an
 | `channels/featured` | TS |  |
 | `channels/follow` | TS |  |
 | `channels/followed` | TS |  |
-| `channels/my-favorites` | TS |  |
+| `channels/my-favorites` | Held (TS) | performance: The first paired gate fails three of eight conditions: ten-compact account throughput -8.64%; ten-compact application throughput -23.41% and p95 +54.95%; ten-mixed application throughput -2.91% and p95 +19.07%. Keep the complete TS business body. ([evidence](channels-my-favorites-validation.md)) |
 | `channels/owned` | TS |  |
 | `channels/search` | TS |  |
 | `channels/show` | TS |  |
@@ -456,7 +456,7 @@ Names and enumeration order come from the API registry. Native core selection an
 | Source | SHA-256 |
 | --- | --- |
 | `packages/backend/src/server/api/endpoint-list.ts` | `f6adc6070df862e7544a92bafc001a9339bfe1e746a856b602c505a248ae5470` |
-| `packages/backend-rust/api-runtime/src/lib.rs` | `dbb7ec9ebeb3764acfd4ca8ca91ed82c29e7e16830879312d973d28942426968` |
-| `packages/backend-rust/api-runtime/src/business/mod.rs` | `50a059655ebc8731faa486bcaf7ee6d2a5590d5bd27f26089a34b7c89564f8ef` |
-| `packages/backend/src/server/api/ApiServerService.ts` | `c1853ee97e896eecf500cfc0e5ad8fbce3a98298435e95101eee62cc7a12892d` |
-| `scripts/ts-to-rs/native-holds.json` | `ed9c28a3fa4f66a328ada29e517e9e096c66c12f5ce361d62cb9f72529e1d8ce` |
+| `packages/backend-rust/api-runtime/src/lib.rs` | `e3509bc171500b5c33d231f3652d0601ed7a7f02199904ff2c59aa4cb3aa3a46` |
+| `packages/backend-rust/api-runtime/src/business/mod.rs` | `daf867c2c193fd2592af635197d76a8217a4ec0a52b49cb7a67f72e648c6e99e` |
+| `packages/backend/src/server/api/ApiServerService.ts` | `a631cb68a7450774132304eb66aee6a0fde5fdfcc1508e97ecf84fa000b52ac1` |
+| `scripts/ts-to-rs/native-holds.json` | `2bb03652ef3b21211f1e464aab51e13e749e0dc6f7bef66d0ad9e5c2661e45a2` |

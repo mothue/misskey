@@ -78,6 +78,12 @@
       "kind": "performance",
       "reason": "Accepted-extra-field compatibility is fixed, but paired scoped application-token 18-user throughput regressed 4.85% (p95 improved 6.62%). All-scenario activation gate failed; retain TS body.",
       "evidence": "users-birthdays-validation.md"
+    },
+    {
+      "endpoint": "channels/my-favorites",
+      "kind": "performance",
+      "reason": "The first paired gate fails three of eight conditions: ten-compact account throughput -8.64%; ten-compact application throughput -23.41% and p95 +54.95%; ten-mixed application throughput -2.91% and p95 +19.07%. Keep the complete TS business body.",
+      "evidence": "channels-my-favorites-validation.md"
     }
   ]
 }
