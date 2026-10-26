@@ -16,7 +16,8 @@ import { Redis } from 'ioredis';
 import { api, castAsError, initTestDb, post, relativeFetch, role, signup, simpleGet, uploadFile } from '../utils.js';
 import type * as misskey from 'misskey-js';
 import { loadConfig } from '@/config.js';
-import { MiUser } from '@/models/_.js';
+import { MiBubbleGameRecord, MiUser } from '@/models/_.js';
+import { IdService } from '@/core/IdService.js';
 
 const waitForPushToTlOptions = { timeout: 3000, interval: 25 };
 
@@ -138,6 +139,148 @@ describe('Endpoints', () => {
 		dave = await signup({ username: 'dave' });
 		await api('admin/update-meta', { federation: 'all' }, alice as misskey.entities.SignupResponse);
 	}, 1000 * 60 * 2);
+
+	describe('bubble-game/ranking', () => {
+		const ids = new IdService(loadConfig());
+		const day = 24 * 60 * 60 * 1000;
+
+		async function withRecords(run: (insert: (gameMode: string, score: number, options?: Partial<MiBubbleGameRecord>) => Promise<MiBubbleGameRecord>) => Promise<void>) {
+			const connection = await initTestDb(true);
+			const records = connection.getRepository(MiBubbleGameRecord);
+			const owned: string[] = [];
+			try {
+				await run(async (gameMode, score, options = {}) => {
+					const record = records.create({
+						id: ids.gen(), userId: bob.id, gameMode, score,
+						seededAt: new Date(Date.now() - 6 * day), seed: 'ranking-e2e',
+						gameVersion: 1, logs: [], isVerified: false, ...options,
+					});
+					owned.push(record.id);
+					await records.insert(record);
+					return record;
+				});
+			} finally {
+				try {
+					if (owned.length > 0) await records.delete(owned);
+				} finally {
+					await connection.destroy();
+				}
+			}
+		}
+
+		test('公開上位10件はスコア降順で、重複作者・未検証記録・符号付きスコアを保持する', async () => {
+			await withRecords(async insert => {
+				const gameMode = `ranking-${randomUUID()}`;
+				const scores = [2147483647, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0];
+				const rows: MiBubbleGameRecord[] = [];
+				for (const [index, score] of scores.entries()) {
+					rows.push(await insert(gameMode, score, { userId: index % 2 === 0 ? bob.id : carol.id, isVerified: index % 2 === 0 }));
+				}
+				// Use stable controls on either side of seven days; HTTP does not freeze the server clock.
+				await insert(gameMode, 2147483647, { seededAt: new Date(Date.now() - 8 * day) });
+				const response = await api('bubble-game/ranking', { gameMode });
+				assert.strictEqual(response.status, 200);
+				assert.deepStrictEqual(response.body.map(row => [row.id, row.score, row.user?.id]),
+					rows.slice(0, 10).map(row => [row.id, row.score, row.userId]));
+				for (const row of response.body) assert.deepStrictEqual(Object.keys(row).sort(), ['id', 'score', 'user']);
+
+				const arbitraryMode = `${gameMode}-雲😀`;
+				const signed: MiBubbleGameRecord[] = [];
+				for (const score of [-2147483648, -1, 0]) signed.push(await insert(arbitraryMode, score));
+				const other = await api('bubble-game/ranking', { gameMode: arbitraryMode });
+				assert.strictEqual(other.status, 200);
+				assert.deepStrictEqual(other.body.map(row => [row.id, row.score]), signed.reverse().map(row => [row.id, row.score]));
+			});
+		});
+
+		test('認証済み管理者にも匿名UserLiteと公開バッジだけを返し、GETのキャッシュ期限を保持する', async () => {
+			await withRecords(async insert => {
+				const gameMode = `ranking-${randomUUID()}`;
+				await insert(gameMode, 1);
+				const badges: misskey.entities.Role[] = [];
+				try {
+					for (const isPublic of [true, false]) {
+						const badge = await role(alice, { name: `${gameMode}-${isPublic}`, asBadge: true, isPublic });
+						badges.push(badge);
+						const assigned = await api('admin/roles/assign', { roleId: badge.id, userId: bob.id }, alice);
+						assert.strictEqual(assigned.status, 204);
+					}
+					const anonymous = await api('bubble-game/ranking', { gameMode });
+					const authenticated = await api('bubble-game/ranking', { gameMode }, alice);
+					assert.strictEqual(anonymous.status, 200);
+					assert.strictEqual(authenticated.status, 200);
+					assert.deepStrictEqual(authenticated.body, anonymous.body);
+					const user = anonymous.body[0].user;
+					assert.ok(user);
+					assert.strictEqual(user.id, bob.id);
+					assert.strictEqual(user.username, bob.username);
+					assert.deepStrictEqual(user.badgeRoles, [{ name: badges[0].name, iconUrl: null, displayOrder: 0 }]);
+					for (const field of ['token', 'email', 'description', 'isFollowing', 'isBlocking', 'isAdmin']) {
+						assert.strictEqual(Object.hasOwn(user, field), false);
+					}
+					const get = await relativeFetch(`api/bubble-game/ranking?gameMode=${encodeURIComponent(gameMode)}`);
+					assert.strictEqual(get.status, 200);
+					assert.deepStrictEqual(await get.json(), anonymous.body);
+					assert.strictEqual(get.headers.get('cache-control'), 'public, max-age=60');
+					assert.strictEqual(anonymous.headers.get('cache-control'), 'private, max-age=0, must-revalidate');
+					assert.strictEqual(authenticated.headers.get('cache-control'), 'private, max-age=0, must-revalidate');
+				} finally {
+					const statuses: number[] = [];
+					for (const badge of badges) {
+						const deleted = await api('admin/roles/delete', { roleId: badge.id }, alice);
+						statuses.push(deleted.status);
+					}
+					assert.ok(statuses.every(status => status === 204));
+				}
+			});
+		});
+
+		test('モードは必須の文字列で、空文字・長い文字列・孤立UTF16サロゲートを扱う', async () => {
+			for (const params of [{}, { gameMode: null }, { gameMode: 0 }, { gameMode: [] }, { gameMode: {} }]) {
+				const invalid = await relativeFetch('api/bubble-game/ranking', {
+					method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(params),
+				});
+				assert.strictEqual(invalid.status, 400);
+				const body = castAsError(await invalid.json() as Record<string, unknown>);
+				assert.strictEqual(body.error.code, 'INVALID_PARAM');
+			}
+			for (const gameMode of ['', 'x'.repeat(129)]) {
+				const empty = await api('bubble-game/ranking', { gameMode });
+				assert.strictEqual(empty.status, 200);
+				assert.deepStrictEqual(empty.body, []);
+			}
+			await withRecords(async insert => {
+				const prefix = `ranking-${randomUUID()}-`;
+				const record = await insert(`${prefix}\uFFFD`, 7);
+				for (const suffix of ['\uFFFD', '\uD800', '\uDC00']) {
+					const response = await api('bubble-game/ranking', { gameMode: prefix + suffix });
+					assert.strictEqual(response.status, 200);
+					assert.deepStrictEqual(response.body.map(row => row.id), [record.id]);
+				}
+			});
+		});
+
+		test('NULを含むモードの公開500はQueryFailedErrorの詳細を保持する', async () => {
+			const response = await api('bubble-game/ranking', { gameMode: 'ranking\u0000' });
+			assert.strictEqual(response.status, 500);
+			const error = castAsError(response.body as unknown as Record<string, unknown>).error;
+			assert.strictEqual(error.code, 'INTERNAL_ERROR');
+			assert.strictEqual(error.kind, 'server');
+			assert.strictEqual(error.id, '5d37dbcb-891e-41ca-a3d6-e690c97775ac');
+			assert.strictEqual(error.message, 'Internal error occurred. Please contact us if the error persists.');
+			const info = error.info;
+			assert.ok(info !== null && typeof info === 'object' && 'e' in info);
+			const cause = info.e;
+			assert.ok(cause !== null && typeof cause === 'object' && 'code' in cause && 'message' in cause && 'id' in cause);
+			assert.strictEqual(typeof cause.id, 'string');
+			assert.match(cause.id, /^[0-9a-f-]{36}$/);
+			assert.deepStrictEqual(response.body, { error: {
+				message: 'Internal error occurred. Please contact us if the error persists.',
+				code: 'INTERNAL_ERROR', id: '5d37dbcb-891e-41ca-a3d6-e690c97775ac', kind: 'server',
+				info: { e: { message: 'invalid byte sequence for encoding "UTF8": 0x00', code: 'QueryFailedError', id: cause.id } },
+			} });
+		});
+	});
 
 	describe('signup', () => {
 		test('不正なユーザー名でアカウントが作成できない', async () => {
