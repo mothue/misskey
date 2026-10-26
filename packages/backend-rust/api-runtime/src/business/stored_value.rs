@@ -27,10 +27,7 @@ fn invalid_date() -> Error {
     let definition = &crate::response::INVALID_DATE;
     Error::legacy(definition.message.to_owned(), definition.code)
 }
-fn non_date_updated_timestamp() -> Error {
-    // Actual pinned production gallery HTTP for BOTH +/-infinity. The central
-    // definition contains the observed minified `i.updatedAt` expression.
-    let definition = &crate::response::NON_DATE_UPDATED_AT;
+fn non_date_updated_timestamp(definition: &crate::response::LegacyErrorDef) -> Error {
     Error::legacy(definition.message.to_owned(), definition.code)
 }
 
@@ -56,13 +53,15 @@ impl UpdatedDate {
             _ => Err(StoredDateFailure::FieldType),
         }
     }
-    fn iso(&self) -> Result<String, Error> {
+    fn iso(&self, non_date_error: &crate::response::LegacyErrorDef) -> Result<String, Error> {
         match self {
             Self::Finite(milliseconds) if milliseconds.abs() <= TIME_CLIP_LIMIT => {
                 iso_date(*milliseconds)
             }
             Self::Finite(_) => Err(invalid_date()),
-            Self::PositiveInfinity | Self::NegativeInfinity => Err(non_date_updated_timestamp()),
+            Self::PositiveInfinity | Self::NegativeInfinity => {
+                Err(non_date_updated_timestamp(non_date_error))
+            }
         }
     }
 }
@@ -72,8 +71,17 @@ pub(super) fn created_at(method: &str, id: &str) -> Result<String, Error> {
 }
 
 pub(super) fn updated_at(value: &Value) -> Result<String, StoredDateFailure> {
+    updated_at_with_error(value, &crate::response::NON_DATE_UPDATED_AT)
+}
+
+/// Date hydration/TimeClip remain shared; only the observed JS call-site
+/// expression in a primitive timestamp's TypeError belongs to the caller.
+pub(super) fn updated_at_with_error(
+    value: &Value,
+    non_date_error: &crate::response::LegacyErrorDef,
+) -> Result<String, StoredDateFailure> {
     UpdatedDate::decode(value)?
-        .iso()
+        .iso(non_date_error)
         .map_err(StoredDateFailure::Conversion)
 }
 
