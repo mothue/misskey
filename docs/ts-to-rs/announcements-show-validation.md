@@ -1,6 +1,6 @@
 # Complete native announcement detail
 
-`announcements/show` moves its complete business operation to Rust after all nine first-attempt paired throughput/p95 gates pass. It reuses the existing PostgreSQL lane, configured ID parsing and date formatter. Fastify retains the public socket; the accepted common Rust authentication, authorization, validation and response infrastructure is unchanged. No frontend product, slacc, schema, crate, connection pool, cache, helper RPC or TS business callback is added. Fresh Linux federation is pending at this activation commit; final pushed-SHA CI is checked separately after publication.
+`announcements/show` moves its complete business operation to Rust after all nine first-attempt paired throughput/p95 gates pass. It reuses the existing PostgreSQL lane, configured ID parsing and date formatter. Fastify retains the public socket; the accepted common Rust authentication, authorization, validation and response infrastructure is unchanged. No frontend product, slacc, schema, crate, connection pool, cache, helper RPC or TS business callback is added. Fresh Linux federation passes on its first run; final pushed-SHA CI is checked separately after publication.
 
 ## Preserved contract and types
 
@@ -34,7 +34,7 @@ An explicit dedicated DB/Redis configuration uses a new clone of a verified idle
 | BASELINE | UI placeholder image requests | Identical browser-blocked external placeholders on both sides; no page or ancillary API errors |
 | PASS | Rust child lifecycle |1to0to0,503after child exit, no restart, host exit0;7.26s |
 | PASS | Independent code, verification and measurement reviews | Separate implementation conversation; all63metric summaries independently recomputed |
-| PENDING | Fresh Linux federation | Prepared dedicated project; not executed at this activation commit |
+| PASS | Fresh Linux federation |9files92passed,13declared skips; first actual run, owned cleanup verified |
 
 SDK schemaBASELINE preserves65prior cases plus6new fixture cases whose stored opaque icon/display strings fall outside generated unions. The actual TS and native values and diagnostics are identical; these are not native regressions or passing schema validations. Every raw success body and array/object key order is retained. Error comparison removes only the nested diagnostic UUID on copies. Invalid opaque credentials are401; this does not claim a temporal credential-expiry feature absent from the source.
 
@@ -48,8 +48,16 @@ All nine strict median throughput/p95 gates pass: throughput improves17.66–75.
 
 Preparation5.24s and first dry33.96s pass; dry totals36warm and2first requests with0measured. The first measured attempt, summary and gate all exit0, with no omitted condition, exception or favorable rerun. Fixed49private inputs/71manifest entries, five executable controls, original activity proof, complete raw oracle and exclusive first-write lock remain exact through the measured window. All six measured hosts exit0, collect their stable native children and release61912. No build, test or browser session overlaps measurement. Independent review checks610facts and recomputes all63metrics with zero mismatches.
 
+## Fresh Linux federation
+
+Clean activation HEAD `d264404c163686542383f5852872a57ac95b9194` is frozen with source, host JS and twelve harness inputs. Dedicated project `cloud-announcements-show-fed` builds slacc/backend-rust inside fresh Linux outputs, masking host native artifacts and reusing only existing Linux caches. Build exits0 in117.911s (wrapper117.941s). Database/application/proxy setup and actual tests pass on their first attempts. Nine files produce92passed and13declared skips, no failures: Compose test83.806s, Vitest82.47s; complete services wrapper131.753s. No build, service setup, test or benchmark is rerun.
+
+The source-summary ANSI parser is corrected before this execution; no historical parser result is presented as a current test. First teardown20.762s is archived unchanged before owned cleanup's second teardown0.075s (cleanup wrapper6.393s). Final cleanup leaves0owned containers/volumes/networks and nine empty output directories; shared Linux cache identities remain intact. Source, JS, twelve harness inputs and host binary remain unchanged. Fresh container ELF identities are pinned before runtime and match cleanup; host artifacts are never substituted.
+
+Observed minimum available overlay1,397,178,368bytes, tmp3,549,859,840bytes and effective memory2,326,909,000bytes remain above the1GiB guard. Main dedicated queue PG/Redis services remain available. Fresh raw test log SHA256 is `de32fd152929e4afdcb7fb083af04efa4ca067b7307ddc2b08506cb6559bad7f`; execution report SHA256 is `07a48363bb5797fa234279f598d6461efd711e5b8c11716aba0d859d39683346`. This is the current activation's executed federation evidence, separate from earlier slice results.
+
 ## Evidence and publication
 
 Private command argv, cwd, exit codes, durations and redacted logs are under `/workspace/native-queue/announcements-show/results.jsonl` and `logs/`. Actual source/date/HTTP fixture provenance is retained with inline Rust tests. Full-unit evidence is `phase/unit-meili/unit-suite-report.json`; final main and SDK reports preserve raw joins, originals and cleanup. Benchmark raw aggregates, provenance, lock, summary, CSV and gate remain under `phase/benchmark-prep/`. Independent code, verification and measurement reports are separate fixed files. The final measurement review SHA256 is `439726ba77f69f3ee0cc13814b6ebae2f843f56a1631e4319bad8842f2bec592`.
 
-Fresh Linux federation and exact final pushed-SHA CI must be closed before this slice is accepted. PR title/body remain unchanged, and no CodeRabbit review is invoked.
+Fresh Linux federation has closed. Exact final pushed-SHA CI must be checked before this slice is accepted. PR title/body remain unchanged, and no CodeRabbit review is invoked.
