@@ -1,6 +1,6 @@
 # Complete native Bubble Game ranking
 
-`bubble-game/ranking` moves its complete business body to Rust, reusing the existing PostgreSQL lane and UserLite formatter. Public HTTP/auth/validation remain in the existing common runtime; Fastify continues to own the public socket. No frontend product, slacc, schema, crate, pool, cache, helper RPC or TS business callback is added. The first valid paired measurement passes every preregistered throughput/p95 gate. Fresh federation and final pushed-SHA CI are pending at this documentation checkpoint.
+`bubble-game/ranking` moves its complete business body to Rust, reusing the existing PostgreSQL lane and UserLite formatter. Public HTTP/auth/validation remain in the existing common runtime; Fastify continues to own the public socket. No frontend product, slacc, schema, crate, pool, cache, helper RPC or TS business callback is added. The first valid paired measurement passes every preregistered throughput/p95 gate. Fresh Linux federation also passes; exact final pushed-SHA CI is recorded separately after publication.
 
 ## Preserved contract
 
@@ -27,7 +27,7 @@ Private root: `/workspace/native-queue/bubble-game-ranking`. Ordinary commands/e
 | Child-loss lifecycle | PASS |Observed1→0 Rust child; ranking+ping/test/endpoint/endpoints503, no restart, hostexit0, children0/portreleased. |
 | First paired performance gate | PASS |All9strict gates,54k measured+5.4k warm+6descriptive first requests; independent63metric recomputation passes. |
 | Independent batch review | PASS source/runtime/metrics |Exact core/staged/test postimages and actual HTTP/SDK/UI/lifecycle/units reviewed independently; final documentation review follows. |
-| Fresh Linux federation | PENDING |Final committed selection must be frozen, built and tested separately. |
+| Fresh Linux federation | PASS |Clean5a6aa39a selection; Linux build117.037s,Compose test85.386s,9files92passed13skipped; first runtime attempts and owned cleanup pass. |
 | Final pushed-SHA CI | PENDING at this documentation commit |Earlier7d924930 CI is not reused; final exact-SHA records collected after publication. |
 
 The dedicated bubble-game-runtime DB is a verified clone of an idle owned test DB; source twelve-table hashes remain unchanged. Ranking50rows, authors, badges/assignments, credentials/scopes, schema and configuration are fixed. Actual frontend setup precedes baseline freezing. Later UI wizard setup is separately proved with exact scoped root registry rows, all other rows unchanged, and original root activity reconstruction. No SQL repair or product preference override occurs. No shared or production service is used.
@@ -45,3 +45,13 @@ Run4920a4e2-4d98-4bdd-92bc-2363c4000408 completes in205.15s. The unchanged commo
 All nine median throughput values improve18.74–117.19%, p95 decreases21.34–51.23%. [Generated63-row metrics](bubble-game-ranking-benchmark.csv) include p50/p95/p99, throughput and sampled TS/native/combined VmRSS medians,min/max,CV and paired deltas. Population SD is available in the private JSON summary. VmRSS is sampled, not peak or unique physical memory. Raw per-request latency samples are not exported. Latency ends after complete bytes; full-byte validation remains outside latency and inside throughput identically on both sides.
 
 The first-write measurement lock, raw aggregates, provenance and all historical attempts remain preserved. All4,014file identities/22links, canonical source/build trees, configuration, current raw rows/meta/preferences and prior case/oracle files remain exact through the single measured attempt. Both dry and all six measured host lifetimes collect their one native child and release61912, exit0. No build/E2E/other runtime overlaps measurement; no exception, omitted condition or favorable rerun is taken.
+
+## Fresh Linux federation
+
+Clean activation HEAD5a6aa39ae1e844823f976f6663f883f3923bce3f is frozen with source,host JS and eleven harness inputs. Dedicated project cloud-bubble-ranking-fed builds slacc/backend-rust in fresh Linux-only outputs, masking host native artifacts and reusing only existing Linux compilation caches. Build exits0 in117.037s (orchestration117.068s). Database/application/proxy setup, actual test and initial teardown all exit0 on their first attempts. Nine files produce92passed,13declared skipped and no failures: Compose test85.386s,Vitest83.76s; the complete services wrapper is129.795s. No runtime stage is retried.
+
+The original metadata-summary wrapper exits1 because its regex does not remove ANSI escapes from the successful Vitest summary. That FAIL report/log remain untouched. execution-summary-final.json derives the corrected counts from an in-memory ANSI-stripped copy of the identical raw log; it does not rerun or relabel a failing test. Raw test SHA256 is9c71123c5f549fb2f2a49e4e2b24100013ef41fc895d8caa78b8f08e9a693d68.
+
+Minimum available overlay1,543,012,352bytes,tmp3,552,448,512bytes and effective memory2,492,725,616bytes exceed the1GiB guard. Initial teardown20.677s is archived unchanged as down-001 before owned cleanup. Cleanup succeeds with0containers/volumes/networks and nine empty output directories; shared Linux cache identities remain intact. Source,JS and harness pins remain unchanged through final checks. Main dedicated queue PG/Redis remains available.
+
+Exact commands, elapsed-time definitions, source/harness/native ELF hashes, first teardown and resource cleanup are retained in /workspace/native-queue/bubble-game-ranking/phase/federation/execution-summary-final.json and adjacent immutable first-attempt logs. Independent audit precedes the final documentation commit. Final CI uses the final pushed SHA; this pre-publication document does not claim CI success.
