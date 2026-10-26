@@ -80,3 +80,38 @@ pub(super) fn compile_query(
     compiled.push_str(remaining);
     Ok(compiled)
 }
+
+// State never reads the other Note properties. Validate the WHOLE metadata
+// surface for identifier/duplicate safety while requiring only consumed kinds;
+// shared Gallery/Flash validated_layout deliberately remains exact instead.
+pub(super) fn projected_layout<'a>(
+    layouts: &'a HashMap<String, Vec<EntityColumn>>,
+    table_name: &str,
+    consumed: &[&str],
+) -> Result<(&'a str, &'a [EntityColumn]), LayoutFailure> {
+    let (table, columns) = layouts
+        .get_key_value(table_name)
+        .ok_or(LayoutFailure::MissingLayout)?;
+    let valid = |name: &str| !name.is_empty() && !name.contains('\0');
+    if !valid(table) {
+        return Err(LayoutFailure::InvalidIdentifier);
+    }
+    let mut seen = HashSet::new();
+    for column in columns {
+        if !valid(&column.database_name) || !valid(&column.property_name) {
+            return Err(LayoutFailure::InvalidIdentifier);
+        }
+        if !seen.insert(column.property_name.as_str()) {
+            return Err(LayoutFailure::DuplicateProperty);
+        }
+        // ColumnKind is a closed deserialized enum: Json, Date, SimpleArray.
+        // Unconsumed supported kinds are intentional, not unknown row values.
+        if consumed.contains(&column.property_name.as_str()) && column.kind != ColumnKind::Json {
+            return Err(LayoutFailure::HydrationKind);
+        }
+    }
+    if consumed.iter().any(|name| !seen.contains(name)) {
+        return Err(LayoutFailure::MissingProperty);
+    }
+    Ok((table.as_str(), columns.as_slice()))
+}

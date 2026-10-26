@@ -9,6 +9,7 @@ use super::{
     eager_batch::{PackFailure, eager_batch},
     entity_layout::{column_name, compile_query, validated_layout},
     notes,
+    stored_text_array::{TextArray, TextArrayFailure},
     stored_value::{self, StoredDateFailure, StoredInt4Failure},
 };
 use crate::{
@@ -262,101 +263,18 @@ fn string(value: &Value) -> Result<String, Error> {
         _ => Err(shape(FailureKind::FieldType)),
     }
 }
-/// Validated PostgreSQL text-array data, including multiple dimensions.
-/// Each Value clone/drop uses the existing iterative implementation; this type
-/// adds no recursive Clone/Drop or unrestricted opaque JSON payload.
-struct TextArray {
-    elements: Vec<Value>,
+fn text_array_failure(failure: TextArrayFailure) -> Error {
+    match failure {
+        TextArrayFailure::FieldType => shape(FailureKind::FieldType),
+        TextArrayFailure::ArrayElement => shape(FailureKind::ArrayElement),
+        TextArrayFailure::Utf16 { source } => Error::Gallery(GalleryFailure::Utf16 { source }),
+    }
 }
+
 impl TextArray {
-    fn new(value: &Value) -> Result<Self, Error> {
-        let Value::Array(elements) = value else {
-            return Err(shape(FailureKind::FieldType));
-        };
-        let mut pending: Vec<_> = elements.iter().collect();
-        while let Some(element) = pending.pop() {
-            match element {
-                Value::String(_) | Value::Null => {}
-                Value::Array(children) => pending.extend(children),
-                _ => return Err(shape(FailureKind::ArrayElement)),
-            }
-        }
-        Ok(Self {
-            elements: elements.clone(),
-        })
-    }
-
-    fn is_empty(&self) -> bool {
-        self.elements.is_empty()
-    }
-
-    fn packed(&self) -> Value {
-        Value::Array(self.elements.clone())
-    }
-
-    fn pg_array_literal(elements: &[Value]) -> Result<String, Error> {
-        // Actual pg/lib/utils.js prepareValue -> arrayString + escapeElement.
-        // Generate the same text using an explicit stack instead of recursively
-        // traversing a potentially deep public Value. Quotes/backslashes are the
-        // only escaped text characters; SQL NULL is unquoted inside the literal.
-        enum Emit<'a> {
-            Array(&'a [Value]),
-            Element(&'a Value),
-            Ascii(u8),
-        }
-        let mut pending = vec![Emit::Array(elements)];
-        let mut output = Vec::<u16>::new();
-        while let Some(task) = pending.pop() {
-            match task {
-                Emit::Array(elements) => {
-                    output.push(u16::from(b'{'));
-                    pending.push(Emit::Ascii(b'}'));
-                    for (index, element) in elements.iter().enumerate().rev() {
-                        pending.push(Emit::Element(element));
-                        if index > 0 {
-                            pending.push(Emit::Ascii(b','));
-                        }
-                    }
-                }
-                Emit::Ascii(byte) => output.push(u16::from(byte)),
-                Emit::Element(Value::Null) => output.extend("NULL".encode_utf16()),
-                Emit::Element(Value::String(units)) => {
-                    output.push(u16::from(b'"'));
-                    for unit in units {
-                        if *unit == u16::from(b'"') || *unit == u16::from(b'\\') {
-                            output.push(u16::from(b'\\'));
-                        }
-                        output.push(*unit);
-                    }
-                    output.push(u16::from(b'"'));
-                }
-                Emit::Element(Value::Array(children)) => pending.push(Emit::Array(children)),
-                Emit::Element(_) => return Err(shape(FailureKind::ArrayElement)),
-            }
-        }
-        String::from_utf16(&output)
-            .map_err(|source| Error::Gallery(GalleryFailure::Utf16 { source }))
-    }
-
-    fn query_ids(&self) -> Result<Vec<Option<String>>, Error> {
-        // TypeORM passes each OUTER item as one IN parameter. Scalar text stays
-        // text, NULL stays NULL, and an array becomes pg's array-literal string.
-        // Keeping [None] distinct from [] preserves the source file query even
-        // when the original nonempty array contains only NULL elements.
-        self.elements
-            .iter()
-            .map(|element| match element {
-                Value::Null => Ok(None),
-                Value::String(_) => string(element).map(Some),
-                Value::Array(children) => Self::pg_array_literal(children).map(Some),
-                _ => Err(shape(FailureKind::ArrayElement)),
-            })
-            .collect()
-    }
-
     fn reconstruct_files(&self, packed: &HashMap<String, Value>) -> Result<Value, Error> {
         let mut result = Vec::new();
-        for element in &self.elements {
+        for element in self.elements() {
             match element {
                 Value::String(_) => {
                     if let Some(file) = packed.get(&string(element)?) {
@@ -419,8 +337,8 @@ impl GalleryRow {
             user_id: string(field(row, "userId")?)?,
             title: string(field(row, "title")?)?,
             description,
-            file_ids: TextArray::new(field(row, "fileIds")?)?,
-            tags: TextArray::new(field(row, "tags")?)?,
+            file_ids: TextArray::new(field(row, "fileIds")?).map_err(text_array_failure)?,
+            tags: TextArray::new(field(row, "tags")?).map_err(text_array_failure)?,
             is_sensitive,
             liked_count,
         })
@@ -545,7 +463,7 @@ async fn pack_decoded_post(
     packed_user: Option<&Value>,
 ) -> Result<Value, Error> {
     let viewer = viewer_id(auth)?;
-    let query_ids = post.file_ids.query_ids()?;
+    let query_ids = post.file_ids.query_ids().map_err(text_array_failure)?;
     let borrowed_ids: Vec<_> = query_ids.iter().map(Option::as_deref).collect();
     // GalleryPostEntityService.pack uses a non-nullish batch author hint,
     // otherwise it passes the actual viewer to the shared UserLite formatter.
@@ -1137,7 +1055,7 @@ mod tests {
             let value = Value::parse_json(&fixture["input"].to_string()).unwrap();
             let array = TextArray::new(&value).unwrap();
             assert_eq!(
-                TextArray::pg_array_literal(&array.elements).unwrap(),
+                TextArray::pg_array_literal(array.elements()).unwrap(),
                 fixture["prepared"].as_str().unwrap()
             );
         }

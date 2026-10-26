@@ -4,16 +4,12 @@
  */
 //! Authenticated state with typed rows and the source's three independent reads.
 pub use super::super::entity_layout::LayoutFailure as StateLayoutFailure;
-use super::super::entity_layout::{column_name, compile_query};
+use super::super::entity_layout::{column_name, compile_query, projected_layout};
 use super::{Error, Value};
 use crate::Runtime;
-use misskey_backend_api_auth::{ColumnKind, Context, EntityColumn, postgres::quote_identifier};
+use misskey_backend_api_auth::{Context, EntityColumn, postgres::quote_identifier};
 use misskey_backend_postgres::QueryError;
-use std::{
-    collections::{HashMap, HashSet},
-    fmt,
-    future::Future,
-};
+use std::{collections::HashMap, fmt, future::Future};
 
 const NOTE_SQL: &str = "SELECT n.{id},n.{thread_id} FROM {table} n WHERE n.{id}=$1 LIMIT 1";
 const COUNT_SQL: &str =
@@ -92,40 +88,6 @@ fn shape(operation: Operation, kind: ShapeKind) -> Error {
     Error::NoteState(StateFailure::Shape { operation, kind })
 }
 
-// State never reads the other Note properties. Validate the WHOLE metadata
-// surface for identifier/duplicate safety while requiring only consumed kinds;
-// shared Gallery/Flash validated_layout deliberately remains exact instead.
-fn projected_layout<'a>(
-    layouts: &'a HashMap<String, Vec<EntityColumn>>,
-    table_name: &str,
-    consumed: &[&str],
-) -> Result<(&'a str, &'a [EntityColumn]), StateLayoutFailure> {
-    let (table, columns) = layouts
-        .get_key_value(table_name)
-        .ok_or(StateLayoutFailure::MissingLayout)?;
-    let valid = |name: &str| !name.is_empty() && !name.contains('\0');
-    if !valid(table) {
-        return Err(StateLayoutFailure::InvalidIdentifier);
-    }
-    let mut seen = HashSet::new();
-    for column in columns {
-        if !valid(&column.database_name) || !valid(&column.property_name) {
-            return Err(StateLayoutFailure::InvalidIdentifier);
-        }
-        if !seen.insert(column.property_name.as_str()) {
-            return Err(StateLayoutFailure::DuplicateProperty);
-        }
-        // ColumnKind is a closed deserialized enum: Json, Date, SimpleArray.
-        // Unconsumed supported kinds are intentional, not unknown row values.
-        if consumed.contains(&column.property_name.as_str()) && column.kind != ColumnKind::Json {
-            return Err(StateLayoutFailure::HydrationKind);
-        }
-    }
-    if consumed.iter().any(|name| !seen.contains(name)) {
-        return Err(StateLayoutFailure::MissingProperty);
-    }
-    Ok((table.as_str(), columns.as_slice()))
-}
 pub(crate) struct StateQueries {
     note: String,
     favorite: String,
@@ -315,6 +277,7 @@ pub(in crate::business) async fn state(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use misskey_backend_api_auth::ColumnKind;
     use serde_json::Value as Json;
     use std::sync::Mutex;
 

@@ -34,6 +34,7 @@ pub(super) use notes::{ClipFailureKind, ClipQueries, StateQueries};
 mod registry_apps;
 mod reversi;
 mod roles_admin;
+mod stored_text_array;
 mod stored_value;
 mod user_achievements;
 mod user_birthdays;
