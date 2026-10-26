@@ -1,0 +1,680 @@
+{
+  "status": "PASS",
+  "head": "7d924930b99d0a7471464d3c950db340cb5a4c1f",
+  "generatedAt": "2026-10-26T06:45:58.593Z",
+  "evidenceScope": "Actual extracted callback and actual extracted packMany; controlled repository, clock and pack dependency. Installed pg transport serializer unit. No DB/HTTP/actual UserLite formatting proof.",
+  "callbackSha256": "c77185cd8500d3fa7c3537989315e9a142740bdcc0b2b1d694c4b4e0a4ec3138",
+  "packManySha256": "ea099b2050b85b9578cc17f84d4393995479dca060d81c5a2766c0ae0d8abf67",
+  "cases": [
+    {
+      "name": "empty",
+      "ps": {
+        "gameMode": "normal"
+      },
+      "clockReads": 1,
+      "cutoff": 1799395200123,
+      "repositoryPredicate": "moreThan",
+      "order": {
+        "score": "DESC"
+      },
+      "take": 10,
+      "relations": {
+        "user": true
+      },
+      "calls": [
+        {
+          "operation": "find"
+        },
+        {
+          "operation": "packMany",
+          "count": 0,
+          "viewer": null
+        }
+      ],
+      "result": []
+    },
+    {
+      "name": "repository-order-first-find-duplicate-i32-extrema",
+      "ps": {
+        "gameMode": "normal"
+      },
+      "clockReads": 1,
+      "cutoff": 1799395200123,
+      "repositoryPredicate": "moreThan",
+      "order": {
+        "score": "DESC"
+      },
+      "take": 10,
+      "relations": {
+        "user": true
+      },
+      "calls": [
+        {
+          "operation": "find"
+        },
+        {
+          "operation": "packMany",
+          "count": 3,
+          "viewer": null
+        },
+        {
+          "operation": "pack",
+          "inputId": "duplicate",
+          "marker": "first",
+          "viewer": null,
+          "optionsKeys": [
+            "userProfile",
+            "userRelations",
+            "userMemos",
+            "pinNotes"
+          ]
+        },
+        {
+          "operation": "pack",
+          "inputId": "other",
+          "marker": "second",
+          "viewer": null,
+          "optionsKeys": [
+            "userProfile",
+            "userRelations",
+            "userMemos",
+            "pinNotes"
+          ]
+        },
+        {
+          "operation": "pack",
+          "inputId": "duplicate",
+          "marker": "third",
+          "viewer": null,
+          "optionsKeys": [
+            "userProfile",
+            "userRelations",
+            "userMemos",
+            "pinNotes"
+          ]
+        }
+      ],
+      "result": [
+        {
+          "id": "record-z",
+          "score": -2147483648,
+          "user": {
+            "id": "duplicate",
+            "oracleMarker": "first"
+          }
+        },
+        {
+          "id": "record-a",
+          "score": 2147483647,
+          "user": {
+            "id": "other",
+            "oracleMarker": "second"
+          }
+        },
+        {
+          "id": "record-b",
+          "score": -1,
+          "user": {
+            "id": "duplicate",
+            "oracleMarker": "first"
+          }
+        }
+      ]
+    },
+    {
+      "name": "first-find-no-match-undefined-serialization",
+      "ps": {
+        "gameMode": "normal"
+      },
+      "clockReads": 1,
+      "cutoff": 1799395200123,
+      "repositoryPredicate": "moreThan",
+      "order": {
+        "score": "DESC"
+      },
+      "take": 10,
+      "relations": {
+        "user": true
+      },
+      "calls": [
+        {
+          "operation": "find"
+        },
+        {
+          "operation": "packMany",
+          "count": 1,
+          "viewer": null
+        },
+        {
+          "operation": "pack",
+          "inputId": "duplicate",
+          "marker": "first",
+          "viewer": null,
+          "optionsKeys": [
+            "userProfile",
+            "userRelations",
+            "userMemos",
+            "pinNotes"
+          ]
+        }
+      ],
+      "result": [
+        {
+          "id": "record-z",
+          "score": -2147483648
+        }
+      ]
+    },
+    {
+      "name": "callback-forwards-empty-string",
+      "ps": {
+        "gameMode": ""
+      },
+      "clockReads": 1,
+      "cutoff": 1799395200123,
+      "repositoryPredicate": "moreThan",
+      "order": {
+        "score": "DESC"
+      },
+      "take": 10,
+      "relations": {
+        "user": true
+      },
+      "calls": [
+        {
+          "operation": "find"
+        },
+        {
+          "operation": "packMany",
+          "count": 0,
+          "viewer": null
+        }
+      ],
+      "result": []
+    },
+    {
+      "name": "callback-forwards-arbitrary-string",
+      "ps": {
+        "gameMode": "not-a-ui-mode"
+      },
+      "clockReads": 1,
+      "cutoff": 1799395200123,
+      "repositoryPredicate": "moreThan",
+      "order": {
+        "score": "DESC"
+      },
+      "take": 10,
+      "relations": {
+        "user": true
+      },
+      "calls": [
+        {
+          "operation": "find"
+        },
+        {
+          "operation": "packMany",
+          "count": 0,
+          "viewer": null
+        }
+      ],
+      "result": []
+    },
+    {
+      "name": "callback-forwards-unicode",
+      "ps": {
+        "gameMode": "雪😀"
+      },
+      "clockReads": 1,
+      "cutoff": 1799395200123,
+      "repositoryPredicate": "moreThan",
+      "order": {
+        "score": "DESC"
+      },
+      "take": 10,
+      "relations": {
+        "user": true
+      },
+      "calls": [
+        {
+          "operation": "find"
+        },
+        {
+          "operation": "packMany",
+          "count": 0,
+          "viewer": null
+        }
+      ],
+      "result": []
+    },
+    {
+      "name": "callback-forwards-nul",
+      "ps": {
+        "gameMode": "\u0000"
+      },
+      "clockReads": 1,
+      "cutoff": 1799395200123,
+      "repositoryPredicate": "moreThan",
+      "order": {
+        "score": "DESC"
+      },
+      "take": 10,
+      "relations": {
+        "user": true
+      },
+      "calls": [
+        {
+          "operation": "find"
+        },
+        {
+          "operation": "packMany",
+          "count": 0,
+          "viewer": null
+        }
+      ],
+      "result": []
+    },
+    {
+      "name": "callback-forwards-lone-high-surrogate",
+      "ps": {
+        "gameMode": "\ud800"
+      },
+      "clockReads": 1,
+      "cutoff": 1799395200123,
+      "repositoryPredicate": "moreThan",
+      "order": {
+        "score": "DESC"
+      },
+      "take": 10,
+      "relations": {
+        "user": true
+      },
+      "calls": [
+        {
+          "operation": "find"
+        },
+        {
+          "operation": "packMany",
+          "count": 0,
+          "viewer": null
+        }
+      ],
+      "result": []
+    },
+    {
+      "name": "callback-forwards-lone-low-surrogate",
+      "ps": {
+        "gameMode": "\udfff"
+      },
+      "clockReads": 1,
+      "cutoff": 1799395200123,
+      "repositoryPredicate": "moreThan",
+      "order": {
+        "score": "DESC"
+      },
+      "take": 10,
+      "relations": {
+        "user": true
+      },
+      "calls": [
+        {
+          "operation": "find"
+        },
+        {
+          "operation": "packMany",
+          "count": 0,
+          "viewer": null
+        }
+      ],
+      "result": []
+    },
+    {
+      "name": "callback-only-missing-not-public-valid",
+      "ps": {},
+      "clockReads": 1,
+      "cutoff": 1799395200123,
+      "repositoryPredicate": "moreThan",
+      "order": {
+        "score": "DESC"
+      },
+      "take": 10,
+      "relations": {
+        "user": true
+      },
+      "calls": [
+        {
+          "operation": "find"
+        },
+        {
+          "operation": "packMany",
+          "count": 0,
+          "viewer": null
+        }
+      ],
+      "result": []
+    },
+    {
+      "name": "callback-only-null-not-public-valid",
+      "ps": {
+        "gameMode": null
+      },
+      "clockReads": 1,
+      "cutoff": 1799395200123,
+      "repositoryPredicate": "moreThan",
+      "order": {
+        "score": "DESC"
+      },
+      "take": 10,
+      "relations": {
+        "user": true
+      },
+      "calls": [
+        {
+          "operation": "find"
+        },
+        {
+          "operation": "packMany",
+          "count": 0,
+          "viewer": null
+        }
+      ],
+      "result": []
+    },
+    {
+      "name": "viewer-anonymous-always-null-pack-viewer",
+      "ps": {
+        "gameMode": "normal"
+      },
+      "clockReads": 1,
+      "cutoff": 1799395200123,
+      "repositoryPredicate": "moreThan",
+      "order": {
+        "score": "DESC"
+      },
+      "take": 10,
+      "relations": {
+        "user": true
+      },
+      "calls": [
+        {
+          "operation": "find"
+        },
+        {
+          "operation": "packMany",
+          "count": 1,
+          "viewer": null
+        },
+        {
+          "operation": "pack",
+          "inputId": "duplicate",
+          "marker": "first",
+          "viewer": null,
+          "optionsKeys": [
+            "userProfile",
+            "userRelations",
+            "userMemos",
+            "pinNotes"
+          ]
+        }
+      ],
+      "result": [
+        {
+          "id": "record-z",
+          "score": -2147483648,
+          "user": {
+            "id": "duplicate",
+            "oracleMarker": "first"
+          }
+        }
+      ]
+    },
+    {
+      "name": "viewer-account-always-null-pack-viewer",
+      "ps": {
+        "gameMode": "normal"
+      },
+      "clockReads": 1,
+      "cutoff": 1799395200123,
+      "repositoryPredicate": "moreThan",
+      "order": {
+        "score": "DESC"
+      },
+      "take": 10,
+      "relations": {
+        "user": true
+      },
+      "calls": [
+        {
+          "operation": "find"
+        },
+        {
+          "operation": "packMany",
+          "count": 1,
+          "viewer": null
+        },
+        {
+          "operation": "pack",
+          "inputId": "duplicate",
+          "marker": "first",
+          "viewer": null,
+          "optionsKeys": [
+            "userProfile",
+            "userRelations",
+            "userMemos",
+            "pinNotes"
+          ]
+        }
+      ],
+      "result": [
+        {
+          "id": "record-z",
+          "score": -2147483648,
+          "user": {
+            "id": "duplicate",
+            "oracleMarker": "first"
+          }
+        }
+      ]
+    },
+    {
+      "name": "viewer-moderator-always-null-pack-viewer",
+      "ps": {
+        "gameMode": "normal"
+      },
+      "clockReads": 1,
+      "cutoff": 1799395200123,
+      "repositoryPredicate": "moreThan",
+      "order": {
+        "score": "DESC"
+      },
+      "take": 10,
+      "relations": {
+        "user": true
+      },
+      "calls": [
+        {
+          "operation": "find"
+        },
+        {
+          "operation": "packMany",
+          "count": 1,
+          "viewer": null
+        },
+        {
+          "operation": "pack",
+          "inputId": "duplicate",
+          "marker": "first",
+          "viewer": null,
+          "optionsKeys": [
+            "userProfile",
+            "userRelations",
+            "userMemos",
+            "pinNotes"
+          ]
+        }
+      ],
+      "result": [
+        {
+          "id": "record-z",
+          "score": -2147483648,
+          "user": {
+            "id": "duplicate",
+            "oracleMarker": "first"
+          }
+        }
+      ]
+    },
+    {
+      "name": "repository-rejection-prevents-pack",
+      "ps": {
+        "gameMode": "normal"
+      },
+      "clockReads": 1,
+      "cutoff": 1799395200123,
+      "repositoryPredicate": "moreThan",
+      "order": {
+        "score": "DESC"
+      },
+      "take": 10,
+      "relations": {
+        "user": true
+      },
+      "calls": [
+        {
+          "operation": "find"
+        }
+      ],
+      "controlledFailure": "controlled-repository-failure"
+    },
+    {
+      "name": "actual-packMany-starts-later-pack-after-rejected-promise",
+      "ps": {
+        "gameMode": "normal"
+      },
+      "clockReads": 1,
+      "cutoff": 1799395200123,
+      "repositoryPredicate": "moreThan",
+      "order": {
+        "score": "DESC"
+      },
+      "take": 10,
+      "relations": {
+        "user": true
+      },
+      "calls": [
+        {
+          "operation": "find"
+        },
+        {
+          "operation": "packMany",
+          "count": 2,
+          "viewer": null
+        },
+        {
+          "operation": "pack",
+          "inputId": "fail-user",
+          "marker": "fail",
+          "viewer": null,
+          "optionsKeys": [
+            "userProfile",
+            "userRelations",
+            "userMemos",
+            "pinNotes"
+          ]
+        },
+        {
+          "operation": "pack",
+          "inputId": "later-user",
+          "marker": "later",
+          "viewer": null,
+          "optionsKeys": [
+            "userProfile",
+            "userRelations",
+            "userMemos",
+            "pinNotes"
+          ]
+        }
+      ],
+      "controlledFailure": "controlled-pack-failure"
+    },
+    {
+      "name": "actual-packMany-eager-ordered-results",
+      "starts": [
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "name": "actual-packMany-settlement-error-precedence",
+      "starts": [
+        0,
+        1,
+        2
+      ]
+    }
+  ],
+  "utf16Transport": [
+    {
+      "inputUtf16": [],
+      "encodedHex": "",
+      "encodedString": ""
+    },
+    {
+      "inputUtf16": [
+        38634,
+        55357,
+        56832
+      ],
+      "encodedHex": "e99baaf09f9880",
+      "encodedString": "雪😀"
+    },
+    {
+      "inputUtf16": [
+        55296
+      ],
+      "encodedHex": "efbfbd",
+      "encodedString": "�"
+    },
+    {
+      "inputUtf16": [
+        57343
+      ],
+      "encodedHex": "efbfbd",
+      "encodedString": "�"
+    },
+    {
+      "inputUtf16": [
+        55296,
+        120,
+        57343
+      ],
+      "encodedHex": "efbfbd78efbfbd",
+      "encodedString": "�x�"
+    },
+    {
+      "inputUtf16": [
+        0
+      ],
+      "encodedHex": "00",
+      "encodedString": "\u0000"
+    }
+  ],
+  "sourceSha256": {
+    "packages/backend/src/server/api/endpoints/bubble-game/ranking.ts": "2dec55a1c3a6408797c150fdf15e3ffffbd13c7c8fc8d493f1d5d82acea4e914",
+    "packages/backend/src/core/entities/UserEntityService.ts": "18a993af418610a556c58e1255d40bc1e6d18b4cb6320920065534f2448533a3",
+    "packages/backend/src/models/BubbleGameRecord.ts": "7c26780eeebc89cb23eb07ba9989e9c7bb1be69be0099b6ef1bfd66d0411b8bb",
+    "packages/backend/src/server/api/ApiServerService.ts": "fb96666d4cdb3e5572773914d5b5e2933cbcf0ddbe0d9df8f8694d55254f8800",
+    "packages/backend/src/server/rust/api-entity.ts": "818721b3caa2d0734f9ab402e3b07e37f1be713596654fdab5c6a1206b444b6b",
+    "packages/backend/src/postgres.ts": "929adc061c06c1eeb7c4c51cefef099f7e76a5082c80bf45b96ca55b0efa5e5a",
+    "packages/backend-rust/storage-postgres/src/lib.rs": "e42df01d668a83811e78188e7164dbce1c71c50e00c94ffd4c60c69e7526e689",
+    "packages/backend-rust/storage-postgres/src/pool.rs": "a8b6a67ae7caf82506c0eaf0bf0573bfd8066bd86d8afc39db47e832181dafec",
+    "packages/backend-rust/api-runtime/src/business/notes/users.rs": "cb50471363c58e577b4b58a73eaf0ea3767beabb3aec1b4f19e6e84d13361045",
+    "packages/backend-rust/api-runtime/src/business/eager_batch.rs": "65f354f89686749e2c76ed295ce4a84aa79e826a78075a4fe6ebd34c8b498b91",
+    "packages/backend/node_modules/typeorm/query-builder/SelectQueryBuilder.js": "13dcf130560ae125eeee165d250fb175e914534662312c53a7c9f9324fa6da3b",
+    "packages/backend/node_modules/typeorm/query-builder/QueryExpressionMap.js": "ed6b0406be39598997a32a62dd8c5ac72cf5996079b36117d54bc6ea9c6cecfe",
+    "/workspace/misskey/node_modules/.bun/typescript@6.0.3/node_modules/typescript/lib/typescript.js": "569177652966bd528c319171c7dd22860dbf72bde116cbc4f644f1d02bb12e39",
+    "/workspace/misskey/node_modules/.bun/pg@8.23.0/node_modules/pg/lib/utils.js": "97fb5d56e301d00412e85ce91d796a61c79493dc03ae5adc05995ed8a0ed7936",
+    "/workspace/misskey/node_modules/.bun/pg-protocol@1.16.0/node_modules/pg-protocol/dist/serializer.js": "342f298021498cbf35ccc8c06fd7ec36d215a3616549f6c87f286844b24f5578",
+    "/workspace/misskey/node_modules/.bun/pg-protocol@1.16.0/node_modules/pg-protocol/dist/buffer-writer.js": "618b3b9be3ad19e873d19494b34be41ea1ee91ddee66e4b065b5d416981c7859"
+  }
+}

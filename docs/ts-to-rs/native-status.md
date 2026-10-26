@@ -456,7 +456,7 @@ Names and enumeration order come from the API registry. Native core selection an
 | Source | SHA-256 |
 | --- | --- |
 | `packages/backend/src/server/api/endpoint-list.ts` | `f6adc6070df862e7544a92bafc001a9339bfe1e746a856b602c505a248ae5470` |
-| `packages/backend-rust/api-runtime/src/lib.rs` | `21f118ca4c90afaa96b112ba2ae4d4a7f4834f20428023a5ada6709629103082` |
-| `packages/backend-rust/api-runtime/src/business/mod.rs` | `3edaa6a0618a17d9419e600322b84083a152842c5587566acf2ed1fc04706999` |
-| `packages/backend/src/server/api/ApiServerService.ts` | `fb96666d4cdb3e5572773914d5b5e2933cbcf0ddbe0d9df8f8694d55254f8800` |
+| `packages/backend-rust/api-runtime/src/lib.rs` | `dc6793e7d4e08b00f7a0ce4649a7fbd118b8deb42c661fdd59fe5b8ebc530406` |
+| `packages/backend-rust/api-runtime/src/business/mod.rs` | `1b1808ce936e1684ba65780001b4d803642de1faac61bf76b7c8007379dd2591` |
+| `packages/backend/src/server/api/ApiServerService.ts` | `08920e53f32ea9c96907bf58bed044b66952cb9df38393a55cce9a7ba07c3bb7` |
 | `scripts/ts-to-rs/native-holds.json` | `09904bdcf3a17be6ad6a6f7e821367df5bb241166739110ef2c940d21f068bcc` |

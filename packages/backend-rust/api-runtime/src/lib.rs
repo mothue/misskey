@@ -26,6 +26,7 @@ mod response;
 pub use business::FlashLayoutFailure;
 pub use business::GalleryLayoutFailure;
 pub use business::StateLayoutFailure;
+pub use business::{BubbleRankingLayoutFailure, UserLiteLayoutFailure};
 use meta::EndpointMeta;
 use response::ApiFailure;
 
@@ -48,6 +49,8 @@ pub enum FailureStage {
     GalleryLayout(GalleryLayoutFailure),
     FlashLayout(FlashLayoutFailure),
     StateLayout(StateLayoutFailure),
+    BubbleRankingLayout(BubbleRankingLayoutFailure),
+    UserLiteLayout(UserLiteLayoutFailure),
     AuthStore,
     AuthService,
     Redis,
@@ -323,6 +326,8 @@ pub struct Runtime {
     gallery_queries: business::GalleryQueries,
     flash_queries: business::FlashQueries,
     state_queries: business::StateQueries,
+    bubble_ranking_queries: business::BubbleRankingQueries,
+    user_lite_projection: String,
     gallery_featured_cache: business::GalleryFeaturedCache,
     max_file_size: u64,
     upload_directory: String,
@@ -404,6 +409,18 @@ impl Runtime {
                 tracing::error!(operation = "configure_state_queries", error.kind = ?kind, "API bootstrap failed");
                 Failure::new(FailureStage::StateLayout(kind))
             })?;
+        let bubble_ranking_queries = business::BubbleRankingQueries::new(&config.auth.entity_layouts)
+            .map_err(|kind| {
+                tracing::error!(operation = "configure_bubble_ranking_queries", error.kind = ?kind, "API bootstrap failed");
+                Failure::new(FailureStage::BubbleRankingLayout(kind))
+            })?;
+        let user_lite_projection = config.auth.entity_layouts.get("user")
+            .ok_or(UserLiteLayoutFailure::MissingLayout)
+            .and_then(|columns| business::user_lite_projection(columns, "u"))
+            .map_err(|kind| {
+                tracing::error!(operation = "configure_user_lite_projection", error.kind = ?kind, "API bootstrap failed");
+                Failure::new(FailureStage::UserLiteLayout(kind))
+            })?;
         let store = Arc::new(
             PostgresAuthStore::new(database.clone(), config.auth.entity_layouts.clone())
                 .map_err(|_| Failure::new(FailureStage::AuthStore))?,
@@ -440,6 +457,8 @@ impl Runtime {
             gallery_queries,
             flash_queries,
             state_queries,
+            bubble_ranking_queries,
+            user_lite_projection,
             gallery_featured_cache: business::GalleryFeaturedCache::default(),
             max_file_size: config.max_file_size,
             upload_directory: config.upload_directory,

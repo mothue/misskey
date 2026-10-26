@@ -1,11 +1,81 @@
 //! UserLite projection for complete native note reads.
-use super::super::{Error, rows};
+use super::super::{
+    Error,
+    eager_batch::{PackFailure, eager_batch},
+    entity_layout::{LayoutFailure, column_name},
+    rows,
+};
 use super::entities::{boolean, field, nullable_string, populate_emojis, string, string_array};
 use crate::Runtime;
 use misskey_api_validation::Value;
-use misskey_backend_api_auth::Context;
+use misskey_backend_api_auth::{
+    ColumnKind, Context, EntityColumn,
+    postgres::{quote_identifier, quote_literal},
+};
 use std::collections::HashMap;
 use tokio_postgres::types::ToSql;
+
+// The existing loaded UserLite shape, shared by ID loads and joined entities.
+const USER_LITE_PROPERTIES: &[&str] = &[
+    "id",
+    "name",
+    "username",
+    "host",
+    "avatarId",
+    "avatarUrl",
+    "avatarBlurhash",
+    "avatarDecorations",
+    "isBot",
+    "isCat",
+    "requireSigninToViewContents",
+    "makeNotesFollowersOnlyBefore",
+    "makeNotesHiddenBefore",
+    "emojis",
+    "hideOnlineStatus",
+    "lastActiveDate",
+];
+
+pub(crate) fn user_lite_projection(
+    user_columns: &[EntityColumn],
+    alias: &str,
+) -> Result<String, LayoutFailure> {
+    if alias.is_empty() || alias.contains('\0') {
+        return Err(LayoutFailure::InvalidIdentifier);
+    }
+    let alias = quote_identifier(alias);
+    let members = USER_LITE_PROPERTIES
+        .iter()
+        .map(|property| {
+            let mut matching = user_columns
+                .iter()
+                .filter(|column| column.property_name == *property);
+            let column = matching.next().ok_or(LayoutFailure::MissingProperty)?;
+            if matching.next().is_some() {
+                return Err(LayoutFailure::DuplicateProperty);
+            }
+            if column.database_name.is_empty() || column.database_name.contains('\0') {
+                return Err(LayoutFailure::InvalidIdentifier);
+            }
+            let expected = if *property == "lastActiveDate" {
+                ColumnKind::Date
+            } else {
+                ColumnKind::Json
+            };
+            if column.kind != expected {
+                return Err(LayoutFailure::HydrationKind);
+            }
+            let reference = format!("{alias}.{}", column_name(user_columns, property)?);
+            let value = if *property == "lastActiveDate" {
+                // pg's Date hydration truncates stored submilliseconds.
+                format!("floor(extract(epoch FROM {reference})*1000)::double precision")
+            } else {
+                reference
+            };
+            Ok(format!("{},{value}", quote_literal(property)))
+        })
+        .collect::<Result<Vec<_>, LayoutFailure>>()?;
+    Ok(format!("json_build_object({})", members.join(",")))
+}
 
 async fn load_user_rows(runtime: &Runtime, ids: &[String]) -> Result<Vec<Value>, Error> {
     if ids.is_empty() {
@@ -16,11 +86,28 @@ async fn load_user_rows(runtime: &Runtime, ids: &[String]) -> Result<Vec<Value>,
         .collect::<Vec<_>>()
         .join(", ");
     let sql = format!(
-        "SELECT json_build_object('id',u.id,'name',u.name,'username',u.username,'host',u.host,'avatarId',u.\"avatarId\",'avatarUrl',u.\"avatarUrl\",'avatarBlurhash',u.\"avatarBlurhash\",'avatarDecorations',u.\"avatarDecorations\",'isBot',u.\"isBot\",'isCat',u.\"isCat\",'requireSigninToViewContents',u.\"requireSigninToViewContents\",'makeNotesFollowersOnlyBefore',u.\"makeNotesFollowersOnlyBefore\",'makeNotesHiddenBefore',u.\"makeNotesHiddenBefore\",'emojis',u.emojis,'hideOnlineStatus',u.\"hideOnlineStatus\",'lastActiveDate',floor(extract(epoch FROM u.\"lastActiveDate\")*1000)::double precision)::text FROM \"user\" u WHERE u.id IN ({slots})"
+        "SELECT {}::text FROM \"user\" u WHERE u.id IN ({slots})",
+        runtime.user_lite_projection,
     );
     let params: Vec<&(dyn ToSql + Sync)> =
         ids.iter().map(|id| -> &(dyn ToSql + Sync) { id }).collect();
     rows(&runtime.database, true, &sql, &params).await
+}
+
+/// UserEntityService.packMany's object path retains snapshots and duplicates.
+pub(in crate::business) async fn pack_loaded_user_lites(
+    runtime: &Runtime,
+    users: &[Value],
+    auth: &Context,
+) -> Result<Vec<Value>, Error> {
+    // packMany creates every pack promise before Promise.all can reject. All
+    // pack_user errors are promise rejections, without a preparation phase.
+    eager_batch(users.iter().map(|user| async move {
+        pack_user(runtime, user, auth)
+            .await
+            .map_err(PackFailure::Async)
+    }))
+    .await
 }
 
 /// Batch the same selected UserLite fields, then reuse the complete formatter.

@@ -24,7 +24,8 @@ use row::{Note, Visibility, boolean, field, null_string, optional_string, string
 pub use state::StateLayoutFailure;
 pub(super) use state::state;
 pub(crate) use state::{StateFailure, StateQueries};
-pub(super) use users::pack_many_users;
+pub(crate) use users::user_lite_projection;
+pub(super) use users::{pack_loaded_user_lites, pack_many_users};
 
 pub(in crate::business) async fn pack_user_lite_by_id(
     runtime: &Runtime,

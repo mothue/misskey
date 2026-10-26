@@ -7,9 +7,13 @@ use tokio_postgres::types::ToSql;
 
 mod antennas;
 pub(super) use antennas::Queries as AntennaQueries;
+mod bubble_game;
+pub use bubble_game::BubbleRankingLayoutFailure;
+pub(super) use bubble_game::BubbleRankingQueries;
 mod discovery;
 mod eager_batch;
 mod entity_layout;
+pub use entity_layout::LayoutFailure as UserLiteLayoutFailure;
 mod flash;
 pub use flash::FlashLayoutFailure;
 pub(super) use flash::FlashQueries;
@@ -22,6 +26,7 @@ mod js_value;
 mod local_date;
 pub(crate) mod notes;
 pub use notes::StateLayoutFailure;
+pub(super) use notes::user_lite_projection;
 pub(super) use notes::{ClipFailureKind, ClipQueries, StateQueries};
 mod registry_apps;
 mod roles_admin;
@@ -62,6 +67,7 @@ pub(super) enum Error {
     Gallery(gallery::GalleryFailure),
     Flash(flash::FlashFailure),
     NoteState(notes::StateFailure),
+    BubbleRanking(bubble_game::BubbleRankingFailure),
     ClipShow(ClipFailureKind),
     ClipShowQuery {
         kind: ClipFailureKind,
@@ -129,6 +135,16 @@ impl Error {
                 source.report();
                 match source {
                     notes::StateFailure::Query { source, .. } => Self::query(source).response(),
+                    _ => crate::response::internal(),
+                }
+            }
+            Self::BubbleRanking(source) => {
+                source.report();
+                match source {
+                    bubble_game::BubbleRankingFailure::Query { source, .. } => {
+                        Self::query(source).response()
+                    }
+                    bubble_game::BubbleRankingFailure::Pack { source } => source.response(),
                     _ => crate::response::internal(),
                 }
             }
@@ -315,6 +331,9 @@ pub(super) async fn execute(
     }
     if name == "clips/show" {
         return Some(notes::show_clip(runtime, params, auth).await);
+    }
+    if name == "bubble-game/ranking" {
+        return Some(bubble_game::ranking(runtime, params).await);
     }
     if name == "notes/clips" {
         return Some(notes::clips(runtime, params, auth).await);
