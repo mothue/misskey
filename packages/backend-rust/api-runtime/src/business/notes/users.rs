@@ -110,6 +110,17 @@ pub(in crate::business) async fn pack_loaded_user_lites(
     .await
 }
 
+/// UserEntityService.packMany's ID path packs the completed database row order,
+/// omitting missing IDs, rather than rebuilding the input ID sequence.
+pub(in crate::business) async fn pack_id_user_lites(
+    runtime: &Runtime,
+    ids: &[String],
+    auth: &Context,
+) -> Result<Vec<Value>, Error> {
+    let users = load_user_rows(runtime, ids).await?;
+    pack_loaded_user_lites(runtime, &users, auth).await
+}
+
 /// Batch the same selected UserLite fields, then reuse the complete formatter.
 /// IN naturally deduplicates IDs; callers retain their own result sequence.
 pub(in crate::business) async fn pack_many_users(

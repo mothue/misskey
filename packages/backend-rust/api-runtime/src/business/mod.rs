@@ -32,6 +32,7 @@ pub use notes::StateLayoutFailure;
 pub(super) use notes::user_lite_projection;
 pub(super) use notes::{ClipFailureKind, ClipQueries, StateQueries};
 mod registry_apps;
+mod reversi;
 mod roles_admin;
 mod stored_value;
 mod user_achievements;
@@ -66,6 +67,7 @@ impl Config {
 pub(super) enum Error {
     Internal,
     Announcement(announcements::AnnouncementFailure),
+    Reversi(reversi::ReversiFailure),
     Antenna(antennas::FailureKind),
     HashtagTrend(hashtag_trend::TrendFailure),
     Gallery(gallery::GalleryFailure),
@@ -119,6 +121,13 @@ impl Error {
                     announcements::AnnouncementFailure::Query { source, .. } => {
                         Self::query(source).response()
                     }
+                    _ => crate::response::internal(),
+                }
+            }
+            Self::Reversi(source) => {
+                source.report();
+                match source {
+                    reversi::ReversiFailure::Pack { source } => source.response(),
                     _ => crate::response::internal(),
                 }
             }
@@ -352,6 +361,9 @@ pub(super) async fn execute(
     }
     if name == "announcements/show" {
         return Some(announcements::show(runtime, params, auth).await);
+    }
+    if name == "reversi/invitations" {
+        return Some(reversi::invitations(runtime, auth).await);
     }
     if name == "notes/clips" {
         return Some(notes::clips(runtime, params, auth).await);

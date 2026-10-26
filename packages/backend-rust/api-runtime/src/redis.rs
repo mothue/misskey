@@ -1320,6 +1320,91 @@ impl std::error::Error for CommandReadFailure {
     }
 }
 
+#[derive(Debug)]
+pub(crate) enum InvitationResponseFailure {
+    CommandCount { actual: usize },
+    MembersShape,
+    MemberShape { index: usize },
+}
+impl fmt::Display for InvitationResponseFailure {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::CommandCount { actual } => {
+                write!(formatter, "invitation command response count: {actual}")
+            }
+            Self::MembersShape => formatter.write_str("invitation members response shape"),
+            Self::MemberShape { index } => {
+                write!(formatter, "invitation member response shape at {index}")
+            }
+        }
+    }
+}
+impl std::error::Error for InvitationResponseFailure {}
+
+#[derive(Debug)]
+pub(crate) enum InvitationReadFailure {
+    Unavailable,
+    Read(ReadExecutionFailure),
+    Response(InvitationResponseFailure),
+}
+impl InvitationReadFailure {
+    pub(crate) fn safe_kind(&self) -> &'static str {
+        match self {
+            Self::Unavailable => "redis_unavailable",
+            Self::Read(source) => source.safe_kind(),
+            Self::Response(InvitationResponseFailure::CommandCount { .. }) => {
+                "invitation_command_count"
+            }
+            Self::Response(InvitationResponseFailure::MembersShape) => "invitation_members_shape",
+            Self::Response(InvitationResponseFailure::MemberShape { .. }) => {
+                "invitation_member_shape"
+            }
+        }
+    }
+}
+impl fmt::Display for InvitationReadFailure {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(self.safe_kind())
+    }
+}
+impl std::error::Error for InvitationReadFailure {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Read(source) => Some(source),
+            Self::Response(source) => Some(source),
+            Self::Unavailable => None,
+        }
+    }
+}
+
+fn decode_invitation_members(values: &[RedisValue]) -> Result<Vec<String>, InvitationReadFailure> {
+    let [reply] = values else {
+        return Err(InvitationReadFailure::Response(
+            InvitationResponseFailure::CommandCount {
+                actual: values.len(),
+            },
+        ));
+    };
+    let RedisValue::Array(members) = reply else {
+        return Err(InvitationReadFailure::Response(
+            InvitationResponseFailure::MembersShape,
+        ));
+    };
+    members
+        .iter()
+        .enumerate()
+        .map(|(index, member)| match member {
+            // Installed ioredis decodes Buffer replies with UTF-8 replacement;
+            // IDs remain opaque here and are bound unchanged at the PG boundary.
+            RedisValue::BulkString(bytes) => Ok(String::from_utf8_lossy(bytes).into_owned()),
+            RedisValue::SimpleString(text) => Ok(text.clone()),
+            _ => Err(InvitationReadFailure::Response(
+                InvitationResponseFailure::MemberShape { index },
+            )),
+        })
+        .collect()
+}
+
 fn ranking_pipeline(
     keys: &[String; 2],
     kind: RankingKind,
@@ -1441,6 +1526,35 @@ fn decode_hashtag_counts(
 }
 
 impl RedisState {
+    pub(crate) async fn reversi_invitations(
+        &self,
+        viewer_id: &str,
+        minimum_ms: i64,
+    ) -> Result<Vec<String>, InvitationReadFailure> {
+        if !self.ready() {
+            return Err(InvitationReadFailure::Unavailable);
+        }
+        let mut pipeline = redis::pipe();
+        // ReversiService.getInvitations: ordinary standalone ZRANGE, inclusive
+        // lower score and +inf upper bound. No ranking-window error fallback,
+        // transaction, limit, member removal, TTL refresh or result cache.
+        pipeline
+            .cmd("ZRANGE")
+            .arg(
+                self.reads
+                    .key(&format!("reversi:matchSpecific:{viewer_id}")),
+            )
+            .arg(minimum_ms)
+            .arg("+inf")
+            .arg("BYSCORE");
+        let values = self
+            .reads
+            .execute_with(&pipeline, ReplyErrors::Extract)
+            .await
+            .map_err(InvitationReadFailure::Read)?;
+        decode_invitation_members(&values)
+    }
+
     async fn ranking_windows(
         &self,
         keys: &[String; 2],
@@ -1485,6 +1599,44 @@ impl RedisState {
             .await
             .map_err(CommandReadFailure::Read)?;
         decode_hashtag_counts(keys.len(), &values)
+    }
+}
+
+#[cfg(test)]
+mod reversi_invitation_source_tests {
+    use super::*;
+
+    #[test]
+    fn opaque_members_use_installed_ioredis_utf8_replacement_without_id_filtering() {
+        let oracle: Value = serde_json::from_str(include_str!(
+            "business/fixtures/reversi-invitations-source-oracle.json"
+        ))
+        .unwrap();
+        let case = oracle["cases"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|case| {
+                case["name"]
+                    == "installed-ioredis-UTF8-replacement-opaque-members-retained-for-PG-query"
+            })
+            .unwrap();
+        // The original Buffer inputs from the actual installed-ioredis source
+        // experiment. This checks the successful value boundary, not RESP wire.
+        let bytes = vec![
+            Vec::new(),
+            vec![0],
+            b"not-a-misskey-id@host".to_vec(),
+            "雪😀".as_bytes().to_vec(),
+            vec![0xff],
+            vec![0xed, 0xa0, 0x80],
+        ];
+        let replies = [RedisValue::Array(
+            bytes.into_iter().map(RedisValue::BulkString).collect(),
+        )];
+        let actual = decode_invitation_members(&replies).unwrap();
+        let expected: Vec<String> = serde_json::from_value(case["decodedMembers"].clone()).unwrap();
+        assert_eq!(actual, expected);
     }
 }
 
