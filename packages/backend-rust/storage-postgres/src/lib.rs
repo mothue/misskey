@@ -302,6 +302,35 @@ struct Connection {
     cancellations: Cancellations,
 }
 impl Connection {
+    async fn query_typed(
+        &self,
+        sql: &str,
+        params: &[&(dyn tokio_postgres::types::ToSql + Sync)],
+        query_limit: Option<Duration>,
+    ) -> Result<Vec<tokio_postgres::Row>, QueryError> {
+        self.in_flight.store(true, Ordering::Release);
+        let execute = self.client.query(sql, params);
+        let result = match query_limit {
+            Some(limit) => tokio::time::timeout(limit, execute)
+                .await
+                .map_err(|_| QueryError::QueryTimeout)?,
+            None => execute.await,
+        };
+        if result.is_ok()
+            || result
+                .as_ref()
+                .err()
+                .is_some_and(|error| error.as_db_error().is_some())
+        {
+            self.in_flight.store(false, Ordering::Release);
+        }
+        match result {
+            Ok(rows) => Ok(rows),
+            Err(error) if error.as_db_error().is_some() => Err(QueryError::from_postgres(error)),
+            Err(error) => Err(self.fault(FaultPhase::Query, error).into()),
+        }
+    }
+
     fn fault(&self, phase: FaultPhase, error: tokio_postgres::Error) -> QueryFault {
         if error.is_closed()
             && let Ok(fault) = self.driver_fault.lock()
@@ -502,37 +531,16 @@ impl OnlineUsers {
         }
         let operation = async {
             let lease = pool.acquire(self.read_only).await?;
-            let current = lease.connection();
-            current.in_flight.store(true, Ordering::Release);
-            let execute = current.client.query(sql, params);
-            let result = match positive_duration(pool.target.query_timeout_ms) {
-                Some(limit) => tokio::time::timeout(limit, execute)
-                    .await
-                    .map_err(|_| QueryError::QueryTimeout)?,
-                None => execute.await,
-            };
-            if result.is_ok()
-                || result
-                    .as_ref()
-                    .err()
-                    .is_some_and(|error| error.as_db_error().is_some())
-            {
-                current.in_flight.store(false, Ordering::Release);
+            let result = lease
+                .connection()
+                .query_typed(sql, params, positive_duration(pool.target.query_timeout_ms))
+                .await;
+            if !lease.connection().in_flight.load(Ordering::Acquire) {
+                // ReadyForQuery completed the operation. A SQL rejection
+                // does not poison or cancel this healthy pool session.
+                lease.release();
             }
-            match result {
-                Ok(rows) => {
-                    lease.release();
-                    Ok(rows)
-                }
-                Err(error) if error.as_db_error().is_some() => {
-                    let error = QueryError::from_postgres(error);
-                    // ReadyForQuery completed the operation. A SQL rejection
-                    // does not poison or cancel this healthy pool session.
-                    lease.release();
-                    Err(error)
-                }
-                Err(error) => Err(current.fault(FaultPhase::Query, error).into()),
-            }
+            result
         };
         tokio::select! {
             biased;
@@ -566,6 +574,51 @@ pub struct Database {
     reads: OnlineUsers,
     primary: OnlineUsers,
 }
+
+/// One selected read session for sequential statements without a transaction.
+/// Dropping an idle scope returns its healthy session to the existing pool.
+pub struct ReadLease<'db> {
+    selected: &'db Arc<pool::TargetPool>,
+    lease: Option<pool::Lease>,
+    stop: watch::Receiver<bool>,
+}
+impl ReadLease<'_> {
+    pub async fn query_typed(
+        &mut self,
+        sql: &str,
+        params: &[&(dyn tokio_postgres::types::ToSql + Sync)],
+    ) -> Result<Vec<tokio_postgres::Row>, QueryError> {
+        // The future owns the lease before awaiting: canceling it retires the
+        // unfinished session and leaves this scope unable to reuse it.
+        let lease = self.lease.take().ok_or(QueryError::Unavailable)?;
+        if self.selected.is_stopped() {
+            return Err(QueryError::Unavailable);
+        }
+        let result = tokio::select! {
+            biased;
+            _ = self.stop.changed() => Err(QueryError::Unavailable),
+            result = lease.connection().query_typed(
+                sql,
+                params,
+                positive_duration(self.selected.target.query_timeout_ms),
+            ) => result,
+        };
+        if matches!(&result, Ok(_) | Err(QueryError::Server { .. })) {
+            // Only a completed statement clears in_flight; timeout, transport
+            // failure and stop retain the existing Lease retirement path.
+            self.lease = Some(lease);
+        }
+        result
+    }
+}
+impl Drop for ReadLease<'_> {
+    fn drop(&mut self) {
+        if let Some(lease) = self.lease.take() {
+            lease.release();
+        }
+    }
+}
+
 impl Database {
     pub fn new(reads: Option<PostgresConfig>, primary: Option<Target>) -> Self {
         OnlineUsers::new(reads).database(primary)
@@ -599,6 +652,29 @@ impl Database {
     ) -> Result<Vec<tokio_postgres::Row>, QueryError> {
         let pool = if read { &self.reads } else { &self.primary };
         pool.query_typed(sql, params).await
+    }
+
+    /// TypeORM's two-statement pagination retains one read QueryRunner, with
+    /// independent statement snapshots and a single pool release afterward.
+    pub async fn read_lease(&self) -> Result<ReadLease<'_>, QueryError> {
+        if self.reads.slots.is_empty() {
+            return Err(QueryError::Unavailable);
+        }
+        let selected = &self.reads.slots[rand::random_range(0..self.reads.slots.len())];
+        let mut stop = selected.subscribe();
+        if selected.is_stopped() {
+            return Err(QueryError::Unavailable);
+        }
+        let lease = tokio::select! {
+            biased;
+            _ = stop.changed() => return Err(QueryError::Unavailable),
+            result = selected.acquire(true) => result?,
+        };
+        Ok(ReadLease {
+            selected,
+            lease: Some(lease),
+            stop,
+        })
     }
 
     pub async fn shutdown(&self) {
