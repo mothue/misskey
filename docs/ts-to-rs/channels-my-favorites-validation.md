@@ -30,6 +30,7 @@ Evidence is retained under `/workspace/native-queue/channels-my-favorites/`. Com
 | PASS | Fresh whole-native differential coverage |657 pairs/26 sides:444 successful payload pairs+213 error pairs;42 selected names covered, no missing or differential failure; `sdk/sdk-final-results.json` |
 | BASELINE | Generated SDK declarations |Successful payload validations370PASS/74BASELINE,0FAIL; inherited71 raw hashes/diagnostics remain identical. All58 new responses:50PASS/8BASELINE; these are source-equal declaration failures, not passing type validations |
 | PASS | Independent code, image, HTTP, UI/lifecycle and SDK review |Findings resolved; exact report/hash links under `phase/` |
+| PASS | Fresh final-state Linux federation |9files92passed,13declared skips, first attempt, exit0; see final-state record below |
 | SKIPPED | Full local TS unit suite |Related E2E/types/generation/Rust checks run; full TS units await final pushed-SHA CI |
 
 The52-case main candidate capture executes at `ba06becc8b7a5edf40589b6e78304c215d8cd501`. Removing one test-only held-selection assertion at `f596a9cc111d6ce6dfd8cb9a6ae56d8b81a950d7` yields byte-identical complete production JS/native images, independently verified. Original capture metadata and bytes are retained, not relabeled or rerun. Six URL-variant cases execute freshly at `f596`. Only validated v4 diagnostic `error.info.e.id` UUIDs are substituted on comparison copies; original raw bodies remain untouched.
@@ -55,7 +56,7 @@ Preparation30.55s and first dry126.67s pass; dry has32warm requests and no measu
 | ten-mixed-account | +21.22994448% | -15.15641496% | PASS |
 | ten-mixed-app | -2.91358711% | +19.06704416% | FAIL |
 
-The unaltered [56-row CSV](channels-my-favorites-benchmark.csv) records p50/p95/p99, throughput and sampled TS/Rust/combined RSS, three run aggregates, min/max/CV and both ratio-of-medians and paired deltas. The table uses ratio-of-medians deltas. Variation is not a confidence interval; sampled VmRSS is not peak or unique physical memory. An independent review recomputes all56 JSON/CSV metric rows, all eight gates and archived source/build byte identities. All eight conditions are included. Raw/summary/gate/lock/provenance and all five unchanged controls remain under `phase/benchmark-prep/`; no overlapping build, test or browser session runs during timing.
+The [56-row CSV](channels-my-favorites-benchmark.csv) records p50/p95/p99, throughput and sampled TS/Rust/combined RSS, three run aggregates, min/max/CV and both ratio-of-medians and paired deltas. Git normalizes its57 CRLF line endings to LF; every CSV cell equals the original first-measurement summary. The private raw CSV remains unchanged. The table uses ratio-of-medians deltas. Variation is not a confidence interval; sampled VmRSS is not peak or unique physical memory. An independent review recomputes all56 JSON/CSV metric rows, all eight gates and archived source/build byte identities. All eight conditions are included. Raw/summary/gate/lock/provenance and all five unchanged controls remain under `phase/benchmark-prep/`; no overlapping build, test or browser session runs during timing.
 
 ## Held state and remaining acceptance
 
@@ -63,4 +64,8 @@ The measured42-handler candidate source1129files and64built files are archived a
 
 The held capture retains its actual `f596` source/build tuple. The subsequent hold-manifest, generated status-table and validation-record edits are metadata/documentation changes after that execution; no capture is relabeled to a later commit. The generated registry records41 native,383 TS and14 held endpoints from source, without fixed-count dispatch.
 
-Fresh final-state Linux federation and final pushed-SHA CI are pending. The performance decision remains Held(TS) regardless of those acceptance checks. PR title/body and AGENTS.md are unchanged; CodeRabbit is not invoked. No public listener, queue worker, frontend product, slacc source or schema change is included.
+Fresh final-state Linux federation passes at committed held state `00cbe64c1a2d303901706f7debce1ff8ed6f4de8`:9files92tests pass,13declared tests remain skipped, first attempt with no rerun. Dedicated project `cloud-channels-my-favorites-fed` builds fresh Linux Rust/slacc ELF outputs and mounts them read-only over host-native output paths. Actual build stage116.228s (wrapper116.260s), Compose test86.241s and Vitest84.02s are separate timings. Services wrapper135.513s includes the preserved first teardown20.719s; owned cleanup6.370s has a separate second down0.075s. All commands exit0.
+
+Observed minimum available bytes are 1234505728 on overlay, 3531632640 on tmp and 2356016424 effective memory, each above1GiB. Cleanup leaves zero owned containers/volumes/networks and nine empty output directories; shared Linux compiler-cache directory identities remain unchanged. Source/JS/harness checks pass after teardown. Raw stages, ELF hashes and first teardown are preserved in `phase/federation/execution-summary.json` and its linked artifacts.
+
+Exact final pushed-SHA CI remains pending and will be checked after publication. The performance decision remains Held(TS) regardless of those acceptance checks. PR title/body and AGENTS.md are unchanged; CodeRabbit is not invoked. No public listener, queue worker, frontend product, slacc source or schema change is included.

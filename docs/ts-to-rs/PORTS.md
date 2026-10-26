@@ -2,7 +2,7 @@
 
 ## Authority and scope
 
-The complete [channel favorites candidate](channels-my-favorites-validation.md) preserves actual repository order, independent viewer-flag reads and opaque unused pinned-note rows, reusing shared array/date/file-URL machinery. All58 public HTTP pairs and fresh657 SDK differential pairs match, but three of eight first-attempt paired performance gates fail. The complete business handler remains on TS; the preserved candidate and fresh held58-case/lifecycle proof are recorded there.
+The complete [channel favorites candidate](channels-my-favorites-validation.md) preserves actual repository order, independent viewer-flag reads and opaque unused pinned-note rows, reusing shared array/date/file-URL machinery. All58 public HTTP pairs and fresh657 SDK differential pairs match, but three of eight first-attempt paired performance gates fail. The complete business handler remains on TS; the preserved candidate, fresh held58-case/lifecycle proof and fresh Linux federation92pass/13declared-skip result are recorded there.
 
 The complete [Reversi invitations candidate](reversi-invitations-validation.md) matches49 public HTTP pairs and reuses the existing Redis/UserLite batch machinery, but remains on TS after three of nine first-attempt paired throughput/p95 gates fail. All conditions were measured without an exception or favorable rerun; the final held41-native state passes fresh49-case HTTP and child-lifecycle verification. Fresh final-state Linux federation passes92tests with13declared skips and owned cleanup; exact pushed-SHA CI remains pending in that record.
 
