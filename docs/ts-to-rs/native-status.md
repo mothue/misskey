@@ -6,7 +6,7 @@ Native means the complete business handler is selected in Rust; the public TS li
 
 | Total | Native | TS | Held (TS) |
 | ---: | ---: | ---: | ---: |
-| 438 | 39 | 387 | 12 |
+| 438 | 40 | 386 | 12 |
 
 Names and enumeration order come from the API registry. Native core selection and the business allowlist are read from Rust source. Rust advertises those selections at bootstrap; the TS callback guard consumes the validated names without a second list. Hold reasons come from the hold manifest.
 
@@ -134,7 +134,7 @@ Names and enumeration order come from the API registry. Native core selection an
 | `blocking/create` | TS |  |
 | `blocking/delete` | TS |  |
 | `blocking/list` | TS |  |
-| `bubble-game/ranking` | TS |  |
+| `bubble-game/ranking` | Native |  |
 | `bubble-game/register` | TS |  |
 | `channels/create` | TS |  |
 | `channels/favorite` | TS |  |
@@ -457,6 +457,6 @@ Names and enumeration order come from the API registry. Native core selection an
 | --- | --- |
 | `packages/backend/src/server/api/endpoint-list.ts` | `f6adc6070df862e7544a92bafc001a9339bfe1e746a856b602c505a248ae5470` |
 | `packages/backend-rust/api-runtime/src/lib.rs` | `dc6793e7d4e08b00f7a0ce4649a7fbd118b8deb42c661fdd59fe5b8ebc530406` |
-| `packages/backend-rust/api-runtime/src/business/mod.rs` | `1b1808ce936e1684ba65780001b4d803642de1faac61bf76b7c8007379dd2591` |
+| `packages/backend-rust/api-runtime/src/business/mod.rs` | `a0bcd3a7747403ad07659400c509488dcff435fb84ed65a3fc1844ad4c8e0ed6` |
 | `packages/backend/src/server/api/ApiServerService.ts` | `08920e53f32ea9c96907bf58bed044b66952cb9df38393a55cce9a7ba07c3bb7` |
 | `scripts/ts-to-rs/native-holds.json` | `09904bdcf3a17be6ad6a6f7e821367df5bb241166739110ef2c940d21f068bcc` |

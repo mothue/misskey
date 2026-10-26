@@ -251,6 +251,7 @@ pub(super) const ACTIVE_READ_ENDPOINTS: &[&str] = &[
     "admin/roles/list",
     "admin/roles/show",
     "app/show",
+    "bubble-game/ranking",
     "clips/show",
     "emoji",
     "emojis",
