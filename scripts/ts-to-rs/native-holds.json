@@ -2,6 +2,12 @@
   "version": 1,
   "holds": [
     {
+      "endpoint": "reversi/invitations",
+      "kind": "performance",
+      "reason": "Complete native candidate matches 49 HTTP cases, but the first paired nine-condition gate fails ten-account throughput (-7.87848154%), ten-app throughput/p95 (-18.94890038%/+13.34594155%), and moderator-ten throughput (-13.71241899%). Keep the complete TS body; all nine conditions were measured and no exception or favorable rerun was taken.",
+      "evidence": "reversi-invitations-validation.md"
+    },
+    {
       "endpoint": "flash/featured",
       "kind": "performance",
       "reason": "Complete native candidate matches 58 HTTP cases, but the first paired eleven-condition gate fails maximum-list application throughput (-0.2043%), empty anonymous p95 (+13.0457%), and empty account throughput/p95 (-3.6414%/+2.6156%). Keep the complete TS body; all eleven conditions were measured and no exception or favorable rerun was taken.",

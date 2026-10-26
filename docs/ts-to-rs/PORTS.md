@@ -2,6 +2,8 @@
 
 ## Authority and scope
 
+The complete [Reversi invitations candidate](reversi-invitations-validation.md) matches49 public HTTP pairs and reuses the existing Redis/UserLite batch machinery, but remains on TS after three of nine first-attempt paired throughput/p95 gates fail. All conditions were measured without an exception or favorable rerun; the final held41-native state passes fresh49-case HTTP and child-lifecycle verification. Final federation and pushed-SHA CI remain pending in that record.
+
 The complete [announcement detail slice](announcements-show-validation.md) preserves targeted privacy before read-state/date decoding, independent ordinary reads and anonymous omission. All94public HTTP pairs and nine first-attempt paired throughput/p95 gates pass. Shared ID parsing/date formatting is reused without writes, callbacks or new connections; fresh batch acceptance is recorded there.
 
 The complete [Bubble Game ranking slice](bubble-game-ranking-validation.md) reuses one selected read lease across the source two-query pagination and the existing loaded-row anonymous UserLite formatter. All56 HTTP pairs, actual product mode views and nine first-attempt paired throughput/p95 gates pass. The existing accepted-NUL500 is preserved and tracked in issue62.

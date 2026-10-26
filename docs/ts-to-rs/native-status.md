@@ -6,7 +6,7 @@ Native means the complete business handler is selected in Rust; the public TS li
 
 | Total | Native | TS | Held (TS) |
 | ---: | ---: | ---: | ---: |
-| 438 | 41 | 385 | 12 |
+| 438 | 41 | 384 | 13 |
 
 Names and enumeration order come from the API registry. Native core selection and the business allowlist are read from Rust source. Rust advertises those selections at bootstrap; the TS callback guard consumes the validated names without a second list. Hold reasons come from the hold manifest.
 
@@ -374,7 +374,7 @@ Names and enumeration order come from the API registry. Native core selection an
 | `retention` | Native |  |
 | `reversi/cancel-match` | TS |  |
 | `reversi/games` | TS |  |
-| `reversi/invitations` | TS |  |
+| `reversi/invitations` | Held (TS) | performance: Complete native candidate matches 49 HTTP cases, but the first paired nine-condition gate fails ten-account throughput (-7.87848154%), ten-app throughput/p95 (-18.94890038%/+13.34594155%), and moderator-ten throughput (-13.71241899%). Keep the complete TS body; all nine conditions were measured and no exception or favorable rerun was taken. ([evidence](reversi-invitations-validation.md)) |
 | `reversi/match` | TS |  |
 | `reversi/show-game` | TS |  |
 | `reversi/surrender` | TS |  |
@@ -457,6 +457,6 @@ Names and enumeration order come from the API registry. Native core selection an
 | --- | --- |
 | `packages/backend/src/server/api/endpoint-list.ts` | `f6adc6070df862e7544a92bafc001a9339bfe1e746a856b602c505a248ae5470` |
 | `packages/backend-rust/api-runtime/src/lib.rs` | `dbb7ec9ebeb3764acfd4ca8ca91ed82c29e7e16830879312d973d28942426968` |
-| `packages/backend-rust/api-runtime/src/business/mod.rs` | `3ad123248287d3c30dabd3a5b33600fb5a11e72c49a09979e84bb20ab4e372b6` |
+| `packages/backend-rust/api-runtime/src/business/mod.rs` | `50a059655ebc8731faa486bcaf7ee6d2a5590d5bd27f26089a34b7c89564f8ef` |
 | `packages/backend/src/server/api/ApiServerService.ts` | `c1853ee97e896eecf500cfc0e5ad8fbce3a98298435e95101eee62cc7a12892d` |
-| `scripts/ts-to-rs/native-holds.json` | `09904bdcf3a17be6ad6a6f7e821367df5bb241166739110ef2c940d21f068bcc` |
+| `scripts/ts-to-rs/native-holds.json` | `ed9c28a3fa4f66a328ada29e517e9e096c66c12f5ce361d62cb9f72529e1d8ce` |
