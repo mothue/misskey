@@ -23,6 +23,7 @@ mod meta;
 pub mod redis;
 pub mod request;
 mod response;
+pub use business::AnnouncementLayoutFailure;
 pub use business::FlashLayoutFailure;
 pub use business::GalleryLayoutFailure;
 pub use business::StateLayoutFailure;
@@ -45,6 +46,7 @@ pub enum FailureStage {
     EndpointSchema,
     TimeZoneConfig,
     AntennaLayout,
+    AnnouncementLayout(AnnouncementLayoutFailure),
     ClipLayout,
     GalleryLayout(GalleryLayoutFailure),
     FlashLayout(FlashLayoutFailure),
@@ -322,6 +324,7 @@ pub struct Runtime {
     online_users: Arc<OnlineUsers>,
     business_config: business::Config,
     antenna_queries: business::AntennaQueries,
+    announcement_queries: business::AnnouncementQueries,
     clip_queries: business::ClipQueries,
     gallery_queries: business::GalleryQueries,
     flash_queries: business::FlashQueries,
@@ -404,6 +407,11 @@ impl Runtime {
                 Failure::new(FailureStage::FlashLayout(kind))
             })?;
         let database = Arc::new(online_users.database(config.postgres_primary));
+        let announcement_queries = business::AnnouncementQueries::new(&config.auth.entity_layouts)
+            .map_err(|kind| {
+                tracing::error!(operation = "configure_announcement_queries", error.kind = ?kind, "API bootstrap failed");
+                Failure::new(FailureStage::AnnouncementLayout(kind))
+            })?;
         let state_queries = business::StateQueries::new(&config.auth.entity_layouts)
             .map_err(|kind| {
                 tracing::error!(operation = "configure_state_queries", error.kind = ?kind, "API bootstrap failed");
@@ -453,6 +461,7 @@ impl Runtime {
             online_users,
             business_config,
             antenna_queries,
+            announcement_queries,
             clip_queries,
             gallery_queries,
             flash_queries,

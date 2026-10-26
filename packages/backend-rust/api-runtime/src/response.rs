@@ -28,6 +28,7 @@ pub(crate) enum ApiFailure {
     NoSuchClip,
     NoSuchPost,
     NoSuchFlash,
+    NoSuchAnnouncement,
 }
 
 /// Captured from Bun 1.4.4 Date.toISOString for invalid stored dates.
@@ -51,6 +52,13 @@ pub(crate) const NON_DATE_CLIP_TIMESTAMP: LegacyErrorDef = LegacyErrorDef {
 // as a primitive. Public HTTP fixtures guard the minifier-specific wording.
 pub(crate) const NON_DATE_UPDATED_AT: LegacyErrorDef = LegacyErrorDef {
     message: "i.updatedAt.toISOString is not a function. (In 'i.updatedAt.toISOString()', 'i.updatedAt.toISOString' is undefined)",
+    code: "TypeError",
+};
+
+// Actual production Announcement.pack optional chain; PG infinity is a
+// primitive, so this call site has different Bun wording from Gallery.pack.
+pub(crate) const NON_DATE_ANNOUNCEMENT_TIMESTAMP: LegacyErrorDef = LegacyErrorDef {
+    message: "r.updatedAt?.toISOString is not a function. (In 'r.updatedAt?.toISOString()', 'r.updatedAt?.toISOString' is undefined)",
     code: "TypeError",
 };
 
@@ -197,6 +205,13 @@ impl ApiFailure {
                 "No such flash.",
                 "NO_SUCH_FLASH",
                 "f0d34a1a-d29a-401d-90ba-1982122b5630",
+                "client",
+                None,
+            ),
+            Self::NoSuchAnnouncement => (
+                "No such announcement.",
+                "NO_SUCH_ANNOUNCEMENT",
+                "b57b5e1d-4f49-404a-9edb-46b00268f121",
                 "client",
                 None,
             ),

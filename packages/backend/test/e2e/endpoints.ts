@@ -15,8 +15,9 @@ import { Blob } from 'node-fetch';
 import { Redis } from 'ioredis';
 import { api, castAsError, initTestDb, post, relativeFetch, role, signup, simpleGet, uploadFile } from '../utils.js';
 import type * as misskey from 'misskey-js';
+import type { DataSource } from 'typeorm';
 import { loadConfig } from '@/config.js';
-import { MiBubbleGameRecord, MiUser } from '@/models/_.js';
+import { MiAnnouncement, MiAnnouncementRead, MiBubbleGameRecord, MiUser } from '@/models/_.js';
 import { IdService } from '@/core/IdService.js';
 
 const waitForPushToTlOptions = { timeout: 3000, interval: 25 };
@@ -139,6 +140,147 @@ describe('Endpoints', () => {
 		dave = await signup({ username: 'dave' });
 		await api('admin/update-meta', { federation: 'all' }, alice as misskey.entities.SignupResponse);
 	}, 1000 * 60 * 2);
+
+	describe('announcements/show', () => {
+		const ids = new IdService(loadConfig());
+		const createdAt = Date.UTC(2000, 0, 1);
+		const owned: string[] = [];
+		const noSuchAnnouncement = { error: {
+			message: 'No such announcement.', code: 'NO_SUCH_ANNOUNCEMENT',
+			id: 'b57b5e1d-4f49-404a-9edb-46b00268f121', kind: 'client',
+		} };
+		let connection: DataSource;
+		let global: MiAnnouncement;
+		let targetedUnread: MiAnnouncement;
+		let targetedRead: MiAnnouncement;
+
+		async function announcement(options: Partial<MiAnnouncement> = {}) {
+			const repository = connection.getRepository(MiAnnouncement);
+			const row = repository.create({
+				id: ids.gen(), updatedAt: null, title: '', text: '', imageUrl: null,
+				icon: 'info', display: 'normal', needConfirmationToRead: false,
+				isActive: true, forExistingUsers: false, silence: false, userId: null, ...options,
+			});
+			owned.push(row.id);
+			await repository.insert(row);
+			return row;
+		}
+
+		beforeAll(async () => {
+			connection = await initTestDb(true);
+			// Direct fixture insertion avoids publishing announcement notifications.
+			global = await announcement({ id: ids.gen(createdAt) });
+			targetedUnread = await announcement({ userId: bob.id, title: 'For you 雲😀' });
+			targetedRead = await announcement({ userId: bob.id, title: 'Already read' });
+			await connection.getRepository(MiAnnouncementRead).insert([
+				{ id: ids.gen(), announcementId: global.id, userId: alice.id },
+				{ id: ids.gen(), announcementId: targetedRead.id, userId: bob.id },
+			]);
+		}, 120_000);
+
+		afterAll(async () => {
+			if (!connection) return;
+			try {
+				if (owned.length > 0) await connection.getRepository(MiAnnouncement).delete(owned);
+			} finally {
+				await connection.destroy();
+			}
+		});
+
+		test('global anonymous detail preserves nulls, omission and response key order', async () => {
+			const response = await api('announcements/show', { announcementId: global.id, extra: { accepted: true } });
+			assert.strictEqual(response.status, 200);
+			assert.deepStrictEqual(response.body, {
+				id: global.id, createdAt: new Date(createdAt).toISOString(), updatedAt: null,
+				title: '', text: '', imageUrl: null, icon: 'info', display: 'normal',
+				forYou: false, needConfirmationToRead: false, silence: false,
+			});
+			assert.deepStrictEqual(Object.keys(response.body), [
+				'id', 'createdAt', 'updatedAt', 'title', 'text', 'imageUrl', 'icon', 'display',
+				'forYou', 'needConfirmationToRead', 'silence',
+			]);
+			assert.strictEqual(Object.hasOwn(response.body, 'isRead'), false);
+			assert.strictEqual(response.headers.get('cache-control'), 'private, max-age=0, must-revalidate');
+		});
+
+		test('read state is viewer-specific and targeted detail has no administrator bypass or implicit mark-read', async () => {
+			for (const [row, viewer, isRead, forYou] of [
+				[global, bob, false, false], [global, alice, true, false],
+				[targetedUnread, bob, false, true], [targetedRead, bob, true, true],
+			] as const) {
+				for (let request = 0; request < 2; request++) {
+					const response = await api('announcements/show', { announcementId: row.id }, viewer);
+					assert.strictEqual(response.status, 200);
+					assert.strictEqual(response.body.isRead, isRead);
+					assert.strictEqual(response.body.forYou, forYou);
+					assert.strictEqual(Object.keys(response.body).at(-1), 'isRead');
+				}
+			}
+			for (const row of [targetedUnread, targetedRead]) {
+				for (const viewer of [undefined, carol, alice]) {
+					const response = await api('announcements/show', { announcementId: row.id }, viewer);
+					assert.strictEqual(response.status, 400);
+					assert.deepStrictEqual(response.body, noSuchAnnouncement);
+				}
+			}
+			const reads = connection.getRepository(MiAnnouncementRead);
+			assert.strictEqual(await reads.countBy({ announcementId: targetedUnread.id }), 0);
+			assert.strictEqual(await reads.countBy({ announcementId: global.id, userId: bob.id }), 0);
+			assert.strictEqual(await reads.countBy({ announcementId: global.id, userId: alice.id }), 1);
+			assert.strictEqual(await reads.countBy({ announcementId: targetedRead.id, userId: bob.id }), 1);
+		});
+
+		test('inactive, existing-users-only and silent announcements remain directly visible', async () => {
+			const row = await announcement({
+				id: ids.gen(createdAt), title: 'Archived 雲😀', text: '本文\nUnicode 😀',
+				updatedAt: new Date('1969-12-31T23:59:59.999Z'), imageUrl: 'https://example.test/opaque-image',
+				icon: 'warning', display: 'dialog', isActive: false, forExistingUsers: true,
+				silence: true, needConfirmationToRead: true,
+			});
+			for (const viewer of [undefined, bob]) {
+				const response = await api('announcements/show', { announcementId: row.id }, viewer);
+				assert.strictEqual(response.status, 200);
+				assert.strictEqual(response.body.title, row.title);
+				assert.strictEqual(response.body.text, row.text);
+				assert.strictEqual(response.body.updatedAt, '1969-12-31T23:59:59.999Z');
+				assert.strictEqual(response.body.imageUrl, row.imageUrl);
+				assert.strictEqual(response.body.icon, 'warning');
+				assert.strictEqual(response.body.display, 'dialog');
+				assert.strictEqual(response.body.forYou, false);
+				assert.strictEqual(response.body.silence, true);
+				assert.strictEqual(response.body.needConfirmationToRead, true);
+				assert.strictEqual(Object.hasOwn(response.body, 'isRead'), viewer !== undefined);
+				if (viewer) assert.strictEqual(response.body.isRead, false);
+			}
+		});
+
+		test('missing rows, invalid parameters and GET retain their public errors', async () => {
+			const missing = await api('announcements/show', { announcementId: ids.gen() });
+			assert.strictEqual(missing.status, 400);
+			assert.deepStrictEqual(missing.body, noSuchAnnouncement);
+			for (const params of [{}, { announcementId: null }, { announcementId: 0 }, { announcementId: '' }, { announcementId: '!' }]) {
+				const response = await relativeFetch('api/announcements/show', {
+					method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(params),
+				});
+				assert.strictEqual(response.status, 400);
+				assert.strictEqual(castAsError(await response.json() as Record<string, unknown>).error.code, 'INVALID_PARAM');
+			}
+			const get = await relativeFetch(`api/announcements/show?announcementId=${encodeURIComponent(global.id)}`);
+			assert.strictEqual(get.status, 405);
+			assert.strictEqual(await get.text(), '');
+		});
+
+		test('a hidden targeted announcement with an unformattable timestamp still returns NO_SUCH', async () => {
+			const hidden = await announcement({ userId: bob.id });
+			// Infinity is a legal PostgreSQL timestamp. Privacy must precede date packing.
+			await connection.query('UPDATE announcement SET "updatedAt" = $1::timestamptz WHERE id = $2', ['infinity', hidden.id]);
+			for (const viewer of [undefined, carol, alice]) {
+				const response = await api('announcements/show', { announcementId: hidden.id }, viewer);
+				assert.strictEqual(response.status, 400);
+				assert.deepStrictEqual(response.body, noSuchAnnouncement);
+			}
+		});
+	});
 
 	describe('bubble-game/ranking', () => {
 		const ids = new IdService(loadConfig());

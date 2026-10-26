@@ -5,6 +5,9 @@ use misskey_backend_api_auth::Context;
 use misskey_backend_postgres::{Database, QueryError};
 use tokio_postgres::types::ToSql;
 
+mod announcements;
+pub use announcements::AnnouncementLayoutFailure;
+pub(super) use announcements::AnnouncementQueries;
 mod antennas;
 pub(super) use antennas::Queries as AntennaQueries;
 mod bubble_game;
@@ -62,6 +65,7 @@ impl Config {
 #[derive(Debug)]
 pub(super) enum Error {
     Internal,
+    Announcement(announcements::AnnouncementFailure),
     Antenna(antennas::FailureKind),
     HashtagTrend(hashtag_trend::TrendFailure),
     Gallery(gallery::GalleryFailure),
@@ -109,6 +113,15 @@ impl Error {
     pub fn response(self) -> axum::http::Response<axum::body::Body> {
         match self {
             Self::Internal => crate::response::internal(),
+            Self::Announcement(source) => {
+                source.report();
+                match source {
+                    announcements::AnnouncementFailure::Query { source, .. } => {
+                        Self::query(source).response()
+                    }
+                    _ => crate::response::internal(),
+                }
+            }
             Self::Antenna(kind) => {
                 tracing::error!(operation = "read_antenna", error.kind = ?kind, "endpoint failed");
                 crate::response::internal()
@@ -335,6 +348,9 @@ pub(super) async fn execute(
     }
     if name == "bubble-game/ranking" {
         return Some(bubble_game::ranking(runtime, params).await);
+    }
+    if name == "announcements/show" {
+        return Some(announcements::show(runtime, params, auth).await);
     }
     if name == "notes/clips" {
         return Some(notes::clips(runtime, params, auth).await);
