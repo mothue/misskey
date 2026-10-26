@@ -2,6 +2,8 @@
 
 ## Authority and scope
 
+The complete [announcement detail slice](announcements-show-validation.md) preserves targeted privacy before read-state/date decoding, independent ordinary reads and anonymous omission. All94public HTTP pairs and nine first-attempt paired throughput/p95 gates pass. Shared ID parsing/date formatting is reused without writes, callbacks or new connections; fresh batch acceptance is recorded there.
+
 The complete [Bubble Game ranking slice](bubble-game-ranking-validation.md) reuses one selected read lease across the source two-query pagination and the existing loaded-row anonymous UserLite formatter. All56 HTTP pairs, actual product mode views and nine first-attempt paired throughput/p95 gates pass. The existing accepted-NUL500 is preserved and tracked in issue62.
 
 The complete [notes/state typed-row revision](notes-state-typed-read-validation.md) preserves its three independent reads, strict Boolean/ordering/null semantics and existing missing-note500. All six fresh first-attempt paired throughput/p95 gates pass, including the previously held scoped reply; the original held revision and metrics remain historical evidence. No new connection, cache, schema or TS business callback is added.

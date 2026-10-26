@@ -258,6 +258,7 @@ pub(super) fn number(value: &Value, key: &str) -> Result<f64, Error> {
 // Activation is selected per complete native slice after its paired benchmark.
 // Unsupported/held endpoints enter the normal TS path before any native work.
 pub(super) const ACTIVE_READ_ENDPOINTS: &[&str] = &[
+    "announcements/show",
     "antennas/list",
     "antennas/show",
     "admin/relays/list",
