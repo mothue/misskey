@@ -255,6 +255,7 @@ pub(super) const ACTIVE_READ_ENDPOINTS: &[&str] = &[
     "my/apps",
     "notes/show",
     "notes/show-partial-bulk",
+    "notes/state",
     "retention",
     "roles/list",
     "roles/show",

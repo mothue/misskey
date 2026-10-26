@@ -6,7 +6,7 @@ Native means the complete business handler is selected in Rust; the public TS li
 
 | Total | Native | TS | Held (TS) |
 | ---: | ---: | ---: | ---: |
-| 438 | 38 | 387 | 13 |
+| 438 | 39 | 387 | 12 |
 
 Names and enumeration order come from the API registry. Native core selection and the business allowlist are read from Rust source. Rust advertises those selections at bootstrap; the TS callback guard consumes the validated names without a second list. Hold reasons come from the hold manifest.
 
@@ -343,7 +343,7 @@ Names and enumeration order come from the API registry. Native core selection an
 | `notes/search-by-tag` | TS |  |
 | `notes/show` | Native |  |
 | `notes/show-partial-bulk` | Native |  |
-| `notes/state` | Held (TS) | performance: Native candidate failed the paired throughput/p95 gate for the scoped application-token reply scenario; keep the complete operation on TS. Cause not yet established. ([evidence](notes-state-validation.md)) |
+| `notes/state` | Native |  |
 | `notes/thread-muting/create` | TS |  |
 | `notes/thread-muting/delete` | TS |  |
 | `notes/timeline` | TS |  |
@@ -456,7 +456,7 @@ Names and enumeration order come from the API registry. Native core selection an
 | Source | SHA-256 |
 | --- | --- |
 | `packages/backend/src/server/api/endpoint-list.ts` | `f6adc6070df862e7544a92bafc001a9339bfe1e746a856b602c505a248ae5470` |
-| `packages/backend-rust/api-runtime/src/lib.rs` | `2448aa7f309a45ec01f2ae9b192af111a4e9e6757b874998f03288c4f03109e7` |
-| `packages/backend-rust/api-runtime/src/business/mod.rs` | `cba730e9a18adef3f673e284e5d132156f6c6a8b27707f935b8140d1ec20ebe1` |
-| `packages/backend/src/server/api/ApiServerService.ts` | `fbb002543d52c3cb8e9ff4ef8f67e09dda2c6bbfd53a9bfc5933bce05f6a8189` |
-| `scripts/ts-to-rs/native-holds.json` | `8e254837ecd763b2f7c3906681b67386a970afbf3fbcdd9599438dc1eb8aeb56` |
+| `packages/backend-rust/api-runtime/src/lib.rs` | `21f118ca4c90afaa96b112ba2ae4d4a7f4834f20428023a5ada6709629103082` |
+| `packages/backend-rust/api-runtime/src/business/mod.rs` | `3edaa6a0618a17d9419e600322b84083a152842c5587566acf2ed1fc04706999` |
+| `packages/backend/src/server/api/ApiServerService.ts` | `fb96666d4cdb3e5572773914d5b5e2933cbcf0ddbe0d9df8f8694d55254f8800` |
+| `scripts/ts-to-rs/native-holds.json` | `09904bdcf3a17be6ad6a6f7e821367df5bb241166739110ef2c940d21f068bcc` |

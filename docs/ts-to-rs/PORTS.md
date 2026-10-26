@@ -2,6 +2,8 @@
 
 ## Authority and scope
 
+The complete [notes/state typed-row revision](notes-state-typed-read-validation.md) preserves its three independent reads, strict Boolean/ordering/null semantics and existing missing-note500. All six fresh first-attempt paired throughput/p95 gates pass, including the previously held scoped reply; the original held revision and metrics remain historical evidence. No new connection, cache, schema or TS business callback is added.
+
 The complete [Flash featured candidate](flash-featured-validation.md) matches58 public HTTP cases and reuses native Flash/UserLite batch packing. Its first paired eleven-condition gate has eight passes and three failures, so the whole business operation remains on TS. All conditions were measured; no exception or favorable rerun is taken.
 
 The complete [Flash detail slice](flash-show-validation.md) reuses native actual-viewer UserLite packing and the existing DB lane. Public/private detail access, author/like/Date evaluation order and omission semantics match44 actual TS HTTP cases; all eight first-attempt paired throughput/p95 gates pass. Fresh batch acceptance is tracked there.

@@ -1,4 +1,6 @@
-# Native notes/state candidate — activation held
+# Historical native notes/state candidate — activation held
+
+This is the original held revision. The subsequent [typed-row revision](notes-state-typed-read-validation.md) passes all six fresh paired performance conditions; the original failure and metrics below remain historical evidence.
 
 The candidate implements the entire `notes/state` business operation in Rust: the existing note lookup, per-viewer favorite count, and per-viewer thread-muting count. It reuses the existing native DB adapter/read lane and introduces no new connections, TS business callback or helper RPC. Endpoint credentials, scope and input checks remain in the shared API runtime.
 
