@@ -43,6 +43,20 @@ pub(in crate::business) async fn pack_public_files_map(
     files::pack_files_map(runtime, file_ids).await
 }
 
+/// Channel.pack uses only getPublicUrl; full file DTO packing adds unrelated
+/// ID/date/properties/thumbnail work that this call site never evaluates.
+pub(in crate::business) async fn public_file_url(
+    runtime: &Runtime,
+    file: &Value,
+) -> Result<String, Error> {
+    let meta = runtime.auth.meta().await;
+    let proxy_remote_files = meta
+        .get("proxyRemoteFiles")
+        .and_then(serde_json::Value::as_bool)
+        .ok_or(Error::Internal)?;
+    files::public_url(&runtime.business_config.notes, file, proxy_remote_files)
+}
+
 struct Graph {
     notes: HashMap<String, Note>,
     users: HashMap<String, Value>,

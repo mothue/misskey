@@ -48,7 +48,11 @@ fn proxied_url(config: &Config, url: &str, mode: Option<&str>) -> String {
     )
 }
 
-fn public_url(config: &Config, file: &Value, proxy_remote_files: bool) -> Result<String, Error> {
+pub(super) fn public_url(
+    config: &Config,
+    file: &Value,
+    proxy_remote_files: bool,
+) -> Result<String, Error> {
     let uri = nullable_string(file, "uri")?;
     let remote = nullable_string(file, "userHost")?.is_some();
     if let Some(ref uri) = uri {

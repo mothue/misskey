@@ -13,6 +13,9 @@ pub(super) use antennas::Queries as AntennaQueries;
 mod bubble_game;
 pub use bubble_game::BubbleRankingLayoutFailure;
 pub(super) use bubble_game::BubbleRankingQueries;
+mod channels;
+pub(super) use channels::ChannelQueries;
+pub use channels::ChannelsLayoutFailure;
 mod discovery;
 mod eager_batch;
 mod entity_layout;
@@ -67,6 +70,7 @@ impl Config {
 #[derive(Debug)]
 pub(super) enum Error {
     Internal,
+    Channels(channels::ChannelsFailure),
     Announcement(announcements::AnnouncementFailure),
     Reversi(reversi::ReversiFailure),
     Antenna(antennas::FailureKind),
@@ -116,6 +120,19 @@ impl Error {
     pub fn response(self) -> axum::http::Response<axum::body::Body> {
         match self {
             Self::Internal => crate::response::internal(),
+            Self::Channels(source) => {
+                source.report();
+                match source {
+                    channels::ChannelsFailure::Query { source, .. } => {
+                        Self::query(source).response()
+                    }
+                    channels::ChannelsFailure::Conversion { source, .. } => source.response(),
+                    channels::ChannelsFailure::MissingBanner { id } => {
+                        channels::missing_banner_error(&id).response()
+                    }
+                    _ => crate::response::internal(),
+                }
+            }
             Self::Announcement(source) => {
                 source.report();
                 match source {
@@ -362,6 +379,9 @@ pub(super) async fn execute(
     }
     if name == "announcements/show" {
         return Some(announcements::show(runtime, params, auth).await);
+    }
+    if name == "channels/my-favorites" {
+        return Some(channels::my_favorites(runtime, auth).await);
     }
     if name == "reversi/invitations" {
         return Some(reversi::invitations(runtime, auth).await);

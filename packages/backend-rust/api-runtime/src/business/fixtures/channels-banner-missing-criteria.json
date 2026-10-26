@@ -1,0 +1,20 @@
+{
+  "source": "Installed TypeORM EntityNotFoundError(MiDriveFile,{id}), JSON.stringify(criteria,null,4)",
+  "cases": [
+    {
+      "id": "invalid-date-file",
+      "name": "EntityNotFoundError",
+      "message": "Could not find any entity of type \"MiDriveFile\" matching: {\n    \"id\": \"invalid-date-file\"\n}"
+    },
+    {
+      "id": "quote\"slash\\line\n雪😀",
+      "name": "EntityNotFoundError",
+      "message": "Could not find any entity of type \"MiDriveFile\" matching: {\n    \"id\": \"quote\\\"slash\\\\line\\n雪😀\"\n}"
+    },
+    {
+      "id": "",
+      "name": "EntityNotFoundError",
+      "message": "Could not find any entity of type \"MiDriveFile\" matching: {\n    \"id\": \"\"\n}"
+    }
+  ]
+}

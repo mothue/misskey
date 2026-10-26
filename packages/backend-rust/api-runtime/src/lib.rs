@@ -24,6 +24,7 @@ pub mod redis;
 pub mod request;
 mod response;
 pub use business::AnnouncementLayoutFailure;
+pub use business::ChannelsLayoutFailure;
 pub use business::FlashLayoutFailure;
 pub use business::GalleryLayoutFailure;
 pub use business::StateLayoutFailure;
@@ -48,6 +49,7 @@ pub enum FailureStage {
     AntennaLayout,
     AnnouncementLayout(AnnouncementLayoutFailure),
     ClipLayout,
+    ChannelsLayout(ChannelsLayoutFailure),
     GalleryLayout(GalleryLayoutFailure),
     FlashLayout(FlashLayoutFailure),
     StateLayout(StateLayoutFailure),
@@ -326,6 +328,7 @@ pub struct Runtime {
     antenna_queries: business::AntennaQueries,
     announcement_queries: business::AnnouncementQueries,
     clip_queries: business::ClipQueries,
+    channel_queries: business::ChannelQueries,
     gallery_queries: business::GalleryQueries,
     flash_queries: business::FlashQueries,
     state_queries: business::StateQueries,
@@ -396,6 +399,11 @@ impl Runtime {
                 tracing::error!(operation = "configure_clip_queries", error.kind = ?kind, "API bootstrap failed");
                 Failure::new(FailureStage::ClipLayout)
             })?;
+        let channel_queries = business::ChannelQueries::new(&config.auth.entity_layouts)
+            .map_err(|kind| {
+                tracing::error!(operation = "configure_channel_queries", error.kind = ?kind, "API bootstrap failed");
+                Failure::new(FailureStage::ChannelsLayout(kind))
+            })?;
         let gallery_queries = business::GalleryQueries::new(&config.auth.entity_layouts)
             .map_err(|kind| {
                 tracing::error!(operation = "configure_gallery_queries", error.kind = ?kind, "API bootstrap failed");
@@ -463,6 +471,7 @@ impl Runtime {
             antenna_queries,
             announcement_queries,
             clip_queries,
+            channel_queries,
             gallery_queries,
             flash_queries,
             state_queries,

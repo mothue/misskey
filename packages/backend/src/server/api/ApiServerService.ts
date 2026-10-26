@@ -70,7 +70,7 @@ export class ApiServerService implements OnApplicationShutdown {
 				this.uploadDirectory = await mkdtemp(join(tmpdir(), 'misskey-rust-api-'));
 				await chmod(this.uploadDirectory, 0o700);
 				const callback = await this.callbacks.start();
-				const tables = ['user', 'access_token', 'app', 'role', 'role_assignment', 'antenna', 'clip', 'gallery_post', 'gallery_like', 'flash', 'flash_like', 'note', 'note_favorite', 'note_thread_muting', 'bubble_game_record', 'announcement', 'announcement_read'];
+				const tables = ['user', 'access_token', 'app', 'role', 'role_assignment', 'antenna', 'clip', 'gallery_post', 'gallery_like', 'flash', 'flash_like', 'note', 'note_favorite', 'note_thread_muting', 'bubble_game_record', 'announcement', 'announcement_read', 'channel', 'channel_favorite', 'channel_following', 'channel_muting', 'drive_file'];
 				const entityLayouts = Object.fromEntries(tables.map(table => [table, apiEntityLayout(this.db.getMetadata(table))]));
 				this.rustBackendService.configureApi({
 					callback,

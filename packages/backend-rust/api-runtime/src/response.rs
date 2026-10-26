@@ -55,6 +55,17 @@ pub(crate) const NON_DATE_UPDATED_AT: LegacyErrorDef = LegacyErrorDef {
     code: "TypeError",
 };
 
+// Actual isolated banner-delete TS HTTP and installed TypeORM constructor.
+pub(crate) const CHANNEL_BANNER_ENTITY_TARGET: &str = "MiDriveFile";
+pub(crate) const ENTITY_NOT_FOUND_ERROR: &str = "EntityNotFoundError";
+
+// Actual frozen channels/my-favorites production HTTP on Bun 1.4.4. PG
+// infinity is a primitive at this particular minified Channel.pack call site.
+pub(crate) const NON_DATE_CHANNEL_TIMESTAMP: LegacyErrorDef = LegacyErrorDef {
+    message: "i.lastNotedAt.toISOString is not a function. (In 'i.lastNotedAt.toISOString()', 'i.lastNotedAt.toISOString' is undefined)",
+    code: "TypeError",
+};
+
 // Actual production Announcement.pack optional chain; PG infinity is a
 // primitive, so this call site has different Bun wording from Gallery.pack.
 pub(crate) const NON_DATE_ANNOUNCEMENT_TIMESTAMP: LegacyErrorDef = LegacyErrorDef {
