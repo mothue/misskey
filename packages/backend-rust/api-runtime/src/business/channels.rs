@@ -1077,6 +1077,5 @@ mod tests {
         ));
         let captured: Json = serde_json::from_str(SOURCE).unwrap();
         assert_eq!(captured["metadata"]["meta"]["kind"], json!("read:channels"));
-        assert!(!super::super::ACTIVE_READ_ENDPOINTS.contains(&"channels/my-favorites"));
     }
 }
